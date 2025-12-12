@@ -143,7 +143,8 @@ function AppContent() {
         canViewLogs: false,
         canPrint: false,
         canSimulate: false,
-        canGenerateNextMonth: false
+        canGenerateNextMonth: false,
+        canViewCFTV: false
     });
     
     // Password Modal State
@@ -159,6 +160,7 @@ function AppContent() {
     const canViewLogs = user?.canViewLogs ?? isMaster;
     const canGenerateNextMonth = user?.canGenerateNextMonth ?? isMaster;
     const canManageIntervals = user?.canManageIntervals ?? isFiscal;
+    const canViewCFTV = isMaster || (user as any)?.canViewCFTV;
     const canEnterSimulation = isFiscal; 
 
     // Verifica se é mês futuro baseado na data atual
@@ -332,7 +334,8 @@ function AppContent() {
 
     const loadUsers = async () => {
         const users = await api.getUsers();
-        setAllUsers(users.sort((a,b) => a.nome.localeCompare(b.nome)));
+        const fixedUsers = users.map(u => String(u.mat).trim() === '91611' ? { ...u, nome: 'CHRISTIANO R.G. DE OLIVEIRA' } : u);
+        setAllUsers(fixedUsers.sort((a,b) => a.nome.localeCompare(b.nome)));
     };
 
     const loadDataForMonth = async (m: number, isSilent = false) => {
@@ -381,8 +384,9 @@ function AppContent() {
         if (fetchedData && fetchedData.length > 0) {
             finalData = fetchedData.map(v => {
                 // Sanitização e correções
-                if (v.mat === '61665') return { ...v, mat: '61655', dias: v.dias || [] };
-                if (v.mat === '91611') {
+                const matStr = String(v.mat).trim();
+                if (matStr === '61665') return { ...v, mat: '61655', dias: v.dias || [] };
+                if (matStr === '91611') {
                     return { ...v, nome: 'CHRISTIANO R.G. DE OLIVEIRA', dias: v.dias || [] };
                 }
                 return { ...v, dias: v.dias || [] }; // Garante que dias é array
@@ -420,7 +424,7 @@ function AppContent() {
 
                     const newDays = (newCampus === 'AFASTADOS') ? [] : calculateDaysForTeam(base.eq, m);
                     let fixedNome = base.nome;
-                    if (base.mat === '91611') fixedNome = 'CHRISTIANO R.G. DE OLIVEIRA';
+                    if (String(base.mat).trim() === '91611') fixedNome = 'CHRISTIANO R.G. DE OLIVEIRA';
 
                     return {
                         ...base,
@@ -615,7 +619,7 @@ function AppContent() {
     }, [data, view, searchTerm, filterEq, filterDay, filterTime, user, isUser, currentUserVig]);
 
     const intervalData = useMemo<{ list: IntervalVigilante[]; grouped: Record<string, IntervalVigilante[]> }>(() => { 
-        if (view !== 'intervalos' || !data.length) return { list: [], grouped: {} }; 
+        if ((view !== 'intervalos' && view !== 'cftv') || !data.length) return { list: [], grouped: {} }; 
         const rawList: IntervalVigilante[] = []; 
         const dayNum = filterDay ? parseInt(filterDay) : new Date().getDate();
         const coveredSectorsMap = new Map<string, string>(); 
@@ -668,6 +672,11 @@ function AppContent() {
         list.forEach(v => { if(!grouped[v.effectiveCampus]) grouped[v.effectiveCampus] = []; grouped[v.effectiveCampus].push(v); }); 
         return { list, grouped }; 
     }, [data, view, filterDay, filterTime, intervalOverrides, intervalCategory, user, currentUserVig]);
+
+    // Estado para filtro do CFTV
+    const [cftvFilter, setCftvFilter] = useState<'ALL' | 'CRITICAL' | 'ATTENTION' | 'COVERED' | 'ACTIVE'>('ALL');
+    // Estado para filtro interativo da aba Intervalos
+    const [intervalStatusFilter, setIntervalStatusFilter] = useState<'ALL' | 'ON_BREAK' | 'COVERED' | 'RISK'>('ALL');
 
     // --- ACTIONS ---
 
@@ -741,22 +750,29 @@ function AppContent() {
         if (!formUserMat || !formUserNome) return alert("Preencha matrícula e nome."); 
         const exists = allUsers.find(u => u.mat === formUserMat); 
         if (exists) return alert("Matrícula já existe."); 
-        const newUser: User = { mat: formUserMat, nome: formUserNome.toUpperCase(), role: 'USER', password: '123456', ...formPermissions }; 
+        const newUser: User = { mat: formUserMat, nome: formUserNome.toUpperCase(), role: 'USER', password: '123456', ...formPermissions } as User; 
         const updatedList = [...allUsers, newUser]; 
         const success = await api.saveUsers(updatedList); 
-        if (success) { setAllUsers(updatedList); setFormUserMat(''); setFormUserNome(''); setFormPermissions({ canManageIntervals: false, canViewLogs: false, canPrint: false, canSimulate: false, canGenerateNextMonth: false }); setIsUserMgmtModalOpen(false); showToast("Usuário criado com sucesso!"); registerLog('SISTEMA', 'Novo usuário criado', newUser.nome); } else { showToast("Erro ao criar usuário.", 'error'); } 
+        if (success) { setAllUsers(updatedList); setFormUserMat(''); setFormUserNome(''); setFormPermissions({ canManageIntervals: false, canViewLogs: false, canPrint: false, canSimulate: false, canGenerateNextMonth: false, canViewCFTV: false }); setIsUserMgmtModalOpen(false); showToast("Usuário criado com sucesso!"); registerLog('SISTEMA', 'Novo usuário criado', newUser.nome); } else { showToast("Erro ao criar usuário.", 'error'); } 
     };
     const startEditUser = (userToEdit: User) => { 
         if (userToEdit.mat === SUPER_ADMIN_MAT) { alert("O Super Admin não pode ser editado aqui."); return; } 
         setEditingUser(userToEdit); setFormUserMat(userToEdit.mat); setFormUserNome(userToEdit.nome);
-        setFormPermissions({ canManageIntervals: !!userToEdit.canManageIntervals, canViewLogs: !!userToEdit.canViewLogs, canPrint: !!userToEdit.canPrint, canSimulate: !!userToEdit.canSimulate, canGenerateNextMonth: !!userToEdit.canGenerateNextMonth });
+        setFormPermissions({ 
+            canManageIntervals: !!userToEdit.canManageIntervals, 
+            canViewLogs: !!userToEdit.canViewLogs, 
+            canPrint: !!userToEdit.canPrint, 
+            canSimulate: !!userToEdit.canSimulate, 
+            canGenerateNextMonth: !!userToEdit.canGenerateNextMonth,
+            canViewCFTV: !!(userToEdit as any).canViewCFTV
+        });
     };
-    const cancelEditUser = () => { setEditingUser(null); setFormUserMat(''); setFormUserNome(''); setFormPermissions({ canManageIntervals: false, canViewLogs: false, canPrint: false, canSimulate: false, canGenerateNextMonth: false }); };
+    const cancelEditUser = () => { setEditingUser(null); setFormUserMat(''); setFormUserNome(''); setFormPermissions({ canManageIntervals: false, canViewLogs: false, canPrint: false, canSimulate: false, canGenerateNextMonth: false, canViewCFTV: false }); };
     const handleSaveEditUser = async () => { 
         if (!editingUser) return; 
         if (!formUserMat || !formUserNome) return alert("Preencha todos os campos."); 
         if (formUserMat !== editingUser.mat) { const exists = allUsers.find(u => u.mat === formUserMat); if (exists) return alert("Esta matrícula já está em uso por outro usuário."); } 
-        const updatedUser: User = { ...editingUser, mat: formUserMat, nome: formUserNome.toUpperCase(), ...formPermissions }; 
+        const updatedUser: User = { ...editingUser, mat: formUserMat, nome: formUserNome.toUpperCase(), ...formPermissions } as User; 
         const updatedList = allUsers.map(u => u.mat === editingUser.mat ? updatedUser : u); 
         const success = await api.saveUsers(updatedList); 
         if (success) { setAllUsers(updatedList); cancelEditUser(); setIsUserMgmtModalOpen(false); showToast("Usuário atualizado com sucesso!"); registerLog('SISTEMA', `Usuário editado: ${editingUser.nome} -> ${updatedUser.nome}`); } else { showToast("Erro ao atualizar usuário.", 'error'); } 
@@ -775,6 +791,7 @@ function AppContent() {
         if (res.success && res.user) {
             const typedUser = res.user as User;
             typedUser.mat = String(typedUser.mat).trim();
+            if (typedUser.mat === '91611') typedUser.nome = 'CHRISTIANO R.G. DE OLIVEIRA';
             if (!typedUser.role) typedUser.role = typedUser.mat === SUPER_ADMIN_MAT ? 'MASTER' : 'USER';
             setUser(typedUser);
             localStorage.setItem('uno_user', JSON.stringify(typedUser));
@@ -1079,19 +1096,19 @@ function AppContent() {
 
         return (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6 animate-fade-in">
-                <Card className="p-3 border-l-4 border-l-slate-400">
+                <Card onClick={() => setIntervalStatusFilter('ALL')} className={`p-3 border-l-4 border-l-slate-400 cursor-pointer transition-all hover:shadow-md ${intervalStatusFilter === 'ALL' ? 'ring-2 ring-slate-400 bg-slate-50' : ''}`}>
                     <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Efetivo Local</div>
                     <div className="text-2xl font-black text-slate-700">{total}</div>
                 </Card>
-                <Card className="p-3 border-l-4 border-l-blue-500">
+                <Card onClick={() => setIntervalStatusFilter(intervalStatusFilter === 'ON_BREAK' ? 'ALL' : 'ON_BREAK')} className={`p-3 border-l-4 border-l-blue-500 cursor-pointer transition-all hover:shadow-md ${intervalStatusFilter === 'ON_BREAK' ? 'ring-2 ring-blue-500 bg-blue-50' : ''}`}>
                     <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Em Intervalo</div>
                     <div className="text-2xl font-black text-blue-600">{onBreak}</div>
                 </Card>
-                <Card className="p-3 border-l-4 border-l-emerald-500">
+                <Card onClick={() => setIntervalStatusFilter(intervalStatusFilter === 'COVERED' ? 'ALL' : 'COVERED')} className={`p-3 border-l-4 border-l-emerald-500 cursor-pointer transition-all hover:shadow-md ${intervalStatusFilter === 'COVERED' ? 'ring-2 ring-emerald-500 bg-emerald-50' : ''}`}>
                     <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Cobertos</div>
                     <div className="text-2xl font-black text-emerald-600">{covered}</div>
                 </Card>
-                <Card className={`p-3 border-l-4 ${risks > 0 ? 'border-l-red-500 bg-red-50' : 'border-l-slate-200'}`}>
+                <Card onClick={() => setIntervalStatusFilter(intervalStatusFilter === 'RISK' ? 'ALL' : 'RISK')} className={`p-3 border-l-4 cursor-pointer transition-all hover:shadow-md ${risks > 0 ? 'border-l-red-500 bg-red-50' : 'border-l-slate-200'} ${intervalStatusFilter === 'RISK' ? 'ring-2 ring-red-500' : ''}`}>
                     <div className={`text-[10px] font-bold uppercase tracking-wider ${risks > 0 ? 'text-red-500' : 'text-slate-400'}`}>Descobertos</div>
                     <div className={`text-2xl font-black ${risks > 0 ? 'text-red-600' : 'text-slate-700'}`}>{risks}</div>
                 </Card>
@@ -1135,10 +1152,11 @@ function AppContent() {
                     <button onClick={() => setView('escala')} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all whitespace-nowrap ${view === 'escala' ? 'bg-brand-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-800'}`}>ESCALA</button>
                     {isFiscal && (<button onClick={() => { setView('lancador'); }} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all whitespace-nowrap ${view === 'lancador' ? 'bg-brand-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-800'}`}>LANÇADOR</button>)}
                     {canManageIntervals && (<button onClick={() => setView('intervalos')} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all whitespace-nowrap ${view === 'intervalos' ? 'bg-brand-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-800'}`}>🍽️ INTERVALOS</button>)}
+                    {canViewCFTV && (<button onClick={() => setView('cftv')} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all whitespace-nowrap ${view === 'cftv' ? 'bg-slate-800 text-white shadow-md border border-slate-600' : 'text-slate-500 hover:text-slate-800'}`}>🎥 MONITORAMENTO</button>)}
                     <button onClick={() => setView('solicitacoes')} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all whitespace-nowrap ${view === 'solicitacoes' ? 'bg-brand-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-800'}`}>📅 SOLICITAÇÕES</button>
                 </div>
                 <div className="flex items-center gap-2">
-                    {( (!isUser || canManageIntervals) && (view === 'escala' || view === 'intervalos') ) && (
+                    {( (!isUser || canManageIntervals || canViewCFTV) && (view === 'escala' || view === 'intervalos' || view === 'cftv') ) && (
                         <div className="flex flex-wrap items-center gap-2 bg-slate-50 p-1.5 rounded-lg border border-slate-200">
                             <span className="text-[10px] font-bold text-slate-500 uppercase whitespace-nowrap">Plantão:</span>
                             <div className="flex items-center gap-1">
@@ -1343,10 +1361,10 @@ function AppContent() {
                 {/* --- INTERVALS VIEW (NOVO) --- */}
                 {view === 'intervalos' && (
                     <div className="flex flex-col h-full bg-slate-50 p-4 overflow-y-auto print:overflow-visible print:h-auto">
-                        <div className="mb-6 flex justify-between items-center print:hidden">
+                        <div className="mb-6 flex flex-col md:flex-row gap-4 items-start md:items-center print:hidden">
                             <h2 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-2"><span className="text-2xl">🍽️</span> Gestão de Intervalos</h2>
                             <div className="flex gap-2">
-                                <Select value={intervalCategory} onChange={(e) => setIntervalCategory(e.target.value)} className="w-48 bg-white"><option value="TODOS">Todas as Áreas</option><option value="CAMPUS 1">Campus I</option><option value="CAMPUS 2">Campus II</option><option value="CAMPUS 3">Campus III</option><option value="CHÁCARA">Chácara</option><option value="LABORATÓRIO">Laboratórios</option><option value="COLETA">Coleta</option><option value="OUTROS">Outros</option></Select>
+                                <Select value={intervalCategory} onChange={(e) => setIntervalCategory(e.target.value)} className="w-full md:w-64 bg-white shadow-sm"><option value="TODOS">Todas as Áreas</option><option value="CAMPUS 1">Campus I</option><option value="CAMPUS 2">Campus II</option><option value="CAMPUS 3">Campus III</option><option value="CHÁCARA">Chácara</option><option value="LABORATÓRIO">Laboratórios</option><option value="COLETA">Coleta</option><option value="OUTROS">Outros</option></Select>
                             </div>
                         </div>
                         
@@ -1355,16 +1373,41 @@ function AppContent() {
                         {Object.keys(intervalData.grouped).length === 0 ? (
                             <div className="flex-1 flex flex-col items-center justify-center text-slate-400 border-2 border-dashed border-slate-200 rounded-xl min-h-[300px]"><div className="text-4xl mb-2">💤</div><div className="font-bold">Ninguém trabalhando neste horário/filtro.</div></div>
                         ) : (
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 print:block">
-                                {Object.keys(intervalData.grouped).sort().map(campus => (
-                                    <div key={campus} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden break-inside-avoid mb-4 print:shadow-none print:border-black">
-                                        <div className="bg-slate-800 px-4 py-2 border-b border-slate-700 font-bold text-sm text-white flex justify-between items-center">
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 print:block print:w-full">
+                                {Object.keys(intervalData.grouped).sort().map(campus => {
+                                    // Filtro Interativo (Clicar nos cards)
+                                    const filteredVigs = intervalData.grouped[campus].filter(v => {
+                                        if (intervalStatusFilter === 'ALL') return true;
+                                        if (intervalStatusFilter === 'ON_BREAK') return v.isOnBreak;
+                                        if (intervalStatusFilter === 'COVERED') return v.isOnBreak && v.isCovered;
+                                        if (intervalStatusFilter === 'RISK') return v.isOnBreak && !v.isCovered && (v.risk === 'RED' || v.risk === 'ORANGE');
+                                        return true;
+                                    });
+
+                                    if (filteredVigs.length === 0) return null;
+
+                                    return (
+                                    <div key={campus} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden break-inside-avoid mb-4 print:shadow-none print:border-2 print:border-black print:mb-6">
+                                        <div className="bg-slate-800 px-4 py-2 border-b border-slate-700 font-bold text-sm text-white flex justify-between items-center print:bg-slate-200 print:text-black print:border-black">
                                             <span>{campus}</span>
                                             <span className="bg-white/20 px-2 py-0.5 rounded-full text-[10px]">{intervalData.grouped[campus].length} Vigilantes</span>
                                         </div>
-                                        <div className="divide-y divide-slate-100">
-                                            {intervalData.grouped[campus].map(vig => (
-                                                <div key={vig.mat} className={`p-3 flex items-start justify-between gap-3 group transition-colors ${vig.risk === 'RED' ? 'bg-red-50 hover:bg-red-100' : vig.risk === 'ORANGE' ? 'bg-orange-50 hover:bg-orange-100' : 'hover:bg-slate-50'}`}>
+                                        <div className="divide-y divide-slate-100 print:divide-black">
+                                            {filteredVigs.map(vig => {
+                                                // Lógica de Cores Visualmente Fortes para Gestão
+                                                const isCritical = vig.isOnBreak && !vig.isCovered && vig.risk === 'RED';
+                                                const isAttention = vig.isOnBreak && !vig.isCovered && (vig.risk === 'ORANGE' || vig.risk === 'YELLOW');
+                                                const isCovered = vig.isOnBreak && vig.isCovered;
+                                                const isActive = !vig.isOnBreak;
+
+                                                let rowClass = "hover:bg-slate-50 border-l-4 border-l-slate-300"; // Padrão
+                                                if (isActive) rowClass = "bg-blue-100 border-l-4 border-l-blue-600"; // Azul mais presente
+                                                if (isCovered) rowClass = "bg-emerald-200 border-l-4 border-l-emerald-600"; // Verde bem visível
+                                                if (isAttention) rowClass = "bg-orange-200 border-l-4 border-l-orange-600"; // Laranja de atenção
+                                                if (isCritical) rowClass = "bg-red-300 border-l-4 border-l-red-700 animate-pulse-slow"; // Vermelho crítico forte
+
+                                                return (
+                                                <div key={vig.mat} className={`p-3 flex items-start justify-between gap-3 group transition-colors print:border-b print:border-black ${rowClass}`}>
                                                     <div className="flex-1 min-w-0">
                                                         <div className="flex items-center gap-2 mb-0.5">
                                                             <div className="font-bold text-slate-800 text-sm truncate">{vig.nome}</div>
@@ -1378,17 +1421,17 @@ function AppContent() {
                                                             <span className="font-mono">{vig.effectiveRefeicao}</span>
                                                         </div>
                                                         <div className="mt-1.5 flex gap-2">
-                                                            <div className={`text-[10px] font-bold px-2 py-0.5 rounded border inline-flex items-center gap-1 ${vig.isOnBreak ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-green-100 text-green-700 border-green-200'}`}>
+                                                            <div className={`text-[10px] font-bold px-2 py-0.5 rounded border inline-flex items-center gap-1 bg-white/80 border-black/10 text-slate-800`}>
                                                                 {vig.isOnBreak ? '🍽️ EM INTERVALO' : '🛡️ NO POSTO'}
                                                             </div>
                                                             {vig.isOnBreak && !vig.isCovered && (
-                                                                <div className={`text-[10px] font-bold px-2 py-0.5 rounded border inline-flex items-center gap-1 animate-pulse ${vig.risk === 'RED' ? 'bg-red-100 text-red-700 border-red-200' : vig.risk === 'ORANGE' ? 'bg-orange-100 text-orange-700 border-orange-200' : 'bg-yellow-100 text-yellow-700 border-yellow-200'}`}>
+                                                                <div className={`text-[10px] font-bold px-2 py-0.5 rounded border inline-flex items-center gap-1 bg-white/90 border-red-800 text-red-800`}>
                                                                     ⚠️ DESCOBERTO
                                                                 </div>
                                                             )}
                                                             {vig.isCovered && (
-                                                                <div className="text-[10px] font-bold px-2 py-0.5 rounded border bg-emerald-100 text-emerald-700 border-emerald-200 inline-flex items-center gap-1">
-                                                                    ✅ COBERTO POR {vig.coveredBy?.split(' ')[0]}
+                                                                <div className="text-[10px] font-bold px-2 py-0.5 rounded border bg-white/80 text-emerald-800 border-emerald-800 inline-flex items-center gap-1">
+                                                                    ✅ COBERTO: {vig.coveredBy?.split(' ')[0]}
                                                                 </div>
                                                             )}
                                                         </div>
@@ -1410,12 +1453,94 @@ function AppContent() {
                                                         </div>
                                                     )}
                                                 </div>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
                                     </div>
-                                ))}
+                                )})}
                             </div>
                         )}
+                    </div>
+                )}
+
+                {/* --- CFTV MONITORING VIEW (NOVO) --- */}
+                {view === 'cftv' && (
+                    <div className="flex flex-col h-full bg-slate-900 p-4 overflow-y-auto">
+                        <div className="mb-6 flex justify-between items-center">
+                            <h2 className="text-xl font-black text-white tracking-tight flex items-center gap-2"><span className="text-2xl animate-pulse">🔴</span> Central de Monitoramento (CFTV)</h2>
+                            <div className="text-slate-400 text-xs font-mono">Atualização em Tempo Real</div>
+                        </div>
+
+                        {/* Dashboard Cards */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                            {(() => {
+                                const active = intervalData.list.filter(v => !v.isOnBreak).length;
+                                const covered = intervalData.list.filter(v => v.isOnBreak && v.isCovered).length;
+                                const attention = intervalData.list.filter(v => v.isOnBreak && !v.isCovered && (v.risk === 'YELLOW' || v.risk === 'ORANGE')).length;
+                                const critical = intervalData.list.filter(v => v.isOnBreak && !v.isCovered && v.risk === 'RED').length;
+
+                                return (
+                                    <>
+                                        <div onClick={() => setCftvFilter('ACTIVE')} className={`cursor-pointer p-4 rounded-xl border-l-4 border-l-blue-500 bg-slate-800 hover:bg-slate-700 transition-all ${cftvFilter === 'ACTIVE' ? 'ring-2 ring-blue-500' : ''}`}>
+                                            <div className="text-[10px] font-bold text-blue-400 uppercase tracking-wider mb-1">NO POSTO (AZUL)</div>
+                                            <div className="text-3xl font-black text-white">{active}</div>
+                                            <div className="text-[10px] text-slate-400 mt-1">Monitorar Atividade</div>
+                                        </div>
+                                        <div onClick={() => setCftvFilter('COVERED')} className={`cursor-pointer p-4 rounded-xl border-l-4 border-l-emerald-500 bg-slate-800 hover:bg-slate-700 transition-all ${cftvFilter === 'COVERED' ? 'ring-2 ring-emerald-500' : ''}`}>
+                                            <div className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider mb-1">COBERTOS (VERDE)</div>
+                                            <div className="text-3xl font-black text-white">{covered}</div>
+                                            <div className="text-[10px] text-slate-400 mt-1">Postos Mantidos</div>
+                                        </div>
+                                        <div onClick={() => setCftvFilter('ATTENTION')} className={`cursor-pointer p-4 rounded-xl border-l-4 border-l-orange-500 bg-slate-800 hover:bg-slate-700 transition-all ${cftvFilter === 'ATTENTION' ? 'ring-2 ring-orange-500' : ''}`}>
+                                            <div className="text-[10px] font-bold text-orange-400 uppercase tracking-wider mb-1">ATENÇÃO (LARANJA)</div>
+                                            <div className="text-3xl font-black text-white">{attention}</div>
+                                            <div className="text-[10px] text-slate-400 mt-1">Risco Médio</div>
+                                        </div>
+                                        <div onClick={() => setCftvFilter('CRITICAL')} className={`cursor-pointer p-4 rounded-xl border-l-4 border-l-red-600 bg-slate-800 hover:bg-slate-700 transition-all ${cftvFilter === 'CRITICAL' ? 'ring-2 ring-red-600' : ''}`}>
+                                            <div className="text-[10px] font-bold text-red-500 uppercase tracking-wider mb-1">CRÍTICO (VERMELHO)</div>
+                                            <div className="text-3xl font-black text-white">{critical}</div>
+                                            <div className="text-[10px] text-slate-400 mt-1">Focar Câmeras Aqui</div>
+                                        </div>
+                                    </>
+                                );
+                            })()}
+                        </div>
+
+                        {/* List View */}
+                        <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+                            <div className="bg-slate-950/50 px-4 py-3 border-b border-slate-700 flex justify-between items-center">
+                                <h3 className="font-bold text-white text-sm uppercase">
+                                    {cftvFilter === 'ALL' ? 'Visão Geral' : 
+                                     cftvFilter === 'ACTIVE' ? 'Vigilantes no Posto (Azul)' :
+                                     cftvFilter === 'COVERED' ? 'Postos Cobertos (Verde)' :
+                                     cftvFilter === 'ATTENTION' ? 'Setores em Atenção (Laranja)' : 'Setores Críticos (Vermelho)'}
+                                </h3>
+                                <button onClick={() => setCftvFilter('ALL')} className="text-[10px] text-slate-400 hover:text-white underline">Ver Todos</button>
+                            </div>
+                            <div className="divide-y divide-slate-700 max-h-[50vh] overflow-y-auto">
+                                {intervalData.list
+                                    .filter(v => {
+                                        if (cftvFilter === 'ALL') return true;
+                                        if (cftvFilter === 'ACTIVE') return !v.isOnBreak;
+                                        if (cftvFilter === 'COVERED') return v.isOnBreak && v.isCovered;
+                                        if (cftvFilter === 'ATTENTION') return v.isOnBreak && !v.isCovered && (v.risk === 'YELLOW' || v.risk === 'ORANGE');
+                                        if (cftvFilter === 'CRITICAL') return v.isOnBreak && !v.isCovered && v.risk === 'RED';
+                                        return true;
+                                    })
+                                    .map(v => (
+                                        <div key={v.mat} className="p-3 flex items-center justify-between hover:bg-slate-700/50 transition-colors">
+                                            <div>
+                                                <div className="font-bold text-slate-200 text-sm">{v.effectiveSector}</div>
+                                                <div className="text-[11px] text-slate-500">{v.nome} • {v.campus}</div>
+                                            </div>
+                                            <div className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${!v.isOnBreak ? 'bg-blue-900/50 text-blue-400 border border-blue-800' : v.isCovered ? 'bg-emerald-900/50 text-emerald-400 border border-emerald-800' : v.risk === 'RED' ? 'bg-red-900/50 text-red-400 border border-red-800 animate-pulse' : 'bg-orange-900/50 text-orange-400 border border-orange-800'}`}>
+                                                {!v.isOnBreak ? 'NO POSTO' : v.isCovered ? `COBERTO: ${v.coveredBy?.split(' ')[0]}` : 'DESCOBERTO'}
+                                            </div>
+                                        </div>
+                                    ))}
+                                {intervalData.list.length === 0 && <div className="p-8 text-center text-slate-500">Nenhum dado para exibir neste horário.</div>}
+                            </div>
+                        </div>
                     </div>
                 )}
 
@@ -1713,6 +1838,10 @@ function AppContent() {
                                 <input type="checkbox" checked={formPermissions.canGenerateNextMonth} onChange={() => setFormPermissions({...formPermissions, canGenerateNextMonth: !formPermissions.canGenerateNextMonth})} />
                                 Gerar Próximo Mês
                             </label>
+                            <label className="flex items-center gap-2 cursor-pointer bg-white p-2 rounded border border-slate-200 hover:bg-blue-50">
+                                <input type="checkbox" checked={(formPermissions as any).canViewCFTV} onChange={() => setFormPermissions({...formPermissions, canViewCFTV: !(formPermissions as any).canViewCFTV} as any)} />
+                                Acesso CFTV (Monitoramento)
+                            </label>
                         </div>
 
                         <div className="flex gap-2">
@@ -1735,6 +1864,7 @@ function AppContent() {
                                         <div className="flex gap-1 mt-1">
                                             {u.canManageIntervals && <span className="text-[9px] bg-blue-100 text-blue-700 px-1 rounded">Intervalos</span>}
                                             {u.canViewLogs && <span className="text-[9px] bg-slate-100 text-slate-700 px-1 rounded">Logs</span>}
+                                            {(u as any).canViewCFTV && <span className="text-[9px] bg-slate-800 text-white px-1 rounded">CFTV</span>}
                                         </div>
                                     </div>
                                     <div className="flex gap-1">
