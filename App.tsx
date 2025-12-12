@@ -892,6 +892,65 @@ function AppContent() {
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
+    function renderCalendarGrid(vig: Vigilante) {
+        const daysInM = getDaysInMonth(month);
+        const gridDays: number[] = Array.from({ length: daysInM }, (_, i) => i + 1);
+        
+        return (
+            <div className="grid grid-cols-7 gap-1 select-none mt-2">
+                {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d, i) => (
+                    <div key={i} className="text-center text-[9px] font-bold text-slate-400 uppercase">{d}</div>
+                ))}
+                {(() => {
+                    const year = Math.floor(month / 100);
+                    const mon = (month % 100) - 1;
+                    const firstDayIndex = new Date(year, mon, 1).getDay(); // 0 = Sun
+                    const padding: number[] = Array.from({ length: firstDayIndex }, (_, i) => i);
+                    
+                    return (
+                        <>
+                            {padding.map(pad => <div key={`pad-${pad}`}></div>)}
+                            {gridDays.map(d => {
+                                const dias = vig.dias || [];
+                                const isWork = dias.includes(d);
+                                const isVacation = vig.vacation && d >= vig.vacation.start && d <= vig.vacation.end;
+                                const override = vig.dayOverrides?.[d];
+
+                                let bg = 'bg-white text-slate-300 border-slate-100';
+                                let cursor = 'cursor-pointer';
+
+                                if (override?.status === 'FALTA') {
+                                    bg = 'bg-red-500 text-white border-red-600 shadow-sm';
+                                } else if (override?.status === 'SAIU_CEDO') {
+                                    bg = 'bg-orange-400 text-white border-orange-500 shadow-sm';
+                                } else if (editorMode === 'days' || editorMode === 'status') {
+                                    if (isWork) bg = 'bg-blue-600 text-white border-blue-700 shadow-sm';
+                                    else bg = 'bg-white text-slate-500 hover:bg-slate-50 border-slate-200';
+                                } else if (editorMode === 'vacation') {
+                                    if (isVacation) bg = 'bg-amber-400 text-white border-amber-500 shadow-sm hover:bg-amber-500';
+                                    else if (isWork) bg = 'bg-blue-100 text-blue-300 border-blue-200 opacity-50 cursor-not-allowed';
+                                    else bg = 'bg-white text-slate-300 border-slate-100 hover:bg-amber-50 hover:border-amber-200';
+                                }
+
+                                return (
+                                    <div 
+                                        key={d} 
+                                        onClick={() => {
+                                            if (editorMode === 'days') handleToggleDay(vig, d);
+                                            else if (editorMode === 'vacation') handleToggleVacation(vig, d);
+                                            else if (editorMode === 'status') openDayStatusEditor(vig, d);
+                                        }}
+                                        className={`text-[10px] font-bold h-7 flex items-center justify-center rounded border transition-all active:scale-95 ${bg} ${cursor}`}
+                                    >{d}</div>
+                                );
+                            })}
+                        </>
+                    );
+                })()}
+            </div>
+        );
+    }
+
     const confirmImport = (action: 'replace' | 'merge') => { if (!importedData) return; let finalData: Vigilante[] = []; if (action === 'replace') { finalData = importedData; registerLog('IMPORTACAO', 'Backup restaurado com substituição total.'); } else { const currentMap = new Map(data.map(v => [v.mat, v] as [string, Vigilante])); importedData.forEach(v => currentMap.set(v.mat, v)); finalData = Array.from(currentMap.values()); registerLog('IMPORTACAO', 'Backup/Rascunho mesclado.'); } if (isSimulationMode) { setData(finalData); setUnsavedChanges(true); showToast("Dados importados para o modo Simulação. Revise e Publique."); } else { saveData(finalData); showToast("Dados importados e salvos na nuvem!"); } setIsImportModalOpen(false); setImportedData(null); };
     const handleSetNow = () => { const now = new Date(); setFilterDay(String(now.getDate())); const hh = String(now.getHours()).padStart(2, '0'); const mm = String(now.getMinutes()).padStart(2, '0'); setFilterTime(`${hh}:${mm}`); };
     const handleSaveEditor = () => { if (!editingVig) return; const newData = [...data]; const idx = newData.findIndex(v => v.mat === editingVig.mat); if (idx > -1) { const updated = { ...editingVig }; if (timeInputs.hStart && timeInputs.hEnd) updated.horario = formatTimeInputs(timeInputs.hStart, timeInputs.hEnd); if (timeInputs.rStart && timeInputs.rEnd) updated.refeicao = formatTimeInputs(timeInputs.rStart, timeInputs.rEnd); if (vacationInputs.start && vacationInputs.end) { const s = parseInt(vacationInputs.start); const e = parseInt(vacationInputs.end); if (!isNaN(s) && !isNaN(e) && e >= s) { updated.vacation = { start: s, end: e }; const allDays = calculateDaysForTeam(updated.eq, month); updated.dias = allDays.filter(d => d < s || d > e); } else { updated.vacation = undefined; updated.dias = calculateDaysForTeam(updated.eq, month); } } else { updated.vacation = undefined; } updated.manualLock = true; updated.status = 'MANUAL_OK'; updated.setor = updated.setor.toUpperCase(); newData[idx] = updated; saveData(newData); registerLog('EDICAO', 'Alteração manual.', updated.nome); setEditingVig(null); setShowMobileEditor(false); } };
@@ -1019,10 +1078,10 @@ function AppContent() {
                 {view === 'escala' && (
                     <div className="h-full flex flex-col">
                         {!isUser && (
-                            <div className="p-3 bg-white border-b flex gap-2 print:hidden flex-wrap items-center">
-                                <div className="relative flex-1 min-w-[200px]"><div className="absolute left-2.5 top-2 text-slate-400"><Icons.Search /></div><input type="text" placeholder="Pesquisar..." className="w-full pl-9 pr-2 py-1.5 border rounded-lg text-sm bg-slate-50 focus:bg-white transition-colors" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} /></div>
+                            <div className="p-3 bg-white border-b flex gap-4 print:hidden flex-wrap items-center justify-start">
+                                <div className="relative w-full md:w-72"><div className="absolute left-2.5 top-2 text-slate-400"><Icons.Search /></div><input type="text" placeholder="Pesquisar por nome..." className="w-full pl-9 pr-2 py-1.5 border rounded-lg text-sm bg-slate-50 focus:bg-white transition-colors" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} /></div>
                                 {user?.role !== 'FISCAL' && (
-                                    <Select value={filterEq} onChange={e => setFilterEq(e.target.value)} className="w-full md:w-40 bg-slate-50">
+                                    <Select value={filterEq} onChange={e => setFilterEq(e.target.value)} className="w-full md:w-48 bg-slate-50">
                                         <option value="TODAS">Todas Equipes</option>
                                         {TEAM_OPTIONS.map(t => <option key={t} value={t}>Equipe {t}</option>)}
                                         <option value="AFASTADOS">✈️ Afastados</option>
@@ -1043,15 +1102,6 @@ function AppContent() {
                                     )}
                                 </div>
                             )}
-
-                            {/* LEGENDA VISUAL ADICIONADA AQUI */}
-                            <div className="flex flex-wrap gap-3 text-[10px] text-slate-600 mb-4 px-1 select-none items-center bg-white p-2 rounded-lg border border-slate-100 shadow-sm mx-4 md:mx-0">
-                                <span className="font-bold mr-2 text-slate-400 uppercase tracking-wider">Legenda:</span>
-                                <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-blue-600"></span> Trabalho</span>
-                                <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-amber-400"></span> Férias</span>
-                                <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-red-100 border border-red-200"></span> Folga Extra</span>
-                                <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-white border border-slate-300"></span> Folga Padrão</span>
-                            </div>
 
                             {Object.keys(groupedData).length === 0 && isUser && !currentUserVig && (
                                 <div className="p-8 text-center text-gray-500 bg-white rounded-lg border border-dashed border-gray-300">
