@@ -8,7 +8,6 @@ interface AppHeaderProps {
     month: number;
     setMonth: (m: number) => void;
     monthOptions: { value: number; label: string }[];
-    handleAddNextYear: () => void;
     isFutureMonth: boolean;
     viewingDraft: boolean;
     isSimulationMode: boolean;
@@ -29,6 +28,7 @@ interface AppHeaderProps {
     fileInputRef: React.RefObject<HTMLInputElement>;
     teamsStatus: Record<string, { ready: boolean; percent: number; label: string }>;
     handleSendToSupervision: () => void;
+    handleAddNextYear: () => void;
 }
 
 export const AppHeader = React.memo((props: AppHeaderProps) => {
@@ -117,7 +117,14 @@ export const AppHeader = React.memo((props: AppHeaderProps) => {
                     <div className="flex flex-col items-end">
                         <div className="flex items-center gap-1">
                             {viewingDraft ? (<span className="text-[10px] font-bold bg-gray-500 text-white px-1.5 rounded animate-pulse">RASCUNHO</span>) : isFutureMonth ? (<span className="text-[10px] font-bold bg-red-600 text-white px-1.5 rounded">FUTURO</span>) : (<span className="text-[10px] font-bold bg-green-500 text-white px-1.5 rounded">VIGENTE</span>)}
-                            <div className="flex items-center bg-black/20 rounded-lg p-0.5"><select value={month} onChange={(e) => setMonth(Number(e.target.value))} className="bg-transparent border-none text-white text-sm px-2 py-1 outline-none cursor-pointer font-bold appearance-none">{monthOptions.map((opt: any) => <option key={opt.value} value={opt.value} className="text-black">{opt.label}</option>)}</select><button onClick={handleAddNextYear} className="px-1 text-white/50 hover:text-white text-[10px] font-bold" title="Adicionar Próximo Ano">+ ANO</button></div>
+                            <div className="flex items-center bg-black/20 rounded-lg p-0.5">
+                                <select value={month} onChange={(e) => setMonth(Number(e.target.value))} className="bg-transparent border-none text-white text-sm px-2 py-1 outline-none cursor-pointer font-bold appearance-none">
+                                    {monthOptions.map((opt: any) => <option key={opt.value} value={opt.value} className="text-black">{opt.label}</option>)}
+                                </select>
+                                {isMaster && (
+                                    <button onClick={handleAddNextYear} className="px-1 text-white/50 hover:text-white text-[10px] font-bold" title="Adicionar Próximo Ano">+ ANO</button>
+                                )}
+                            </div>
                         </div>
                     </div>
                     <div className="hidden lg:flex flex-col items-end text-right mr-1 cursor-pointer hover:opacity-80 transition-opacity" onClick={() => setIsPasswordModalOpen(true)} title="Alterar Senha"><span className="text-xs font-bold text-white flex items-center gap-1">{user.nome.split(' ')[0]} <span className="bg-black/30 px-1 rounded text-[9px] uppercase">{user.role}</span></span></div>

@@ -4,13 +4,34 @@ import { INITIAL_DB, BASE_MONTH_OPTIONS, TEAM_OPTIONS, SUPER_ADMIN_MAT, DECEMBER
 import { calculateDaysForTeam, cleanString, getVigilanteStatus, analyzeConflicts, extractTimeInputs, formatTimeInputs, checkVacationReturn, calculateIntervalRisk, checkAvailability, getDaysInMonth, getYear, getMonth } from './utils';
 import { Button, Input, Badge, Card, Modal, Icons, UnoesteSecurityLogo, Select } from './components/ui';
 import { api } from './services/api';
-
-// --- IMPORTS DE COMPONENTES REFATORADOS ---
-import { ErrorBoundary } from './components/common/ErrorBoundary';
-import { LancadorView } from './components/views/LancadorView';
 import { AppHeader } from './components/layout/AppHeader';
-import { EscalaView } from './components/views/EscalaView';
-// Nota: CalendarGrid agora é usado internamente pelo LancadorView, não precisa importar aqui
+
+// --- ERROR BOUNDARY COMPONENT ---
+class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean, error: Error | null }> {
+    constructor(props: { children: React.ReactNode }) {
+        super(props);
+        this.state = { hasError: false, error: null };
+    }
+    static getDerivedStateFromError(error: Error) { return { hasError: true, error }; }
+    componentDidCatch(error: Error, errorInfo: React.ErrorInfo) { console.error("Uncaught error:", error, errorInfo); }
+    render() {
+        if (this.state.hasError) {
+            return (
+                <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-6 text-center">
+                    <div className="text-6xl mb-4">😵</div>
+                    <h1 className="text-2xl font-bold text-slate-800 mb-2">Ops! Algo deu errado.</h1>
+                    <p className="text-slate-500 mb-6 max-w-md bg-white p-4 rounded border border-slate-200 font-mono text-xs text-left overflow-auto">
+                        {this.state.error?.toString()}
+                    </p>
+                    <Button onClick={() => window.location.reload()} className="bg-brand-600 text-white">
+                        <Icons.RefreshCw /> Recarregar Página
+                    </Button>
+                </div>
+            );
+        }
+        return this.props.children;
+    }
+}
 
 // Define extended type for Interval View
 type IntervalVigilante = Vigilante & { 
@@ -51,7 +72,7 @@ function AppContent() {
     const [view, setView] = useState<ViewMode>('escala');
     const [data, setData] = useState<Vigilante[]>([]);
     const [isLoading, setIsLoading] = useState(false);
-    const [viewingDraft, setViewingDraft] = useState(false); // Indicates if we are seeing a draft
+    const [viewingDraft, setViewingDraft] = useState(false);
     
     // --- SIMULATION MODE STATE ---
     const [isSimulationMode, setIsSimulationMode] = useState(false);
@@ -115,7 +136,7 @@ function AppContent() {
     // Interval Management State
     const [intervalEditVig, setIntervalEditVig] = useState<Vigilante | null>(null);
     const [intervalCoverageModalOpen, setIntervalCoverageModalOpen] = useState(false);
-    const [intervalCoverageSearch, setIntervalCoverageSearch] = useState(''); // Estado do filtro de busca no modal
+    const [intervalCoverageSearch, setIntervalCoverageSearch] = useState('');
     
     // Temporary Schedule Edit
     const [isTempEditorOpen, setIsTempEditorOpen] = useState(false);
@@ -130,6 +151,18 @@ function AppContent() {
     // Help Modal
     const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
 
+    // --- Reset Schedule Modal (Master Only) ---
+    const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+    const [resetStep, setResetStep] = useState<'team' | 'options'>('team');
+    const [teamToReset, setTeamToReset] = useState<string | null>(null);
+    const [resetOptions, setResetOptions] = useState({
+        days: false,
+        vacation: false,
+        tempSchedules: false,
+        unlock: false,
+    });
+
+
     // --- User Management State ---
     const [isUserMgmtModalOpen, setIsUserMgmtModalOpen] = useState(false);
     const [allUsers, setAllUsers] = useState<User[]>([]);
@@ -137,13 +170,11 @@ function AppContent() {
     const [formUserMat, setFormUserMat] = useState('');
     const [formUserNome, setFormUserNome] = useState('');
     const [editingUser, setEditingUser] = useState<User | null>(null);
-    // New: Permissions State for Form
     const [formPermissions, setFormPermissions] = useState({
         canManageIntervals: false,
         canViewLogs: false,
         canPrint: false,
         canSimulate: false,
-        canGenerateNextMonth: false,
         canViewCFTV: false
     });
     
@@ -153,70 +184,39 @@ function AppContent() {
 
     // --- DERIVED PERMISSIONS & HELPERS ---
     const isMaster = user?.role === 'MASTER';
-    const isFiscal = user?.role === 'FISCAL' || isMaster || user?.canSimulate; // "isFiscal" here implies "Has Fiscal Capabilities or higher"
+    const isFiscal = user?.role === 'FISCAL' || isMaster || user?.canSimulate;
     const isUser = user?.role === 'USER';
 
     const canPrint = user?.canPrint ?? (isMaster || isFiscal);
     const canViewLogs = user?.canViewLogs ?? isMaster;
-    const canGenerateNextMonth = user?.canGenerateNextMonth ?? isMaster;
     const canManageIntervals = user?.canManageIntervals ?? isFiscal;
     const canViewCFTV = isMaster || (user as any)?.canViewCFTV;
     const canEnterSimulation = isFiscal; 
 
-    // Verifica se é mês futuro baseado na data atual
-    // (Movido para cima para ser usado no teamsStatus)
     const isFutureMonth = useMemo(() => {
         const now = new Date();
         const currentPeriod = now.getFullYear() * 100 + (now.getMonth() + 1);
         return month > currentPeriod;
     }, [month]);
 
-    // --- WORKFLOW STATE & PROGRESS (Termômetro de Planejamento) ---
     const teamsStatus = useMemo(() => {
         const status: Record<string, { ready: boolean; percent: number; label: string }> = {};
-        
         TEAM_OPTIONS.filter(t => t !== 'ADM').forEach(team => {
             const members = data.filter(v => cleanString(v.eq) === team && v.campus !== 'AFASTADOS');
             const total = members.length;
-            
-            if (total === 0) {
-                status[team] = { ready: false, percent: 0, label: '0/0' };
-                return;
-            }
-
-            // LÓGICA DE CONTAGEM:
-            // Se for Mês Futuro (Planejamento): Só conta quem teve edição manual (manualLock) ou sugestão aceita (AUTO_OK).
-            // Ignora a propagação automática (que vem como PENDENTE e manualLock=false).
-            // Se for Mês Atual: Conta quem tem dias definidos, pois representa a escala ativa.
+            if (total === 0) { status[team] = { ready: false, percent: 0, label: '0/0' }; return; }
             const filled = members.filter(v => {
-                if (isFutureMonth) {
-                    return v.manualLock || v.status === 'AUTO_OK' || v.status === 'MANUAL_OK';
-                }
+                if (isFutureMonth) return v.manualLock || v.status === 'AUTO_OK' || v.status === 'MANUAL_OK';
                 return (v.dias && v.dias.length >= 5) || v.manualLock;
             }).length;
-
             const isReady = members.some(v => (v as any).draftReady);
-            
-            // LÓGICA DE TRAVA 99%:
-            // Calcula a porcentagem real baseada no preenchimento
             let percent = Math.round((filled / total) * 100);
-            
-            // Se deu 100% matematicamente, mas o Fiscal NÃO clicou em "Enviar", trava em 99%
-            if (percent >= 100 && !isReady) {
-                percent = 99;
-            }
-            
-            // Apenas se estiver explicitamente marcado como pronto (Enviado), vira 100%
+            if (percent >= 100 && !isReady) percent = 99;
             if (isReady) percent = 100;
-
-            status[team] = { 
-                ready: isReady, 
-                percent: percent,
-                label: `${filled}/${total}`
-            };
+            status[team] = { ready: isReady, percent: percent, label: `${filled}/${total}` };
         });
         return status;
-    }, [data, isFutureMonth]); // Adicionado isFutureMonth nas dependências
+    }, [data, isFutureMonth]);
 
     const nextMonth = useMemo(() => {
         let y = Math.floor(month / 100);
@@ -249,8 +249,26 @@ function AppContent() {
         return v || null;
     }, [data, user, month]);
 
-    // --- Effects ---
-    
+    const visibleMonthOptions = useMemo(() => {
+        if (user?.role !== 'USER') return monthOptions;
+        const now = new Date();
+        const limitDate = new Date(now.getFullYear(), now.getMonth() + 2, 1);
+        const limitValue = limitDate.getFullYear() * 100 + (limitDate.getMonth() + 1);
+        return monthOptions.filter(opt => opt.value <= limitValue);
+    }, [monthOptions, user]);
+
+    useEffect(() => {
+        if (user?.role === 'USER' && visibleMonthOptions.length > 0) {
+            const maxAllowed = visibleMonthOptions[visibleMonthOptions.length - 1].value;
+            if (month > maxAllowed) {
+                const now = new Date();
+                const currentMonth = now.getFullYear() * 100 + (now.getMonth() + 1);
+                setMonth(currentMonth);
+                showToast("Visualização restrita a 2 meses futuros.", "info");
+            }
+        }
+    }, [month, user, visibleMonthOptions]);
+
     useEffect(() => {
         const savedUser = localStorage.getItem('uno_user');
         if (savedUser) {
@@ -264,23 +282,14 @@ function AppContent() {
                 localStorage.removeItem('uno_user');
             }
         }
-        
         const savedOverrides = localStorage.getItem('uno_interval_overrides');
         if (savedOverrides) setIntervalOverrides(JSON.parse(savedOverrides));
-
         checkSystemStatus();
     }, []);
 
-    // --- AUTO-UPDATE (POLLING) ---
-    // Verifica atualizações no banco a cada 10 segundos
     useEffect(() => {
         if (!user || isSimulationMode || unsavedChanges || editingVig || isNewVigModalOpen) return;
-
-        const intervalId = setInterval(() => {
-            // Chama o carregamento em modo silencioso (sem spinner)
-            loadDataForMonth(month, true);
-        }, 10000); // 10 segundos
-
+        const intervalId = setInterval(() => { loadDataForMonth(month, true); }, 10000);
         return () => clearInterval(intervalId);
     }, [user, month, isSimulationMode, unsavedChanges, editingVig, isNewVigModalOpen]);
 
@@ -293,8 +302,7 @@ function AppContent() {
 
     useEffect(() => {
         if (user) {
-            // Automatically enter simulation mode for FUTURE months if not user
-            setIsSimulationMode(false); // Alterado: Sempre inicia em modo de visualização (leitura)
+            setIsSimulationMode(false);
             setUnsavedChanges(false);
             loadDataForMonth(month);
         }
@@ -307,8 +315,7 @@ function AppContent() {
             setTimeInputs({ hStart: h.start, hEnd: h.end, rStart: r.start, rEnd: r.end });
             setVacationInputs({ start: editingVig.vacation ? String(editingVig.vacation.start) : '', end: editingVig.vacation ? String(editingVig.vacation.end) : '' });
             setShowMobileEditor(true); 
-            // Default to 'days' unless already in vacation mode
-            if (editorMode !== 'vacation') setEditorMode('days'); 
+            if (editorMode !== 'vacation') setEditorMode('days');
         }
     }, [editingVig]);
 
@@ -341,33 +348,21 @@ function AppContent() {
     const loadDataForMonth = async (m: number, isSilent = false) => {
         if (!isSilent) setIsLoading(true);
         setViewingDraft(false);
-
         const now = new Date();
         const currentPeriod = now.getFullYear() * 100 + (now.getMonth() + 1);
         const isFuture = m > currentPeriod;
 
-        // STRATEGY: 
-        // 1. Try to load OFFICIAL first.
-        // 2. If Manager/Fiscal AND Future, Try to load DRAFT.
+        let fetchedData = await api.loadData(m, false);
         
-        let fetchedData = await api.loadData(m, false); // Load Official
-        
-        // If user is Fiscal/Master, check if a DRAFT exists for this month
         if (user?.role !== 'USER' && isFuture) {
-            const draftData = await api.loadData(m, true); // Load Draft
+            const draftData = await api.loadData(m, true);
             if (draftData && draftData.length > 0) {
                 fetchedData = draftData;
                 setViewingDraft(true);
-                // setIsSimulationMode(true); // Removido: Carrega o rascunho mas aguarda clique em EDITAR
                 showToast("Carregando Rascunho (Não publicado)", "info");
-            } else {
-                // Future month with no draft? Start fresh or from official
-                // setIsSimulationMode(true); // Removido: Aguarda clique em EDITAR
             }
         } else {
-            // Regular User
             if (!fetchedData || fetchedData.length === 0) {
-                // If official data is empty for future, show nothing/placeholder
                 if (isFuture) {
                     setData([]);
                     if (!isSilent) setIsLoading(false);
@@ -383,31 +378,25 @@ function AppContent() {
 
         if (fetchedData && fetchedData.length > 0) {
             finalData = fetchedData.map(v => {
-                // Sanitização e correções
                 const matStr = String(v.mat).trim();
                 if (matStr === '61665') return { ...v, mat: '61655', dias: v.dias || [] };
                 if (matStr === '91611') {
                     return { ...v, nome: 'CHRISTIANO R.G. DE OLIVEIRA', dias: v.dias || [] };
                 }
-                return { ...v, dias: v.dias || [] }; // Garante que dias é array
+                return { ...v, dias: v.dias || [] };
             });
         } else {
-            // AUTOMATIC PROPAGATION: Try to load PREVIOUS month first
             let prevM = m - 1;
             if (m % 100 === 1) prevM = (Math.floor(m / 100) - 1) * 100 + 12;
-            
-            const prevData = await api.loadData(prevM, false); // Load Official Previous
+            const prevData = await api.loadData(prevM, false);
             
             if (prevData && prevData.length > 0) {
-                // If previous month exists, use its roster as base for current month
                 finalData = prevData.map(v => {
                     const { vacation, tempOverrides, folgasGeradas, coberturas, ...base } = v;
-                    
                     let newCampus = base.campus;
                     let newSetor = base.setor;
                     let newObs = '';
                     let newStatus = 'PENDENTE';
-
                     if (base.campus === 'AFASTADOS') {
                         const shouldReturn = checkVacationReturn(base.obs || '', m);
                         if (shouldReturn) {
@@ -421,23 +410,10 @@ function AppContent() {
                              }
                         }
                     }
-
                     const newDays = (newCampus === 'AFASTADOS') ? [] : calculateDaysForTeam(base.eq, m);
                     let fixedNome = base.nome;
                     if (String(base.mat).trim() === '91611') fixedNome = 'CHRISTIANO R.G. DE OLIVEIRA';
-
-                    return {
-                        ...base,
-                        nome: fixedNome,
-                        campus: newCampus,
-                        setor: newSetor,
-                        obs: newObs,
-                        status: newStatus,
-                        dias: newDays,
-                        manualLock: false,
-                        folgasGeradas: [],
-                        coberturas: []
-                    } as Vigilante;
+                    return { ...base, nome: fixedNome, campus: newCampus, setor: newSetor, obs: newObs, status: newStatus, dias: newDays, manualLock: false, folgasGeradas: [], coberturas: [] } as Vigilante;
                 });
                 if (user?.role !== 'USER') showToast("Base gerada a partir do mês anterior.", "info");
             } else {
@@ -453,7 +429,6 @@ function AppContent() {
             }
         }
 
-        // Restore User if missing
         if (user) {
             const userMat = String(user.mat).trim();
             const exists = finalData.find(v => String(v.mat).trim() === userMat);
@@ -467,17 +442,9 @@ function AppContent() {
             }
         }
 
-        // --- PROTEÇÃO DE DADOS DO VIGILANTE (Feature 2) ---
-        // Se for Usuário Comum e Mês Futuro: Mostra os dias reais (folgas/trabalho),
-        // mas mantém Setor/Horário/Campus "atuais" para evitar confusão com mudanças não oficializadas.
         if (user?.role === 'USER' && isFuture) {
             finalData = finalData.map(v => {
-                const original = INITIAL_DB.find(db => db.mat === v.mat);
-                if (original) {
-                    // Mantém 'dias', 'folgasGeradas', 'vacation' do futuro, mas mascara o local/horário
-                    return { ...v, setor: original.setor, campus: original.campus, horario: original.horario, refeicao: original.refeicao };
-                }
-                return v;
+                return { ...v, setor: 'A DEFINIR', campus: 'EM PLANEJAMENTO', horario: 'A DEFINIR', refeicao: '***', obs: '' };
             });
         }
 
@@ -485,21 +452,13 @@ function AppContent() {
         if (!isSilent) setIsLoading(false);
     };
 
-    // Modified saveData to handle drafts
     const saveData = async (newData: Vigilante[], forcePublish = false): Promise<boolean> => {
         setData(newData);
-        
-        // If Simulating/Planning (Future Month) AND NOT Force Publishing, save as DRAFT.
-        // If Current Month, standard behavior is Official unless we add a specific "Draft Mode" toggle for current month too.
-        // For now, let's assume Future = Draft by default for managers.
-        
         const saveAsDraft = isSimulationMode && !forcePublish;
-
         const success = await api.saveData(month, newData, saveAsDraft);
-        
         if (success) {
             if (saveAsDraft) {
-                setUnsavedChanges(true); // Visually indicate it's not "Official" yet
+                setUnsavedChanges(true);
                 setViewingDraft(true);
                 showToast("Rascunho salvo na nuvem (Invisível para usuários).", 'info');
             } else {
@@ -513,35 +472,26 @@ function AppContent() {
         return success;
     };
 
-    // --- MEMOIZED VIEWS ---
     const conflicts = useMemo(() => analyzeConflicts(data, month, filterEq === 'AFASTADOS' ? 'TODAS' : filterEq), [data, month, filterEq]);
 
     const lancadorList = useMemo(() => {
         let filtered = data.filter(v => v.campus !== 'AFASTADOS');
-        
-        // Regra Fiscal: Vê apenas sua própria equipe no Lançador
         if (user?.role === 'FISCAL') {
-            // Exclui ADMs específicos
             filtered = filtered.filter(v => !EXCLUDED_ADM_MATS.includes(v.mat));
-            
             if (currentUserVig) {
                 const myEq = cleanString(currentUserVig.eq);
                 filtered = filtered.filter(v => cleanString(v.eq) === myEq);
             } else {
-                filtered = []; // Fiscal sem equipe não vê ninguém
+                filtered = [];
             }
         }
-
-        // Filtro visual do dropdown (Aplica-se DEPOIS da restrição de segurança)
         if (selectedLancadorTeam !== 'TODAS') {
             filtered = filtered.filter(v => cleanString(v.eq) === cleanString(selectedLancadorTeam));
         }
-
-        if (lancadorSearch) { 
+        if (lancadorSearch) {
             const term = lancadorSearch.toUpperCase(); 
             filtered = filtered.filter(v => v.nome.toUpperCase().includes(term) || v.mat.includes(term)); 
         }
-        
         return filtered.sort((a,b) => a.nome.localeCompare(b.nome));
     }, [data, selectedLancadorTeam, lancadorSearch, user, currentUserVig]);
 
@@ -555,30 +505,18 @@ function AppContent() {
         if (!displayList.length) return {} as Record<string, (Vigilante & { displayStatus?: any })[]>;
         
         let filtered = displayList.filter(v => { 
-            // 1. Usuário comum só vê a si mesmo
-            if (isUser && view !== 'solicitacoes') { 
+            if (isUser && view !== 'solicitacoes') {
                 const uMat = String(user?.mat || '').trim(); 
                 const vMat = String(v.mat || '').trim(); 
                 return uMat === vMat; 
             } 
-            
-            // 2. Fiscal: Exclui ADMs específicos
-            if (user?.role === 'FISCAL' && EXCLUDED_ADM_MATS.includes(v.mat)) {
-                return false;
-            }
-
-            // --- CORREÇÃO DE VISIBILIDADE DO FISCAL ---
-            // Fiscal só vê EXATAMENTE a sua equipe na tabela principal.
-            // Impede ver outros fiscais ou outras equipes.
+            if (user?.role === 'FISCAL' && EXCLUDED_ADM_MATS.includes(v.mat)) return false;
             if (user?.role === 'FISCAL' && currentUserVig) {
                 const myEq = cleanString(currentUserVig.eq);
                 const targetEq = cleanString(v.eq);
-                // Se não for da minha equipe, esconde.
                 if (targetEq !== myEq) return false;
             }
-
-            // 3. Filtros da UI
-            if (filterEq === 'AFASTADOS') { return v.campus === 'AFASTADOS'; } 
+            if (filterEq === 'AFASTADOS') { return v.campus === 'AFASTADOS'; }
             if (v.campus === 'AFASTADOS' && !searchTerm) { return filterEq !== 'TODAS' && cleanString(v.eq) === cleanString(filterEq); } 
             if (filterEq !== 'TODAS' && cleanString(v.eq) !== cleanString(filterEq)) return false; 
             if (searchTerm && !v.nome.toUpperCase().includes(searchTerm.toUpperCase()) && !v.mat.includes(searchTerm)) return false; 
@@ -591,21 +529,18 @@ function AppContent() {
             return true; 
         });
 
-        // 4. Reordenação para Fiscal
         if (user?.role === 'FISCAL' && currentUserVig) {
             const myEq = cleanString(currentUserVig.eq);
             const teamOrder = [myEq, 'E1', 'E2'];
-            
             filtered.sort((a, b) => {
                 const eqA = cleanString(a.eq);
                 const eqB = cleanString(b.eq);
                 const indexA = teamOrder.indexOf(eqA);
                 const indexB = teamOrder.indexOf(eqB);
-
-                if (indexA !== -1 && indexB !== -1) return indexA - indexB; // Ambos na lista de prioridade
-                if (indexA !== -1) return -1; // A na lista, B não
-                if (indexB !== -1) return 1;  // B na lista, A não
-                return eqA.localeCompare(eqB); // Nenhum na lista, ordem alfabética
+                if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+                if (indexA !== -1) return -1;
+                if (indexB !== -1) return 1;
+                return eqA.localeCompare(eqB);
             });
         }
 
@@ -626,7 +561,6 @@ function AppContent() {
         data.forEach(v => { if (v.campus === 'AFASTADOS') return; v.coberturas?.forEach(c => { if (c.dia === dayNum && c.tipo === 'INTERVALO' && c.local.startsWith('COB. INTERVALO')) { const sector = cleanString(c.local.replace(/COB\. INTERVALO\s*/i, '')); coveredSectorsMap.set(sector, v.nome); } }); }); 
         
         let filteredData = data;
-        // Apply Fiscal Restriction for Interval View (Own Team + E1 + E2) - MASTER ignores
         if (user?.role === 'FISCAL' && currentUserVig) {
             filteredData = filteredData.filter(v => {
                 const vEq = cleanString(v.eq);
@@ -638,13 +572,7 @@ function AppContent() {
         filteredData.forEach(v => { 
             if (v.campus === 'AFASTADOS') return; 
             const status = getVigilanteStatus(v, dayNum, filterTime || ''); 
-            
-            // CORREÇÃO: Apenas incluir vigilantes que estão ATIVAMENTE no posto ou em intervalo.
-            // Isso exclui quem está de 'FOLGA' ou 'FORA DE HORÁRIO', mesmo que trabalhe no dia.
-            if (!status.active || status.status === 'FOLGA' || status.status === 'FÉRIAS' || status.status === 'FORA DE HORÁRIO') {
-                return;
-            }
-
+            if (!status.active || status.status === 'FOLGA' || status.status === 'FÉRIAS' || status.status === 'FORA DE HORÁRIO') return;
             const isOnBreak = status.status === 'INTERVALO'; 
             const coversToday = v.coberturas && v.coberturas.find(c => c.dia === dayNum); 
             const coveredBy = coveredSectorsMap.get(cleanString(v.setor)); 
@@ -673,54 +601,39 @@ function AppContent() {
         return { list, grouped }; 
     }, [data, view, filterDay, filterTime, intervalOverrides, intervalCategory, user, currentUserVig]);
 
-    // Estado para filtro do CFTV
     const [cftvFilter, setCftvFilter] = useState<'ALL' | 'CRITICAL' | 'ATTENTION' | 'COVERED' | 'ACTIVE'>('ALL');
-    // Estado para filtro interativo da aba Intervalos
     const [intervalStatusFilter, setIntervalStatusFilter] = useState<'ALL' | 'ON_BREAK' | 'COVERED' | 'RISK'>('ALL');
-
-    // --- ACTIONS ---
 
     const handleSendToSupervision = async () => {
         if (!currentUserVig) return;
         if (!confirm("Confirmar envio do planejamento da sua equipe para supervisão?")) return;
-
         const myTeam = cleanString(currentUserVig.eq);
         const newData = data.map(v => {
-            // Marca todos da equipe como 'Prontos'
-            if (cleanString(v.eq) === myTeam) {
-                return { ...v, draftReady: true };
-            }
+            if (cleanString(v.eq) === myTeam) { return { ...v, draftReady: true }; }
             return v;
         });
-
-        await saveData(newData, false); // Salva como rascunho
+        await saveData(newData, false);
         showToast(`Planejamento da Equipe ${myTeam} enviado para supervisão!`, 'success');
     };
 
     const commitSimulation = async () => {
-        // Publish Official acts as a "Commit Draft to Official"
         if (!confirm(`PUBLICAR OFICIALMENTE?\n\nIsso tornará o rascunho atual VISÍVEL para todos os vigilantes.`)) return;
-        
         setIsLoading(true);
-        // Force publish = true -> Saves to the Official Key and effectively "merges" draft
-        const success = await saveData(data, true); 
+        const success = await saveData(data, true);
         if (success) {
-            setViewingDraft(false); // No longer just a draft
-            setIsSimulationMode(false); // Exit simulation mode? Or keep it open but show saved?
+            setViewingDraft(false);
+            setIsSimulationMode(false);
             registerLog('SISTEMA', 'Publicação Oficial da Escala', 'Múltiplos');
         }
         setIsLoading(false);
     };
 
-    const handleSaveDraft = async () => {
-        await saveData(data, false); // Save as draft
-    };
+    const handleSaveDraft = async () => { await saveData(data, false); };
 
     const handleExitSimulation = async () => {
         if (unsavedChanges) {
             if (!confirm("⚠️ ATENÇÃO: Você tem alterações não salvas.\n\nDeseja realmente SAIR e DESCARTAR o que fez agora?")) return;
         }
-        // Reload original data (Official)
         await loadDataForMonth(month);
         setIsSimulationMode(false);
         setViewingDraft(false);
@@ -728,6 +641,7 @@ function AppContent() {
     };
 
     const handleAddNextYear = () => {
+        if (!isMaster) return;
         const lastOption = monthOptions[monthOptions.length - 1];
         const lastYear = Math.floor(lastOption.value / 100);
         const newYear = lastYear + 1;
@@ -745,15 +659,14 @@ function AppContent() {
         setLogs(prev => [newLog, ...prev]);
     };
 
-    // User Management Actions...
-    const handleCreateUser = async () => { 
+    const handleCreateUser = async () => {
         if (!formUserMat || !formUserNome) return alert("Preencha matrícula e nome."); 
         const exists = allUsers.find(u => u.mat === formUserMat); 
         if (exists) return alert("Matrícula já existe."); 
         const newUser: User = { mat: formUserMat, nome: formUserNome.toUpperCase(), role: 'USER', password: '123456', ...formPermissions } as User; 
         const updatedList = [...allUsers, newUser]; 
         const success = await api.saveUsers(updatedList); 
-        if (success) { setAllUsers(updatedList); setFormUserMat(''); setFormUserNome(''); setFormPermissions({ canManageIntervals: false, canViewLogs: false, canPrint: false, canSimulate: false, canGenerateNextMonth: false, canViewCFTV: false }); setIsUserMgmtModalOpen(false); showToast("Usuário criado com sucesso!"); registerLog('SISTEMA', 'Novo usuário criado', newUser.nome); } else { showToast("Erro ao criar usuário.", 'error'); } 
+        if (success) { setAllUsers(updatedList); setFormUserMat(''); setFormUserNome(''); setFormPermissions({ canManageIntervals: false, canViewLogs: false, canPrint: false, canSimulate: false, canViewCFTV: false }); setIsUserMgmtModalOpen(false); showToast("Usuário criado com sucesso!"); registerLog('SISTEMA', 'Novo usuário criado', newUser.nome); } else { showToast("Erro ao criar usuário.", 'error'); } 
     };
     const startEditUser = (userToEdit: User) => { 
         if (userToEdit.mat === SUPER_ADMIN_MAT) { alert("O Super Admin não pode ser editado aqui."); return; } 
@@ -763,11 +676,10 @@ function AppContent() {
             canViewLogs: !!userToEdit.canViewLogs, 
             canPrint: !!userToEdit.canPrint, 
             canSimulate: !!userToEdit.canSimulate, 
-            canGenerateNextMonth: !!userToEdit.canGenerateNextMonth,
             canViewCFTV: !!(userToEdit as any).canViewCFTV
         });
     };
-    const cancelEditUser = () => { setEditingUser(null); setFormUserMat(''); setFormUserNome(''); setFormPermissions({ canManageIntervals: false, canViewLogs: false, canPrint: false, canSimulate: false, canGenerateNextMonth: false, canViewCFTV: false }); };
+    const cancelEditUser = () => { setEditingUser(null); setFormUserMat(''); setFormUserNome(''); setFormPermissions({ canManageIntervals: false, canViewLogs: false, canPrint: false, canSimulate: false, canViewCFTV: false }); };
     const handleSaveEditUser = async () => { 
         if (!editingUser) return; 
         if (!formUserMat || !formUserNome) return alert("Preencha todos os campos."); 
@@ -806,71 +718,30 @@ function AppContent() {
     const handleCreateVigilante = async () => {
         if (!newVigForm.nome || !newVigForm.mat) return alert("Preencha Nome e Matrícula.");
         if (data.some(v => v.mat === newVigForm.mat)) return alert("Matrícula já existe na escala atual.");
-        
-        const newVig: Vigilante = { 
-            nome: newVigForm.nome.toUpperCase(), 
-            mat: newVigForm.mat.trim(), // Fix: Trim mat to avoid spaces
-            eq: newVigForm.eq as Team, 
-            setor: 'NOVO', 
-            campus: 'OUTROS', 
-            horario: '12x36', 
-            refeicao: '***', 
-            dias: calculateDaysForTeam(newVigForm.eq as Team, month), 
-            manualLock: false, 
-            status: 'PENDENTE', 
-            folgasGeradas: [], 
-            coberturas: [] 
-        };
-        
-        // 1. Salva no mês atual
+        const newVig: Vigilante = { nome: newVigForm.nome.toUpperCase(), mat: newVigForm.mat.trim(), eq: newVigForm.eq as Team, setor: 'NOVO', campus: 'OUTROS', horario: '12x36', refeicao: '***', dias: calculateDaysForTeam(newVigForm.eq as Team, month), manualLock: false, status: 'PENDENTE', folgasGeradas: [], coberturas: [] };
         const newData = [...data, newVig];
         await saveData(newData);
         registerLog('EDICAO', 'Criou novo vigilante', newVig.nome);
-        
-        // 2. Tenta propagar para o próximo mês se ele já existir (CORREÇÃO MAURO)
         try {
             const nextM = nextMonth;
             const nextData = await api.loadData(nextM);
-            
             if (nextData && nextData.length > 0) {
-                // Verifica se já existe lá
                 if (!nextData.some(v => v.mat === newVig.mat)) {
                     const nextDays = calculateDaysForTeam(newVig.eq, nextM);
-                    const nextVigEntry = { 
-                        ...newVig, 
-                        dias: nextDays, 
-                        folgasGeradas: [], 
-                        coberturas: [], 
-                        manualLock: false, 
-                        status: 'PENDENTE' 
-                    };
-                    // Remove férias se houver, pois é outro mês
+                    const nextVigEntry = { ...newVig, dias: nextDays, folgasGeradas: [], coberturas: [], manualLock: false, status: 'PENDENTE' };
                     delete nextVigEntry.vacation;
-                    
                     const updatedNextData = [...nextData, nextVigEntry];
                     await api.saveData(nextM, updatedNextData);
                     showToast(`Criado em ${currentLabel} e replicado para o próximo mês!`, 'success');
-                } else {
-                    showToast("Vigilante criado! (Já existia no mês seguinte)", 'info');
-                }
-            } else {
-                showToast("Vigilante criado no mês atual.", 'success');
-            }
-        } catch (e) {
-            console.error("Erro ao propagar para mês seguinte", e);
-            showToast("Vigilante criado, mas houve erro ao replicar para futuro.", 'info');
-        }
-
-        setIsNewVigModalOpen(false); 
-        setNewVigForm({ nome: '', mat: '', eq: 'A' });
-        setEditingVig(newVig);
-        if (window.innerWidth < 768) setShowMobileEditor(true);
+                } else { showToast("Vigilante criado! (Já existia no mês seguinte)", 'info'); }
+            } else { showToast("Vigilante criado no mês atual.", 'success'); }
+        } catch (e) { console.error("Erro ao propagar para mês seguinte", e); showToast("Vigilante criado, mas houve erro ao replicar para futuro.", 'info'); }
+        setIsNewVigModalOpen(false); setNewVigForm({ nome: '', mat: '', eq: 'A' }); setEditingVig(newVig); if (window.innerWidth < 768) setShowMobileEditor(true);
     };
 
     const handleDeleteVigilante = async () => {
         if (!editingVig) return;
         if (!confirm(`⚠️ PERIGO: Tem certeza que deseja EXCLUIR DEFINITIVAMENTE o vigilante ${editingVig.nome}?\n\nIsso removerá ele desta escala. Se for um erro de cadastro, prossiga.`)) return;
-        
         const newData = data.filter(v => v.mat !== editingVig.mat);
         await saveData(newData);
         registerLog('EDICAO', 'Excluiu vigilante da escala', editingVig.nome);
@@ -879,30 +750,69 @@ function AppContent() {
         showToast("Vigilante removido com sucesso.", 'info');
     };
 
-    const handleRegenerateSchedule = () => {
-        if (!confirm(`⚠️ RECALCULAR ESCALA (${currentLabel})?\n\nIsso irá redefinir os dias de trabalho...`)) return;
-        const newData = data.map(v => {
-            if (v.campus === 'AFASTADOS') return v; 
-            const newDays = calculateDaysForTeam(v.eq, month, v.vacation);
-            return { ...v, dias: newDays, folgasGeradas: v.folgasGeradas.filter(f => !newDays.includes(f)), manualLock: false, status: 'PENDENTE' };
-        });
-        saveData(newData); registerLog('SISTEMA', `Regerou escala completa do mês ${month}`); showToast("Escala recalculada com sucesso!");
+    const closeResetModal = () => {
+        setIsResetModalOpen(false);
+        setResetStep('team');
+        setTeamToReset(null);
+        setResetOptions({ days: false, vacation: false, tempSchedules: false, unlock: false });
     };
 
-    // --- SMART SUGGESTIONS WITH CONFLICT CHECK ---
-    const handleSmartSuggest = () => { 
+    const handleSelectTeamToReset = (team: string) => {
+        setTeamToReset(team);
+        setResetStep('options');
+    };
+
+    const handleSelectiveReset = () => {
+        if (!isMaster || !teamToReset) return;
+        const optionsSelected = Object.values(resetOptions).some(v => v);
+        if (!optionsSelected) { showToast("Selecione ao menos uma opção para restaurar.", "error"); return; }
+        if (!confirm(`⚠️ ATENÇÃO MÁXIMA ⚠️\n\nVocê está prestes a aplicar as seguintes correções para a EQUIPE ${teamToReset}:\n\n${resetOptions.days ? '- Restaurar Dias de Trabalho\n' : ''}${resetOptions.vacation ? '- Remover Férias\n' : ''}${resetOptions.tempSchedules ? '- Remover Horários Temporários\n' : ''}${resetOptions.unlock ? '- Desbloquear Lançamentos\n' : ''}\nEsta ação é irreversível. Deseja continuar?`)) { return; }
+
+        const newData = data.map(v => {
+            if (cleanString(v.eq) === teamToReset && v.campus !== 'AFASTADOS') {
+                let updatedVig: Vigilante & { draftReady?: boolean } = { ...v };
+
+                // Se qualquer alteração for feita, remove o status de "Pronto" para forçar recálculo
+                delete updatedVig.draftReady;
+
+                if (resetOptions.days) {
+                    updatedVig.dias = calculateDaysForTeam(v.eq, month);
+                    updatedVig.folgasGeradas = [];
+                    // Se resetou os dias, também reseta o status de confirmação
+                    updatedVig.manualLock = false;
+                    updatedVig.status = 'PENDENTE';
+                }
+                if (resetOptions.vacation) {
+                    updatedVig.vacation = undefined;
+                    if (!resetOptions.days) {
+                        updatedVig.dias = calculateDaysForTeam(v.eq, month);
+                    }
+                }
+                if (resetOptions.tempSchedules) {
+                    updatedVig.tempOverrides = undefined;
+                }
+                if (resetOptions.unlock) {
+                    updatedVig.manualLock = false;
+                    updatedVig.status = 'PENDENTE';
+                }
+                return updatedVig;
+            }
+            return v;
+        });
+
+        saveData(newData);
+        registerLog('SISTEMA', `Correção seletiva aplicada na Equipe ${teamToReset}`, user?.nome);
+        showToast(`Correções aplicadas na Equipe ${teamToReset}!`);
+        closeResetModal();
+    };
+
+    const handleSmartSuggest = () => {
         if (!isFiscal) return; 
-        
-        // Use filtered data directly to avoid dependency on lancadorList which is memoized
         const candidates = data.filter(v => v.campus !== 'AFASTADOS' && !v.manualLock && (selectedLancadorTeam === 'TODAS' || cleanString(v.eq) === cleanString(selectedLancadorTeam)));
-        
-        if (candidates.length === 0) return alert("Todos visíveis já estão confirmados!"); 
-        
-        // Create proposal (deep copy to avoid mutation)
+        if (candidates.length === 0) return alert("Todos visíveis já estão confirmados!");
         const newData = JSON.parse(JSON.stringify(data));
         let changes = 0; 
-        
-        candidates.forEach(cand => { 
+        candidates.forEach(cand => {
             const idx = newData.findIndex((v: Vigilante) => v.mat === cand.mat); 
             if (idx > -1) { 
                 const vig = newData[idx]; 
@@ -911,62 +821,36 @@ function AppContent() {
                     const d1 = standardDays[Math.floor(Math.random() * (standardDays.length - 2))]; 
                     const d2 = d1 + 2; 
                     const newDays = standardDays.filter(d => d !== d1 && d !== d2); 
-                    if (newDays.length !== vig.dias.length) { 
-                        vig.dias = newDays; 
-                        vig.folgasGeradas = [d1, d2].filter(x => x <= 31); 
-                        vig.status = 'AUTO_OK'; 
-                        changes++; 
-                    } 
+                    if (newDays.length !== vig.dias.length) { vig.dias = newDays; vig.folgasGeradas = [d1, d2].filter(x => x <= 31); vig.status = 'AUTO_OK'; changes++; }
                 } 
             } 
         });
-
         if (changes > 0) {
-            // Analyze conflicts on the PROPOSED data using the new logic
             const foundConflicts = analyzeConflicts(newData, month);
             setProposedData(newData);
             setSuggestionConflicts(foundConflicts);
             setIsConflictModalOpen(true);
-        } else {
-            alert("Não foi possível gerar sugestões novas.");
-        }
+        } else { alert("Não foi possível gerar sugestões novas."); }
     };
 
     const confirmSmartSuggestions = () => {
-        if (proposedData) {
-            saveData(proposedData);
-            registerLog('FOLGAS', 'Aceitou sugestão inteligente de folgas.');
-            showToast("Folgas geradas com sucesso!");
-        }
-        setIsConflictModalOpen(false);
-        setProposedData(null);
+        if (proposedData) { saveData(proposedData); registerLog('FOLGAS', 'Aceitou sugestão inteligente de folgas.'); showToast("Folgas geradas com sucesso!"); }
+        setIsConflictModalOpen(false); setProposedData(null);
     };
 
-    // ... (Rest of actions: Request logic, Editing, etc.)
     const findUserInData = (userData: User | null, allData: Vigilante[]) => { if (!userData) return -1; const uMat = String(userData.mat).trim(); return allData.findIndex(v => String(v.mat).trim() === uMat); };
     
     const handleToggleRequest = (day: number, isWorking: boolean) => {
         if (!user || !isWorking) return; 
         const newData = [...data]; 
         let idx = findUserInData(user, newData);
-        
-        // FIX: Se o usuário existe visualmente (Recuperado/Cache) mas não no array data de edição, adiciona agora.
         if (idx === -1 && currentUserVig) {
             const recovered = { ...currentUserVig, status: 'PENDENTE', manualLock: false }; 
-            // Garante que obs/status antigos de afastamento não bloqueiem se ele voltou
-            if(recovered.campus === 'AFASTADOS') {
-                 recovered.campus = 'OUTROS';
-                 recovered.setor = 'RECUPERADO';
-            }
+            if(recovered.campus === 'AFASTADOS') { recovered.campus = 'OUTROS'; recovered.setor = 'RECUPERADO'; }
             newData.push(recovered);
             idx = newData.length - 1;
         }
-
-        if (idx === -1) { 
-            showToast("Erro de permissão ou usuário não localizado na escala deste mês.", "error"); 
-            return; 
-        }
-
+        if (idx === -1) { showToast("Erro de permissão ou usuário não localizado na escala deste mês.", "error"); return; }
         const vigilante = { ...newData[idx] };
         if (vigilante.requestsLocked) { showToast("Aguarde a análise da sua solicitação anterior.", "info"); return; }
         const requests = vigilante.requests || [];
@@ -991,7 +875,6 @@ function AppContent() {
     };
     const handleApproveRequest = (vig: Vigilante, req: Request) => { const newData = [...data]; const idx = newData.findIndex(v => v.mat === vig.mat); if (idx === -1) return; const targetVig = { ...newData[idx] }; if (!targetVig.requests) return; const rIndex = targetVig.requests.findIndex(r => r.day === req.day); if (rIndex > -1) { targetVig.requests[rIndex].status = 'APPROVED'; } targetVig.dias = targetVig.dias.filter(d => d !== req.day); if (!targetVig.folgasGeradas.includes(req.day)) { targetVig.folgasGeradas.push(req.day); targetVig.folgasGeradas.sort((a,b) => a-b); } targetVig.manualLock = true; targetVig.requestsLocked = false; newData[idx] = targetVig; saveData(newData); registerLog('SOLICITACAO', `Aprovou folga dia ${req.day}`, targetVig.nome); showToast("Solicitação Aprovada!"); };
     const handleRejectRequest = (vig: Vigilante, req: Request) => { const newData = [...data]; const idx = newData.findIndex(v => v.mat === vig.mat); if (idx === -1) return; const targetVig = { ...newData[idx] }; if (!targetVig.requests) return; const rIndex = targetVig.requests.findIndex(r => r.day === req.day); if (rIndex > -1) { targetVig.requests[rIndex].status = 'REJECTED'; } targetVig.requestsLocked = false; newData[idx] = targetVig; saveData(newData); registerLog('SOLICITACAO', `Rejeitou solicitação dia ${req.day}`, targetVig.nome); showToast("Solicitação rejeitada."); };
-    const handleGenerateNextMonth = () => { if (!confirm(`Gerar a escala para ${nextMonthLabel}?`)) return; const newData = data.map(v => { const nextVig = { ...v }; delete nextVig.vacation; delete nextVig.tempOverrides; if (v.campus === 'AFASTADOS') { const shouldReturn = checkVacationReturn(v.obs || '', nextMonth); if (shouldReturn) { const original = INITIAL_DB.find(db => db.mat === v.mat); if (original && original.campus !== 'AFASTADOS') { nextVig.campus = original.campus; nextVig.setor = original.setor; nextVig.horario = original.horario; nextVig.refeicao = original.refeicao; nextVig.eq = original.eq; } else { nextVig.campus = 'OUTROS'; nextVig.setor = 'RETORNO'; } nextVig.status = 'PENDENTE'; nextVig.obs = ''; nextVig.dias = calculateDaysForTeam(nextVig.eq, nextMonth); } else { nextVig.dias = []; } } else { nextVig.dias = calculateDaysForTeam(v.eq, nextMonth); nextVig.manualLock = false; nextVig.status = 'PENDENTE'; nextVig.folgasGeradas = []; nextVig.coberturas = []; } return nextVig; }); setMonth(nextMonth); setData(newData); api.saveData(nextMonth, newData); registerLog('SISTEMA', `Gerada escala automática para o próximo mês.`); showToast(`🗓️ Escala gerada com sucesso!`); };
     const handleExport = () => { const jsonString = JSON.stringify(data, null, 2); const blob = new Blob([jsonString], { type: 'application/json' }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; const prefix = isSimulationMode ? 'RASCUNHO_' : 'BACKUP_'; link.download = `${prefix}escala_periodo_${month}_${new Date().toISOString().split('T')[0]}.json`; document.body.appendChild(link); link.click(); document.body.removeChild(link); registerLog('SISTEMA', 'Arquivo gerado (Exportação).'); showToast("Arquivo baixado com sucesso!"); };
     
     const handleImportFile = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -1002,16 +885,8 @@ function AppContent() {
             try {
                 const result = e.target?.result as string;
                 const json = JSON.parse(result);
-                if (Array.isArray(json)) {
-                    // Safe casting as we validated it's an array
-                    setImportedData(json as Vigilante[]);
-                    setIsImportModalOpen(true);
-                } else {
-                    alert("Arquivo inválido.");
-                }
-            } catch (err) {
-                alert("Erro ao ler arquivo JSON.");
-            }
+                if (Array.isArray(json)) { setImportedData(json as Vigilante[]); setIsImportModalOpen(true); } else { alert("Arquivo inválido."); }
+            } catch (err) { alert("Erro ao ler arquivo JSON."); }
         };
         reader.readAsText(file);
         if (fileInputRef.current) fileInputRef.current.value = '';
@@ -1022,58 +897,21 @@ function AppContent() {
     const handleSaveEditor = () => { if (!editingVig) return; const newData = [...data]; const idx = newData.findIndex(v => v.mat === editingVig.mat); if (idx > -1) { const updated = { ...editingVig }; if (timeInputs.hStart && timeInputs.hEnd) updated.horario = formatTimeInputs(timeInputs.hStart, timeInputs.hEnd); if (timeInputs.rStart && timeInputs.rEnd) updated.refeicao = formatTimeInputs(timeInputs.rStart, timeInputs.rEnd); if (vacationInputs.start && vacationInputs.end) { const s = parseInt(vacationInputs.start); const e = parseInt(vacationInputs.end); if (!isNaN(s) && !isNaN(e) && e >= s) { updated.vacation = { start: s, end: e }; const allDays = calculateDaysForTeam(updated.eq, month); updated.dias = allDays.filter(d => d < s || d > e); } else { updated.vacation = undefined; updated.dias = calculateDaysForTeam(updated.eq, month); } } else { updated.vacation = undefined; } updated.manualLock = true; updated.status = 'MANUAL_OK'; updated.setor = updated.setor.toUpperCase(); newData[idx] = updated; saveData(newData); registerLog('EDICAO', 'Alteração manual.', updated.nome); setEditingVig(null); setShowMobileEditor(false); } };
     const handleToggleDay = (vig: Vigilante, day: number) => { if (!isFiscal) return; const newData = [...data]; const idx = newData.findIndex(v => v.mat === vig.mat); if (idx === -1) return; const target = { ...newData[idx] }; if (target.dias.includes(day)) { target.dias = target.dias.filter(d => d !== day); if (!target.folgasGeradas.includes(day)) target.folgasGeradas.push(day); } else { target.dias.push(day); target.dias.sort((a,b) => a-b); target.folgasGeradas = target.folgasGeradas.filter(d => d !== day); } target.manualLock = true; target.status = 'MANUAL_OK'; newData[idx] = target; saveData(newData); registerLog('EDICAO', `Alteração de dia na escala: ${day}`, target.nome); if (editingVig && editingVig.mat === vig.mat) setEditingVig(target); };
     
-    // NEW: Handle Vacation Toggle on Grid
     const handleToggleVacation = (vig: Vigilante, day: number) => {
         if (!isFiscal) return;
         const currentVacation = vig.vacation || { start: 0, end: 0 };
         let newVacation: { start: number, end: number } | undefined = { ...currentVacation };
-
-        // Logic: 
-        // 1. If start is 0 or undefined -> Set start = day
-        // 2. If day < start -> Set new start = day
-        // 3. If day > start -> Set end = day
-        // 4. If day == start == end -> Reset/Clear
-        
-        if (!newVacation.start || newVacation.start === 0) {
-            newVacation.start = day;
-            newVacation.end = day;
-        } else if (day < newVacation.start) {
-            newVacation.start = day;
-        } else if (day > newVacation.start) {
-            newVacation.end = day;
-        } else if (day === newVacation.start && day === newVacation.end) {
-            newVacation = undefined;
-        } else if (day === newVacation.start) {
-             // Clicking start again could mean nothing or reset
-             newVacation = undefined;
-        } else {
-             // Reset if clicking wildly
-             newVacation = { start: day, end: day };
-        }
-
+        if (!newVacation.start || newVacation.start === 0) { newVacation.start = day; newVacation.end = day; } else if (day < newVacation.start) { newVacation.start = day; } else if (day > newVacation.start) { newVacation.end = day; } else if (day === newVacation.start && day === newVacation.end) { newVacation = undefined; } else if (day === newVacation.start) { newVacation = undefined; } else { newVacation = { start: day, end: day }; }
         const newData = [...data];
         const idx = newData.findIndex(v => v.mat === vig.mat);
         if (idx > -1) {
             const target = { ...newData[idx] };
             target.vacation = newVacation;
-            
-            // Remove work days that are inside vacation range
-            // We only filter if newVacation exists and is fully defined
-            if (newVacation && newVacation.start && newVacation.end) {
-                const s = newVacation.start;
-                const e = newVacation.end;
-                target.dias = (target.dias || []).filter(d => d < s || d > e);
-            } 
-            
+            if (newVacation && newVacation.start && newVacation.end) { const s = newVacation.start; const e = newVacation.end; target.dias = (target.dias || []).filter(d => d < s || d > e); }
             target.manualLock = true;
             newData[idx] = target;
             saveData(newData);
-            if (editingVig && editingVig.mat === vig.mat) {
-                setEditingVig(target);
-                // Update inputs for visual feedback
-                if(newVacation && newVacation.start) setVacationInputs({ start: String(newVacation.start), end: String(newVacation.end || newVacation.start) });
-                else setVacationInputs({ start: '', end: '' });
-            }
+            if (editingVig && editingVig.mat === vig.mat) { setEditingVig(target); if(newVacation && newVacation.start) setVacationInputs({ start: String(newVacation.start), end: String(newVacation.end || newVacation.start) }); else setVacationInputs({ start: '', end: '' }); }
         }
     };
 
@@ -1138,7 +976,7 @@ function AppContent() {
             <input type="file" id="fileInput" ref={fileInputRef} className="hidden" accept=".json" onChange={handleImportFile} />
 
             <AppHeader 
-                user={user} month={month} setMonth={setMonth} monthOptions={monthOptions} handleAddNextYear={handleAddNextYear}
+                user={user} month={month} setMonth={setMonth} monthOptions={visibleMonthOptions} handleAddNextYear={handleAddNextYear}
                 isFutureMonth={isFutureMonth} viewingDraft={viewingDraft} isSimulationMode={isSimulationMode} setIsSimulationMode={setIsSimulationMode}
                 handleSaveDraft={handleSaveDraft} commitSimulation={commitSimulation} handleExitSimulation={handleExitSimulation}
                 handleLogout={handleLogout} setIsHelpModalOpen={setIsHelpModalOpen} setIsPasswordModalOpen={setIsPasswordModalOpen}
@@ -1147,17 +985,18 @@ function AppContent() {
                 teamsStatus={teamsStatus} handleSendToSupervision={handleSendToSupervision}
             />
 
-            <div className="bg-white border-b border-gray-200 p-2 flex flex-col md:flex-row gap-4 print:hidden shadow-sm items-center">
-                <div className="flex bg-slate-100 p-1 rounded-lg overflow-x-auto no-scrollbar shrink-0">
+            <div className="bg-white border-b border-gray-200 p-2 flex flex-col md:flex-row gap-2 print:hidden shadow-sm items-center justify-between">
+                <div className="flex bg-slate-100 p-1 rounded-lg w-full md:w-auto overflow-x-auto no-scrollbar shrink-0">
                     <button onClick={() => setView('escala')} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all whitespace-nowrap ${view === 'escala' ? 'bg-brand-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-800'}`}>ESCALA</button>
                     {isFiscal && (<button onClick={() => { setView('lancador'); }} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all whitespace-nowrap ${view === 'lancador' ? 'bg-brand-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-800'}`}>LANÇADOR</button>)}
                     {canManageIntervals && (<button onClick={() => setView('intervalos')} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all whitespace-nowrap ${view === 'intervalos' ? 'bg-brand-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-800'}`}>🍽️ INTERVALOS</button>)}
                     {canViewCFTV && (<button onClick={() => setView('cftv')} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all whitespace-nowrap ${view === 'cftv' ? 'bg-slate-800 text-white shadow-md border border-slate-600' : 'text-slate-500 hover:text-slate-800'}`}>🎥 MONITORAMENTO</button>)}
                     <button onClick={() => setView('solicitacoes')} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all whitespace-nowrap ${view === 'solicitacoes' ? 'bg-brand-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-800'}`}>📅 SOLICITAÇÕES</button>
+                    {isMaster && (<button onClick={() => setIsResetModalOpen(true)} className="px-3 py-1.5 rounded-md text-xs font-bold transition-all whitespace-nowrap bg-red-100 text-red-700 border border-red-200 hover:bg-red-200" title="Ferramenta de Correção">♻️ RESTAURAR</button>)}
                 </div>
-                <div className="flex items-center gap-2">
-                    {( (!isUser || canManageIntervals || canViewCFTV) && (view === 'escala' || view === 'intervalos' || view === 'cftv') ) && (
-                        <div className="flex flex-wrap items-center gap-2 bg-slate-50 p-1.5 rounded-lg border border-slate-200">
+                <div className="flex items-center justify-end w-full md:w-auto gap-2">
+                    {( (!isUser || canManageIntervals) && (view === 'escala' || view === 'intervalos' || view === 'cftv') ) && (
+                        <div className="flex flex-wrap items-center justify-center sm:justify-end gap-2 bg-slate-50 p-1.5 rounded-lg border border-slate-200 w-full sm:w-auto">
                             <span className="text-[10px] font-bold text-slate-500 uppercase whitespace-nowrap">Plantão:</span>
                             <div className="flex items-center gap-1">
                                 <input type="number" placeholder="Dia" className="w-12 text-center text-xs border rounded p-1.5 bg-white" value={filterDay} onChange={e => setFilterDay(e.target.value)}/>
@@ -1176,30 +1015,136 @@ function AppContent() {
 
             <main className="flex-1 overflow-hidden relative print:overflow-visible print:h-auto">
                 {view === 'escala' && (
-                    <EscalaView 
-                        groupedData={groupedData} conflicts={conflicts} user={user} isUser={isUser} isFiscal={isFiscal} isMaster={isMaster}
-                        currentUserVig={currentUserVig} currentLabel={currentLabel} searchTerm={searchTerm} setSearchTerm={setSearchTerm}
-                        filterEq={filterEq} setFilterEq={setFilterEq} filterDay={filterDay} handleOpenCoverage={handleOpenCoverage}
-                        handleReturnFromAway={handleReturnFromAway} handleRemoveCoverage={handleRemoveCoverage}
-                    />
+                    <div className="h-full flex flex-col">
+                        {!isUser && (
+                            <div className="p-3 bg-white border-b flex gap-4 print:hidden flex-wrap items-center justify-start">
+                                <div className="relative w-full md:w-72"><div className="absolute left-2.5 top-2 text-slate-400"><Icons.Search /></div><input type="text" placeholder="Pesquisar por nome ou matrícula..." className="w-full pl-9 pr-2 py-1.5 border rounded-lg text-sm bg-slate-50 focus:bg-white transition-colors" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} /></div>
+                                {user?.role !== 'FISCAL' && (
+                                    <Select value={filterEq} onChange={e => setFilterEq(e.target.value)} className="w-full md:w-48 bg-slate-50">
+                                        <option value="TODAS">Todas Equipes</option>
+                                        {TEAM_OPTIONS.map(t => <option key={t} value={t}>Equipe {t}</option>)}
+                                        <option value="AFASTADOS">✈️ Afastados</option>
+                                    </Select>
+                                )}
+                            </div>
+                        )}
+                        <div className="flex-1 overflow-y-auto p-4 print:overflow-visible print:h-auto">
+                            {isUser && (
+                                <div className="mb-6 bg-white border-l-4 border-brand-500 shadow-sm rounded-r-xl p-4">
+                                    {currentUserVig?.status === 'RECUPERADO' && (
+                                        <div className="mt-2 bg-blue-50 text-blue-800 text-xs p-2 rounded border border-blue-200">
+                                            ℹ️ <b>Nota:</b> Exibindo escala base (Offline/Backup). Conecte-se para ver atualizações recentes.
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {Object.keys(groupedData).length === 0 && isUser && !currentUserVig && (
+                                <div className="p-8 text-center text-gray-500 bg-white rounded-lg border border-dashed border-gray-300">
+                                    <p>Sua escala para este mês ainda não foi encontrada ou publicada.</p>
+                                </div>
+                            )}
+                            {Object.keys(groupedData).sort().map(campus => {
+                                const currentConflicts = conflicts.filter(c => c.campus === campus);
+                                return (
+                                <div key={campus} className="mb-6 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden break-inside-avoid print:shadow-none print:border-none print:mb-4">
+                                    <div className="bg-brand-50 px-4 py-2 border-b border-brand-100 font-bold text-sm text-brand-800 flex items-center gap-2 print:bg-gray-100 print:border-gray-300 print:text-black"><div className="w-1.5 h-4 bg-gold-500 rounded-full print:bg-black"></div> {campus}</div>
+
+                                    {/* ALERTA DE CONFLITOS (EFETIVO BAIXO) - Exibido apenas se for Fiscal ou Master */}
+                                    {currentConflicts.length > 0 && (isFiscal || isMaster) && (
+                                        <div className="bg-red-50 border-b border-red-200 p-3 print:hidden animate-fade-in">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <span className="text-xl">⚠️</span>
+                                                <span className="font-bold text-xs text-red-800 uppercase tracking-wider">
+                                                    Alerta de Efetivo Baixo (Regra 50%)
+                                                </span>
+                                            </div>
+                                            <div className="flex flex-wrap gap-2">
+                                                {currentConflicts.map((c, idx) => (
+                                                    <div key={idx} className="bg-white border border-red-200 rounded-lg p-2 flex items-center gap-3 shadow-sm">
+                                                        <div className="flex flex-col items-center leading-none border-r border-red-100 pr-3">
+                                                            <span className="text-[10px] text-red-400 font-bold uppercase">Dia</span>
+                                                            <span className="text-lg font-black text-red-700">{c.dia}</span>
+                                                        </div>
+                                                        <div className="flex flex-col">
+                                                            <div className="flex items-center gap-1">
+                                                                <span className="text-xs text-red-800 font-bold">Equipe</span>
+                                                                <Badge team={c.equipe} />
+                                                            </div>
+                                                            <span className="text-[9px] text-red-500">{c.msg}</span>
+                                                        </div>
+                                                        <button
+                                                            onClick={() => handleOpenCoverage(c.dia, c.campus, c.equipe)}
+                                                            className="ml-1 bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold px-3 py-1.5 rounded shadow-sm transition-all active:scale-95"
+                                                        >
+                                                            RESOLVER
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className="overflow-x-auto print:block print:overflow-visible">
+                                        <table className="w-full text-left text-xs min-w-[600px] md:min-w-0">
+                                            <thead className="bg-slate-50 text-slate-500 border-b border-slate-200 font-medium print:bg-gray-200 print:text-black"><tr><th className="px-4 py-2.5">NOME</th><th className="px-4 py-2.5 w-10 text-center">EQ</th><th className="px-4 py-2.5 w-16">MAT</th><th className="px-4 py-2.5">STATUS / ESCALA</th><th className="px-4 py-2.5 w-24">HORÁRIO</th></tr></thead>
+                                            <tbody className="divide-y divide-slate-100">
+                                                {(groupedData[campus] as (Vigilante & { displayStatus?: any })[]).map((vig, i) => {
+                                                    const isAfastado = vig.campus === 'AFASTADOS';
+                                                    return (
+                                                        <tr key={vig.mat} className={`${isAfastado ? 'bg-amber-50 border-l-4 border-amber-400' : 'even:bg-slate-50 hover:bg-white'} border-b border-slate-100 text-sm print:bg-white print:border-black transition-colors`}>
+                                                            <td className="px-4 py-2.5"><div className="font-bold text-slate-800">{vig.nome}</div><div className="text-[10px] text-slate-500">{vig.setor}</div></td>
+                                                            <td className="px-4 py-2.5 text-center"><Badge team={vig.eq} /></td>
+                                                            <td className="px-4 py-2.5 font-mono text-slate-500 font-medium">{vig.mat}</td>
+                                                            <td className="px-4 py-2.5">
+                                                                {isAfastado ? (<div className="flex justify-between items-center"><span className="font-bold text-amber-900">{vig.status}: {vig.obs}</span>{isFiscal && <Button variant="secondary" className="px-2 py-0.5 text-[10px] h-6 bg-white border border-amber-300 hover:bg-amber-50 print:hidden" onClick={() => handleReturnFromAway(vig)}>Retornar</Button>}</div>) : (<div className="flex flex-wrap items-center gap-x-3 gap-y-1">{filterDay && vig.displayStatus && vig.displayStatus.active && (<div><span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border shadow-sm ${vig.displayStatus.variant === 'success' ? 'bg-green-100 text-green-700 border-green-200' : vig.displayStatus.variant === 'warning' ? 'bg-orange-100 text-orange-700 border-orange-200' : 'bg-gray-100 text-gray-500'}`}>{vig.displayStatus.status}</span></div>)}<div className="leading-tight text-xs"><span className="text-slate-800 font-semibold tracking-tight"><span className="text-[10px] text-slate-400 font-normal mr-1">DIAS:</span>{vig.dias?.join(', ')}</span></div>{vig.folgasGeradas?.length > 0 && (<div><span className="text-[10px] font-black bg-red-100 text-red-700 px-2 py-0.5 rounded border border-red-200 inline-block tracking-wide">FOLGAS: {vig.folgasGeradas.join(', ')}</span></div>)}{vig.vacation && <div className="text-[10px] bg-yellow-100 text-yellow-800 px-1 rounded w-fit border border-yellow-200 font-bold print:border-black print:text-black">FÉRIAS: {vig.vacation.start} a {vig.vacation.end}</div>}{vig.coberturas?.map((c, idx) => { const isInterval = c.tipo === 'INTERVALO'; return (<div key={idx} className={`text-[10px] px-2 py-1 rounded border font-bold flex items-center justify-between gap-2 cursor-pointer hover:opacity-80 transition-opacity max-w-fit ${isInterval ? "bg-orange-100 text-orange-800 border-orange-200" : "bg-blue-100 text-blue-800 border-blue-200"}`} onClick={() => handleRemoveCoverage(vig, c.dia)}><div className="flex flex-col leading-tight"><span className="uppercase text-[9px] opacity-75">{isInterval ? 'COB. INTERVALO' : c.tipo}</span><span>Dia {c.dia} ➜ {c.local}</span></div><div className="bg-white/50 rounded-full p-0.5 hover:bg-red-500 hover:text-white transition-colors"><Icons.X /></div></div>) })}</div>)}
+                                                            </td>
+                                                            <td className="px-4 py-2.5 text-[10px] text-slate-500"><div className="font-bold">{vig.horario}</div><div>Ref: {vig.refeicao}</div></td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                );
+                            })}
+                        </div>
+                    </div>
                 )}
 
                 {/* --- LANÇADOR VIEW --- */}
                 {view === 'lancador' && (
-                    <LancadorView 
-                        showMobileEditor={showMobileEditor} setShowMobileEditor={setShowMobileEditor}
-                        currentLabel={currentLabel} user={user}
-                        selectedLancadorTeam={selectedLancadorTeam} setSelectedLancadorTeam={setSelectedLancadorTeam}
-                        lancadorSearch={lancadorSearch} setLancadorSearch={setLancadorSearch}
-                        editingVig={editingVig} setEditingVig={setEditingVig}
-                        lancadorSummary={lancadorSummary} lancadorList={lancadorList}
-                        timeInputs={timeInputs} setTimeInputs={setTimeInputs}
-                        editorMode={editorMode} setEditorMode={setEditorMode}
-                        handleSaveEditor={handleSaveEditor} handleDeleteVigilante={handleDeleteVigilante}
-                        handleToggleDay={handleToggleDay} handleToggleVacation={handleToggleVacation}
-                        setIsNewVigModalOpen={setIsNewVigModalOpen} handleSmartSuggest={handleSmartSuggest}
-                        month={month}
-                    />
+                    <div className="flex flex-1 h-full overflow-hidden bg-slate-100 relative print:h-auto print:overflow-visible">
+                        <div className={`w-full md:w-[380px] bg-white border-r border-slate-200 flex flex-col shadow-xl z-20 shrink-0 h-full absolute md:relative top-0 left-0 bottom-0 transition-transform duration-300 ease-in-out ${showMobileEditor ? 'translate-x-0' : '-translate-x-full md:translate-x-0'} print:hidden`}>
+                            <div className="bg-slate-800 text-white p-4 text-center border-b border-slate-700 relative shrink-0"><button onClick={() => setShowMobileEditor(false)} className="absolute left-4 top-1/2 -translate-y-1/2 md:hidden text-slate-300 hover:text-white p-2 rounded-full hover:bg-white/10"><span className="text-xl font-bold">←</span></button><div className="text-[10px] font-bold opacity-60 uppercase tracking-widest">EDITANDO:</div><div className="text-xl font-black tracking-tight">{currentLabel}</div></div>
+                            <div className="p-4 bg-slate-50 border-b border-slate-200 space-y-3 shrink-0">
+                                {user?.role !== 'FISCAL' && (
+                                    <div><label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">1. Filtrar Equipe:</label><Select value={selectedLancadorTeam} onChange={e => setSelectedLancadorTeam(e.target.value)} className="bg-white shadow-sm"><option value="TODAS">-- Todas --</option>{TEAM_OPTIONS.map(t => <option key={t} value={t}>Equipe {t}</option>)}</Select></div>
+                                )}
+                                <div><label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">2. Buscar Nome:</label><Input placeholder="Digite para filtrar a lista..." value={lancadorSearch} onChange={e => setLancadorSearch(e.target.value)} className="bg-white shadow-sm" /></div></div>
+                            <div className="flex-1 overflow-y-auto p-4 bg-slate-100 min-h-0">
+                                {editingVig ? (
+                                    <div className="bg-white rounded-xl shadow-md border border-brand-200 overflow-hidden animate-fade-in"><div className="bg-white p-4 border-b border-slate-100 text-center"><h3 className="font-bold text-lg text-brand-800 leading-tight">{editingVig.nome}</h3><div className="text-xs text-slate-500 mt-1">{editingVig.mat} | Eq <Badge team={editingVig.eq} /></div>{((editingVig.folgasGeradas || []).filter(f => !(editingVig.dias || []).includes(f)).length > 0) && (<div className="mt-2 text-xs font-bold text-red-600">Folgas Extras: {(editingVig.folgasGeradas || []).filter(f => !(editingVig.dias || []).includes(f)).length}</div>)}</div><div className="p-4 space-y-4"><div><label className="text-[10px] font-bold text-slate-700 block mb-1">Setor:</label><Input list="sector-options" value={editingVig.setor} onChange={e => setEditingVig({...editingVig, setor: e.target.value.toUpperCase()})} className="h-8 text-xs" /><datalist id="sector-options">{SECTOR_OPTIONS.map(s => <option key={s} value={s} />)}</datalist></div><div><label className="text-[10px] font-bold text-slate-700 block mb-1">Horário:</label><div className="flex items-center gap-2"><input type="time" className="flex-1 border rounded p-1.5 text-xs text-center font-bold" value={timeInputs.hStart} onChange={e => setTimeInputs({...timeInputs, hStart: e.target.value})} /><span className="text-[10px] font-bold text-slate-400">às</span><input type="time" className="flex-1 border rounded p-1.5 text-xs text-center font-bold" value={timeInputs.hEnd} onChange={e => setTimeInputs({...timeInputs, hEnd: e.target.value})} /></div></div><div><label className="text-[10px] font-bold text-slate-700 block mb-1">Refeição:</label><div className="flex items-center gap-2"><input type="time" className="flex-1 border rounded p-1.5 text-xs text-center font-bold" value={timeInputs.rStart} onChange={e => setTimeInputs({...timeInputs, rStart: e.target.value})} /><span className="text-[10px] font-bold text-slate-400">às</span><input type="time" className="flex-1 border rounded p-1.5 text-xs text-center font-bold" value={timeInputs.rEnd} onChange={e => setTimeInputs({...timeInputs, rEnd: e.target.value})} /></div></div><div><label className="text-[10px] font-bold text-slate-700 block mb-1">Campus:</label><select className="w-full text-xs border rounded p-1.5 bg-white" value={editingVig.campus} onChange={e => setEditingVig({...editingVig, campus: e.target.value})}><option>CAMPUS I - DIURNO</option><option>CAMPUS I - NOTURNO</option><option>CAMPUS II - DIURNO</option><option>CAMPUS II - NOTURNO</option><option>CAMPUS III - DIURNO</option><option>CAMPUS III - NOTURNO</option><option>CHÁCARA DA REITORIA</option><option>LABORATÓRIO</option><option>OUTROS</option></select></div>
+                                    <div className="border-t border-slate-100 pt-2 pb-1">
+                                        <div className="flex bg-slate-100 rounded-lg p-1 gap-1">
+                                            <button onClick={() => setEditorMode('days')} className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${editorMode === 'days' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>📅 DIAS</button>
+                                            <button onClick={() => setEditorMode('vacation')} className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${editorMode === 'vacation' ? 'bg-amber-100 text-amber-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>🏖️ FÉRIAS</button>
+                                        </div>
+                                    </div>
+                                    {renderCalendarGrid(editingVig)}<div className="flex flex-col gap-2 pt-2 border-t border-slate-100"><div className="flex gap-2"><Button onClick={() => {setEditingVig(null); setShowMobileEditor(false);}} variant="secondary" className="flex-1 h-8 text-xs">Cancelar</Button><Button onClick={handleSaveEditor} className="flex-1 h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-md">SALVAR</Button></div><Button onClick={handleDeleteVigilante} className="w-full h-8 text-xs bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 font-bold">EXCLUIR VIGILANTE</Button></div></div></div>
+                                ) : (<div className="h-full flex flex-col items-center justify-center text-slate-400 p-8 text-center border-2 border-dashed border-slate-200 rounded-xl"><div className="text-4xl mb-2">⬅️</div><div className="text-sm font-bold">Selecione um nome na lista ao lado para editar</div></div>)}
+                            </div>
+                        </div>
+                        <div className="flex-1 flex flex-col bg-white overflow-hidden h-full relative z-10 w-full print:overflow-visible print:h-auto">
+                            <div className="flex items-center gap-4 p-3 bg-white border-b border-slate-200 shadow-sm shrink-0 print:hidden">
+                                <div className="flex-1 flex gap-2 overflow-x-auto no-scrollbar"><div className="bg-slate-100 px-3 py-1 rounded text-xs font-bold text-slate-600 border border-slate-200 whitespace-nowrap">Total {lancadorSummary.total}</div><div className="bg-green-50 px-3 py-1 rounded text-xs font-bold text-green-600 border border-green-200 whitespace-nowrap">Ok {lancadorSummary.ok}</div><div className="bg-orange-50 px-3 py-1 rounded text-xs font-bold text-orange-500 border border-orange-200 whitespace-nowrap">Pend {lancadorSummary.pending}</div></div>
+                                <Button onClick={() => setIsNewVigModalOpen(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-8 shadow-sm whitespace-nowrap px-3 flex items-center gap-1">➕ Novo</Button>
+                                <Button onClick={handleSmartSuggest} className="bg-purple-600 hover:bg-purple-700 text-white text-xs h-8 shadow-sm whitespace-nowrap">⚡ Sugerir</Button>
+                            </div>
+                            <div className="flex-1 overflow-y-auto p-4 bg-slate-50 min-h-0 print:overflow-visible print:h-auto print:bg-white"><div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden print:border-none print:shadow-none"><table className="w-full text-left text-xs"><thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200 sticky top-0 z-10 print:static print:bg-gray-200 print:text-black"><tr><th className="px-4 py-3 w-32">STATUS</th><th className="px-4 py-3">NOME</th><th className="px-4 py-3 w-16 text-center">EQ</th><th className="px-4 py-3">SETOR</th></tr></thead><tbody className="divide-y divide-slate-100">{lancadorList.map(vig => (<tr key={vig.mat} onClick={() => setEditingVig(vig)} className={`cursor-pointer transition-colors ${editingVig?.mat === vig.mat ? 'bg-blue-50 border-l-4 border-l-blue-500' : 'hover:bg-slate-50 even:bg-slate-50'} ${vig.manualLock ? 'bg-white' : 'bg-orange-50/30'}`}><td className="px-4 py-3 font-bold">{vig.manualLock ? (<span className="flex items-center gap-1 text-slate-700"><span className="text-lg">👤</span> OK</span>) : (<span className="flex items-center gap-1 text-orange-500"><span className="text-lg">⏳</span> Pendente</span>)}</td><td className="px-4 py-3 font-bold text-slate-800">{vig.nome}</td><td className="px-4 py-3 text-center"><Badge team={vig.eq} /></td><td className="px-4 py-3 text-slate-500">{vig.setor}</td></tr>))}</tbody></table></div></div>
+                        </div>
+                    </div>
                 )}
 
                 {view === 'solicitacoes' && (
@@ -1835,10 +1780,6 @@ function AppContent() {
                                 Simular Escala
                             </label>
                             <label className="flex items-center gap-2 cursor-pointer bg-white p-2 rounded border border-slate-200 hover:bg-blue-50">
-                                <input type="checkbox" checked={formPermissions.canGenerateNextMonth} onChange={() => setFormPermissions({...formPermissions, canGenerateNextMonth: !formPermissions.canGenerateNextMonth})} />
-                                Gerar Próximo Mês
-                            </label>
-                            <label className="flex items-center gap-2 cursor-pointer bg-white p-2 rounded border border-slate-200 hover:bg-blue-50">
                                 <input type="checkbox" checked={(formPermissions as any).canViewCFTV} onChange={() => setFormPermissions({...formPermissions, canViewCFTV: !(formPermissions as any).canViewCFTV} as any)} />
                                 Acesso CFTV (Monitoramento)
                             </label>
@@ -1882,6 +1823,69 @@ function AppContent() {
                         </div>
                     </div>
                 </div>
+            </Modal>
+
+            {/* Reset Schedule Modal (Master Only) */}
+            <Modal title="Restaurar Escala (Correção de Erros)" isOpen={isResetModalOpen} onClose={closeResetModal}>
+                {resetStep === 'team' ? (
+                    <div className="space-y-4">
+                        <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200 text-yellow-800 text-sm">
+                            <h4 className="font-bold flex items-center gap-2 mb-2"><span className="text-xl">1️⃣</span> Passo 1: Selecione a Equipe</h4>
+                            <p>Escolha a equipe que precisa de correção na escala.</p>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                            {TEAM_OPTIONS.filter(t => t !== 'ADM').map(team => (
+                                <button key={team} onClick={() => handleSelectTeamToReset(team)} className="p-3 border border-slate-200 rounded hover:bg-blue-50 hover:border-blue-300 font-bold text-slate-700 transition-colors">
+                                    Equipe {team}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                ) : (
+                    <div className="space-y-4">
+                        <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 text-blue-800 text-sm">
+                            <h4 className="font-bold flex items-center gap-2 mb-2"><span className="text-xl">2️⃣</span> Passo 2: O que restaurar na Equipe {teamToReset}?</h4>
+                            <p>Marque as opções que deseja reverter para o padrão. As opções não marcadas **não serão alteradas**.</p>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="flex items-center gap-3 p-3 bg-white rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-50">
+                                <input type="checkbox" className="h-5 w-5" checked={resetOptions.days} onChange={() => setResetOptions(o => ({...o, days: !o.days}))} />
+                                <div>
+                                    <span className="font-bold text-slate-700">Restaurar Dias de Trabalho</span>
+                                    <p className="text-xs text-slate-500">Volta a escala para o padrão 12x36 e remove folgas extras.</p>
+                                </div>
+                            </label>
+                            <label className="flex items-center gap-3 p-3 bg-white rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-50">
+                                <input type="checkbox" className="h-5 w-5" checked={resetOptions.vacation} onChange={() => setResetOptions(o => ({...o, vacation: !o.vacation}))} />
+                                <div>
+                                    <span className="font-bold text-slate-700">Remover Todas as Férias</span>
+                                    <p className="text-xs text-slate-500">Apaga os períodos de férias lançados para a equipe.</p>
+                                </div>
+                            </label>
+                            <label className="flex items-center gap-3 p-3 bg-white rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-50">
+                                <input type="checkbox" className="h-5 w-5" checked={resetOptions.tempSchedules} onChange={() => setResetOptions(o => ({...o, tempSchedules: !o.tempSchedules}))} />
+                                <div>
+                                    <span className="font-bold text-slate-700">Remover Horários Temporários</span>
+                                    <p className="text-xs text-slate-500">Exclui todas as edições de horário para dias específicos.</p>
+                                </div>
+                            </label>
+                            <label className="flex items-center gap-3 p-3 bg-white rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-50">
+                                <input type="checkbox" className="h-5 w-5" checked={resetOptions.unlock} onChange={() => setResetOptions(o => ({...o, unlock: !o.unlock}))} />
+                                <div>
+                                    <span className="font-bold text-slate-700">Desbloquear Lançamentos</span>
+                                    <p className="text-xs text-slate-500">Marca todos como "Pendente" para forçar uma nova revisão.</p>
+                                </div>
+                            </label>
+                        </div>
+
+                        <div className="flex gap-2 pt-2 border-t border-slate-200 mt-4">
+                            <Button variant="secondary" onClick={() => setResetStep('team')} className="flex-1">Voltar</Button>
+                            <Button onClick={handleSelectiveReset} className="flex-1 bg-red-600 hover:bg-red-700 text-white">Aplicar Correção</Button>
+                        </div>
+                    </div>
+                )}
             </Modal>
 
             {/* Toast Container */}
