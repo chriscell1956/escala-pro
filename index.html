@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="light">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Escala de Segurança Pro</title>
+    <!-- Tailwind via CDN for simplicity in this setup, though PostCSS is recommended for full prod -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              brand: {
+                50: '#f2fcf5',
+                100: '#e1f8e8',
+                500: '#22c55e',
+                600: '#16a34a',
+                700: '#00693e', /* Unoeste Green */
+                800: '#004b23', /* Unoeste Dark Green */
+                900: '#003318',
+              },
+              gold: {
+                400: '#facc15',
+                500: '#ffcc00', /* Unoeste Gold */
+                600: '#ca8a04',
+              },
+              slate: {
+                850: '#1a1a1a', 
+              }
+            },
+            fontFamily: {
+              sans: ['Inter', 'Segoe UI', 'sans-serif'],
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+      
+      /* Força tema claro para evitar conflitos de leitura em celulares com modo escuro ativado */
+      body { 
+        font-family: 'Inter', sans-serif; 
+        background-color: #f8fafc; 
+        color: #0f172a;
+      }
+      
+      /* ESTILOS DE IMPRESSÃO PROFISSIONAL */
+      @media print {
+        @page { size: landscape; margin: 5mm; }
+        
+        /* Reseta alturas e overflows que quebram a impressão em SPA (React) */
+        html, body, #root, main, .h-screen, .overflow-hidden, .overflow-y-auto {
+          height: auto !important;
+          min-height: 0 !important;
+          overflow: visible !important;
+          display: block !important;
+          position: static !important;
+        }
+
+        /* Esconde elementos de navegação e controle */
+        header, .no-print, button, .print\:hidden, input, select {
+          display: none !important;
+        }
+
+        /* Força fundo branco e texto preto para economia e legibilidade */
+        body {
+          background-color: white !important;
+          color: black !important;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+
+        /* Melhorias nas tabelas */
+        table {
+          width: 100% !important;
+          border-collapse: collapse !important;
+          font-size: 10px !important; /* Fonte menor para caber mais */
+        }
+        
+        thead { display: table-header-group; }
+        tr { page-break-inside: avoid; }
+        
+        th, td {
+          border: 1px solid #ccc !important;
+          padding: 4px !important;
+        }
+
+        /* Garante que tabelas zebradas apareçam na impressão */
+        tr:nth-child(even) {
+          background-color: #f3f4f6 !important; /* Slate-100 */
+        }
+
+        /* Cards e containers */
+        .bg-white, .shadow-sm, .rounded-xl {
+          box-shadow: none !important;
+          border-radius: 0 !important;
+          border: none !important;
+        }
+      }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "vite": "https://aistudiocdn.com/vite@^7.2.6",
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/",
+    "react/": "https://aistudiocdn.com/react@^19.2.1/",
+    "react": "https://aistudiocdn.com/react@^19.2.1",
+    "path": "https://aistudiocdn.com/path@^0.12.7",
+    "fs": "https://aistudiocdn.com/fs@^0.0.1-security",
+    "@supabase/supabase-js": "https://aistudiocdn.com/@supabase/supabase-js@^2.86.2"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+<body>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+</body>
+</html>
