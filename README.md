@@ -1,20 +1,45 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# 🚀 Escala de Segurança Pro
 
-# Run and deploy your AI Studio app
+Sistema de gestão de escalas, intervalos e solicitações para equipes de segurança, desenvolvido com React, Vite e TypeScript.
 
-This contains everything you need to run your app locally.
+## ✨ Funcionalidades Principais
 
-View your app in AI Studio: https://ai.studio/apps/drive/1BjP3Tu6xOJFayZbbKWyuz64bjCDOOKoH
+- **Gestão de Escalas**: Visualização e edição de escalas mensais.
+- **Fluxo de Aprovação**: Fiscais planejam em rascunho e enviam para aprovação do supervisor.
+- **Painel de Intervalos**: Controle em tempo real dos intervalos da equipe.
+- **Solicitações de Folga**: Fluxo de pedido e aprovação de folgas.
+- **Níveis de Acesso**: Perfis de Usuário, Fiscal e Master com permissões distintas.
+- **Modo Offline**: O sistema utiliza o banco local como fallback em caso de falha de conexão.
 
-## Run Locally
+---
 
-**Prerequisites:**  Node.js
+## 🛠️ Como Rodar o Projeto Localmente
 
+### Pré-requisitos
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+- [Node.js](https://nodejs.org/) (versão 20 ou superior)
+- [Git](https://git-scm.com/)
+
+### Passos
+
+1. **Clone o repositório:**
+   ```sh
+   git clone https://github.com/chriscell1956/escala.git
+   ```
+
+2. **Navegue até a pasta do projeto:**
+   ```sh
+   cd escala
+   ```
+
+3. **Instale as dependências:**
+   ```sh
+   npm install
+   ```
+
+4. **Inicie o servidor de desenvolvimento:**
+   ```sh
+   npm run dev
+   ```
+
+5. Abra [http://localhost:5173](http://localhost:5173) no seu navegador para ver o sistema.
