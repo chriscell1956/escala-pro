@@ -48,7 +48,6 @@ export const AppHeader = React.memo((props: AppHeaderProps) => {
                 <div className="flex items-center gap-3">
                     <UnoesteSecurityLogo className="w-8 h-10 sm:w-10 sm:h-12" />
                     <div className="leading-tight hidden sm:block">
-                        <h1 className="font-bold text-xl tracking-tight text-white">SEGURANÇA</h1>
                         <div className={`text-[10px] font-bold tracking-wider uppercase ${isFutureMonth || viewingDraft ? 'text-red-200' : 'text-gold-400'}`}>VIGILÂNCIA UNIVERSITÁRIA</div>
                     </div>
                     <div className="leading-tight sm:hidden block">
@@ -59,21 +58,21 @@ export const AppHeader = React.memo((props: AppHeaderProps) => {
                 <div className="flex items-center gap-2 sm:gap-3">
                     {/* BARRA DE PROGRESSO (TERMÔMETRO) - Sempre visível para Master */}
                     {isMaster && (
-                        <div className="hidden xl:flex items-center gap-2 bg-black/20 px-3 py-1 rounded-lg border border-white/10 mr-2 backdrop-blur-sm">
-                            <span className={`text-[9px] uppercase font-bold tracking-wider ${isFutureMonth || viewingDraft ? 'text-red-200' : 'text-gold-200'}`}>Progresso:</span>
+                        <div className="hidden xl:flex items-center gap-2 bg-white/10 px-3 h-8 rounded-lg border border-white/30 mr-2 backdrop-blur-sm shadow-sm">
+                            <span className={`text-[10px] uppercase font-bold tracking-wider ${isFutureMonth || viewingDraft ? 'text-red-200' : 'text-gold-200'}`}>Prog:</span>
                             {TEAM_OPTIONS.filter(t => t !== 'ADM').map(t => {
                                 const st = teamsStatus[t];
                                 const colorClass = st.ready 
                                     ? 'bg-green-500 text-white shadow-[0_0_10px_rgba(34,197,94,0.6)]' 
                                     : st.percent > 90 
-                                        ? 'bg-blue-500 text-white animate-pulse' 
+                                        ? 'bg-orange-500 text-white animate-pulse' 
                                         : st.percent > 40 
                                             ? 'bg-yellow-500 text-black' 
                                             : 'bg-white/10 text-slate-300';
 
                                 return (
                                     <div key={t} className="flex flex-col items-center group cursor-help relative">
-                                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded min-w-[30px] text-center transition-all ${colorClass}`}>
+                                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded min-w-[35px] text-center transition-all ${colorClass}`}>
                                             {t}: {st.percent}%
                                         </span>
                                         <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-black text-white text-[9px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none z-50">
@@ -105,18 +104,30 @@ export const AppHeader = React.memo((props: AppHeaderProps) => {
                         </div>
                     ) : (
                         <div className="flex gap-1 sm:gap-2">
-                            <Button className="!bg-white/10 !text-white border !border-white/30 hover:!bg-white/20 shadow-sm backdrop-blur-sm text-xs h-9" onClick={() => setIsHelpModalOpen(true)} title="Ajuda"><span className="hidden md:inline mr-1 font-bold">Ajuda</span><span>❓</span></Button>
-                            {canEnterSimulation && (<Button className="!bg-white/10 !text-white border !border-white/30 hover:!bg-white/20 shadow-sm backdrop-blur-sm text-xs font-black uppercase tracking-wide h-9" onClick={() => setIsSimulationMode(true)} title="Modo Edição"><Icons.Edit /> <span className="hidden md:inline ml-1">EDITAR</span></Button>)}
-                            {canPrint && (<Button className="!bg-white/10 !text-white border !border-white/30 hover:!bg-white/20 shadow-sm backdrop-blur-sm text-xs font-bold uppercase tracking-wide h-9" onClick={() => window.print()} title="Imprimir"><Icons.Printer /> <span className="hidden md:inline ml-1">IMPRIMIR</span></Button>)}
-                            {isMaster && (<><Button variant="secondary" className="!p-2 text-brand-800 border-brand-200 h-9" onClick={handleExport} title="Baixar Backup"><span className="hidden md:inline font-bold text-[10px] tracking-wide">BAIXAR</span><span className="md:hidden"><Icons.Download /></span></Button><Button variant="secondary" className="!p-2 text-brand-800 border-brand-200 h-9" onClick={() => fileInputRef.current?.click()} title="Restaurar"><span className="hidden md:inline font-bold text-[10px] tracking-wide">IMPORTAR</span><span className="md:hidden"><Icons.Upload /></span></Button></>)}
-                            {canViewLogs && (<Button variant="secondary" className="!p-2 text-brand-800 border-brand-200 h-9" onClick={() => setIsLogModalOpen(true)} title="Logs"><span className="hidden md:inline font-bold text-[10px] tracking-wide">LOGS</span><span className="md:hidden"><Icons.History /></span></Button>)}
-                            {isMaster && (<Button variant="secondary" className="!p-2 text-brand-800 border-brand-200 bg-gold-400 hover:bg-gold-500 border-none hidden sm:flex h-9" onClick={() => setIsUserMgmtModalOpen(true)} title="Gestão de Usuários"><span className="hidden md:inline font-bold text-[10px] tracking-wide">USUÁRIOS</span><span className="md:hidden"><Icons.Users /></span></Button>)}
+                            <Button className="!bg-white/10 !text-white border !border-white/30 hover:!bg-white/20 shadow-sm backdrop-blur-sm text-[10px] h-8 px-2 font-bold uppercase tracking-wide" onClick={() => setIsHelpModalOpen(true)} title="Ajuda"><span className="hidden md:inline mr-1">Ajuda</span><span>❓</span></Button>
+                            {canEnterSimulation && (<Button className="!bg-white/10 !text-white border !border-white/30 hover:!bg-white/20 shadow-sm backdrop-blur-sm text-[10px] h-8 px-2 font-bold uppercase tracking-wide" onClick={() => setIsSimulationMode(true)} title="Modo Edição"><Icons.Edit /> <span className="hidden md:inline ml-1">EDITAR</span></Button>)}
+                            {canPrint && (<Button className="!bg-white/10 !text-white border !border-white/30 hover:!bg-white/20 shadow-sm backdrop-blur-sm text-[10px] h-8 px-2 font-bold uppercase tracking-wide" onClick={() => window.print()} title="Imprimir"><Icons.Printer /> <span className="hidden md:inline ml-1">IMPRIMIR</span></Button>)}
+                            {isMaster && (<><Button className="!bg-white/10 !text-white border !border-white/30 hover:!bg-white/20 shadow-sm backdrop-blur-sm text-[10px] h-8 px-2 font-bold uppercase tracking-wide" onClick={handleExport} title="Baixar Backup"><span className="hidden md:inline">BAIXAR</span><span className="md:hidden"><Icons.Download /></span></Button><Button className="!bg-white/10 !text-white border !border-white/30 hover:!bg-white/20 shadow-sm backdrop-blur-sm text-[10px] h-8 px-2 font-bold uppercase tracking-wide" onClick={() => fileInputRef.current?.click()} title="Restaurar"><span className="hidden md:inline">IMPORTAR</span><span className="md:hidden"><Icons.Upload /></span></Button></>)}
+                            {canViewLogs && (<Button className="!bg-white/10 !text-white border !border-white/30 hover:!bg-white/20 shadow-sm backdrop-blur-sm text-[10px] h-8 px-2 font-bold uppercase tracking-wide" onClick={() => setIsLogModalOpen(true)} title="Logs"><span className="hidden md:inline">LOGS</span><span className="md:hidden"><Icons.History /></span></Button>)}
+                            {isMaster && (<Button className="!bg-white/10 !text-white border !border-white/30 hover:!bg-white/20 shadow-sm backdrop-blur-sm text-[10px] h-8 px-2 font-bold uppercase tracking-wide hidden sm:flex" onClick={() => setIsUserMgmtModalOpen(true)} title="Gestão de Usuários"><span className="hidden md:inline">USUÁRIOS</span><span className="md:hidden"><Icons.Users /></span></Button>)}
                         </div>
                     )}
                     <div className="h-8 w-px bg-white/20 mx-1 hidden sm:block"></div>
                     <div className="flex flex-col items-end">
                         <div className="flex items-center gap-1">
-                            {viewingDraft ? (<span className="text-[10px] font-bold bg-gray-500 text-white px-1.5 rounded animate-pulse">RASCUNHO</span>) : isFutureMonth ? (<span className="text-[10px] font-bold bg-red-600 text-white px-1.5 rounded">FUTURO</span>) : (<span className="text-[10px] font-bold bg-green-500 text-white px-1.5 rounded">VIGENTE</span>)}
+                            {viewingDraft ? (
+                                <div className="text-[10px] font-bold px-2 py-0.5 rounded border inline-flex items-center gap-1 bg-slate-800 border-slate-500 text-slate-300 animate-pulse whitespace-nowrap">
+                                    <span>📝</span> RASCUNHO
+                                </div>
+                            ) : isFutureMonth ? (
+                                <div className="text-[10px] font-bold px-2 py-0.5 rounded border inline-flex items-center gap-1 bg-red-900/40 border-red-400 text-red-100 whitespace-nowrap">
+                                    <span>🚀</span> FUTURO
+                                </div>
+                            ) : (
+                                <div className="text-[10px] font-bold px-2 py-0.5 rounded border inline-flex items-center gap-1 bg-emerald-900/40 border-emerald-400 text-emerald-100 whitespace-nowrap">
+                                    <span>🛡️</span> VIGENTE
+                                </div>
+                            )}
                             <div className="flex items-center bg-black/20 rounded-lg p-0.5">
                                 <select value={month} onChange={(e) => setMonth(Number(e.target.value))} className="bg-transparent border-none text-white text-sm px-2 py-1 outline-none cursor-pointer font-bold appearance-none">
                                     {monthOptions.map((opt: any) => <option key={opt.value} value={opt.value} className="text-black">{opt.label}</option>)}
@@ -127,8 +138,11 @@ export const AppHeader = React.memo((props: AppHeaderProps) => {
                             </div>
                         </div>
                     </div>
-                    <div className="hidden lg:flex flex-col items-end text-right mr-1 cursor-pointer hover:opacity-80 transition-opacity" onClick={() => setIsPasswordModalOpen(true)} title="Alterar Senha"><span className="text-xs font-bold text-white flex items-center gap-1">{user.nome.split(' ')[0]} <span className="bg-black/30 px-1 rounded text-[9px] uppercase">{user.role}</span></span></div>
-                    <button onClick={handleLogout} className="bg-black/20 hover:bg-red-600 text-white p-2 rounded-lg border border-white/10 ml-1 transition-colors" title="Sair"><Icons.X /></button>
+                    <div className="hidden lg:flex flex-col items-end text-right mr-1 cursor-pointer hover:opacity-80 transition-opacity" onClick={() => setIsPasswordModalOpen(true)} title="Alterar Senha">
+                        <span className="text-xs font-bold text-white leading-tight">{user.nome.split(' ')[0]}</span>
+                        <span className="bg-black/30 px-1 rounded text-[9px] uppercase mt-0.5">{user.role}</span>
+                    </div>
+                    <button onClick={handleLogout} className="bg-black/20 hover:bg-red-600 text-white p-2 rounded-lg border border-white/10 ml-1 transition-colors" title="Sair"><Icons.LogOut /></button>
                 </div>
             </div>
             {(viewingDraft) && (<div className="bg-red-800 text-red-100 text-center text-xs font-bold py-1 uppercase tracking-widest shadow-inner border-t border-red-700 flex items-center justify-center gap-2"><span>📝 Você está visualizando/editando um RASCUNHO (Não visível para usuários)</span></div>)}

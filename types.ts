@@ -32,6 +32,8 @@ export interface Vigilante {
   
   // App State properties
   dias: number[]; // Array of days working in the current month
+  faltas?: number[];
+  saidasAntecipadas?: number[];
   status?: 'PENDENTE' | 'AUTO_OK' | 'MANUAL_OK' | string;
   manualLock: boolean;
   folgasGeradas: number[];
