@@ -2917,6 +2917,173 @@ function AppContent() {
             )}
           </div>
         )}
+
+        {/* --- CFTV MONITORING VIEW (NOVO) --- */}
+        {view === "cftv" && (
+          <div className="flex flex-col h-full bg-slate-900 p-4 overflow-y-auto">
+            <div className="mb-6 flex justify-between items-center">
+              <h2 className="text-xl font-black text-white tracking-tight flex items-center gap-2">
+                <span className="text-2xl animate-pulse">🔴</span> Central de
+                Monitoramento (CFTV)
+              </h2>
+              <div className="text-slate-400 text-xs font-mono">
+                Atualização em Tempo Real
+              </div>
+            </div>
+
+            {/* Dashboard Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+              {(() => {
+                const active = intervalData.list.filter(
+                  (v) => !v.isOnBreak,
+                ).length;
+                const covered = intervalData.list.filter(
+                  (v) => v.isOnBreak && v.isCovered,
+                ).length;
+                const attention = intervalData.list.filter(
+                  (v) =>
+                    v.isOnBreak &&
+                    !v.isCovered &&
+                    (v.risk === "YELLOW" || v.risk === "ORANGE"),
+                ).length;
+                const critical = intervalData.list.filter(
+                  (v) => v.isOnBreak && !v.isCovered && v.risk === "RED",
+                ).length;
+
+                return (
+                  <>
+                    <div
+                      onClick={() => setCftvFilter("ACTIVE")}
+                      className={`cursor-pointer p-4 rounded-xl border-l-4 border-l-blue-500 bg-slate-800 hover:bg-slate-700 transition-all ${cftvFilter === "ACTIVE" ? "ring-2 ring-blue-500" : ""}`}
+                    >
+                      <div className="text-[10px] font-bold text-blue-400 uppercase tracking-wider mb-1">
+                        NO POSTO (AZUL)
+                      </div>
+                      <div className="text-3xl font-black text-white">
+                        {active}
+                      </div>
+                      <div className="text-[10px] text-slate-400 mt-1">
+                        Monitorar Atividade
+                      </div>
+                    </div>
+                    <div
+                      onClick={() => setCftvFilter("COVERED")}
+                      className={`cursor-pointer p-4 rounded-xl border-l-4 border-l-emerald-500 bg-slate-800 hover:bg-slate-700 transition-all ${cftvFilter === "COVERED" ? "ring-2 ring-emerald-500" : ""}`}
+                    >
+                      <div className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider mb-1">
+                        COBERTOS (VERDE)
+                      </div>
+                      <div className="text-3xl font-black text-white">
+                        {covered}
+                      </div>
+                      <div className="text-[10px] text-slate-400 mt-1">
+                        Postos Mantidos
+                      </div>
+                    </div>
+                    <div
+                      onClick={() => setCftvFilter("ATTENTION")}
+                      className={`cursor-pointer p-4 rounded-xl border-l-4 border-l-orange-500 bg-slate-800 hover:bg-slate-700 transition-all ${cftvFilter === "ATTENTION" ? "ring-2 ring-orange-500" : ""}`}
+                    >
+                      <div className="text-[10px] font-bold text-orange-400 uppercase tracking-wider mb-1">
+                        ATENÇÃO (LARANJA)
+                      </div>
+                      <div className="text-3xl font-black text-white">
+                        {attention}
+                      </div>
+                      <div className="text-[10px] text-slate-400 mt-1">
+                        Risco Médio
+                      </div>
+                    </div>
+                    <div
+                      onClick={() => setCftvFilter("CRITICAL")}
+                      className={`cursor-pointer p-4 rounded-xl border-l-4 border-l-red-600 bg-slate-800 hover:bg-slate-700 transition-all ${cftvFilter === "CRITICAL" ? "ring-2 ring-red-600" : ""}`}
+                    >
+                      <div className="text-[10px] font-bold text-red-500 uppercase tracking-wider mb-1">
+                        CRÍTICO (VERMELHO)
+                      </div>
+                      <div className="text-3xl font-black text-white">
+                        {critical}
+                      </div>
+                      <div className="text-[10px] text-slate-400 mt-1">
+                        Focar Câmeras Aqui
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+
+            {/* List View */}
+            <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+              <div className="bg-slate-950/50 px-4 py-3 border-b border-slate-700 flex justify-between items.center">
+                <h3 className="font-bold text-white text-sm uppercase">
+                  {cftvFilter === "ALL"
+                    ? "Visão Geral"
+                    : cftvFilter === "ACTIVE"
+                      ? "Vigilantes no Posto (Azul)"
+                      : cftvFilter === "COVERED"
+                        ? "Postos Cobertos (Verde)"
+                        : cftvFilter === "ATTENTION"
+                          ? "Setores em Atenção (Laranja)"
+                          : "Setores Críticos (Vermelho)"}
+                </h3>
+                <button
+                  onClick={() => setCftvFilter("ALL")}
+                  className="text-[10px] text-slate-400 hover:text-white underline"
+                >
+                  Ver Todos
+                </button>
+              </div>
+              <div className="divide-y divide-slate-700 max-h-[50vh] overflow-y-auto">
+                {intervalData.list
+                  .filter((v) => {
+                    if (cftvFilter === "ALL") return true;
+                    if (cftvFilter === "ACTIVE") return !v.isOnBreak;
+                    if (cftvFilter === "COVERED")
+                      return v.isOnBreak && v.isCovered;
+                    if (cftvFilter === "ATTENTION")
+                      return (
+                        v.isOnBreak &&
+                        !v.isCovered &&
+                        (v.risk === "YELLOW" || v.risk === "ORANGE")
+                      );
+                    if (cftvFilter === "CRITICAL")
+                      return v.isOnBreak && !v.isCovered && v.risk === "RED";
+                    return true;
+                  })
+                  .map((v) => (
+                    <div
+                      key={v.mat}
+                      className="p-3 flex items-center justify-between hover:bg-slate-700/50 transition-colors"
+                    >
+                      <div>
+                        <div className="font-bold text-slate-200 text-sm">
+                          {v.effectiveSector}
+                        </div>
+                        <div className="text-[11px] text-slate-500">
+                          {v.nome} • {v.campus}
+                        </div>
+                      </div>
+                      <div
+                        className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${!v.isOnBreak ? "bg-blue-900/50 text-blue-400 border border-blue-800" : v.isCovered ? "bg-emerald-900/50 text-emerald-400 border border-emerald-800" : v.risk === "RED" ? "bg-red-900/50 text-red-400 border border-red-800 animate-pulse" : "bg-orange-900/50 text-orange-400 border border-orange-800"}`}
+                      >
+                        {!v.isOnBreak
+                          ? "NO POSTO"
+                          : v.isCovered
+                            ? `COBERTO: ${v.coveredBy?.split(" ")[0]}`
+                            : "DESCOBERTO"}
+                      </div>
+                    </div>
+                  ))}
+                {intervalData.list.length === 0 && (
+                  <div className="p-8 text-center text-slate-500">
+                    Nenhum dado para exibir neste horário.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </main>
 
       {/* --- MODALS --- */}
