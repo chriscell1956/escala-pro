@@ -53,7 +53,7 @@ const EscalaViewComponent: React.FC<EscalaViewProps> = (props) => {
             <input
               type="text"
               placeholder="Pesquisar..."
-              className="bg-transparent border-none text-sm w-32 md:w-48 focus:outline-none placeholder:text-slate-500 font-medium text-slate-200"
+              className="bg-slate-800 border-none text-sm w-32 md:w-48 focus:outline-none placeholder:text-slate-500 font-bold text-slate-200"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />

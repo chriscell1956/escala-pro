@@ -65,6 +65,7 @@ type IntervalVigilante = Vigilante & {
 
 // Lista de ADMs que não devem aparecer para Fiscais
 const EXCLUDED_ADM_MATS = ["100497", "60931"];
+const CORINGA_MATS = ["76154", "72911"]; // João Galvão e Marcio Pivaro
 
 function AppContent() {
   // --- Auth State ---
@@ -3295,10 +3296,12 @@ function AppContent() {
             value={coverageSearch}
             onChange={(e) => setCoverageSearch(e.target.value)}
             autoFocus
+            className="bg-slate-200 text-slate-900"
           />
           <div className="max-h-60 overflow-y-auto border rounded divide-y">
             {data
               .filter((v) => {
+                const isCoringa = CORINGA_MATS.includes(v.mat);
                 // 1. Não mostrar afastados
                 if (v.campus === "AFASTADOS") return false;
 
@@ -3312,8 +3315,9 @@ function AppContent() {
                   return false;
 
                 // 3. FILTRO DE EQUIPE (Novo): Mostrar apenas vigilantes da MESMA EQUIPE do conflito
-                // para permitir remanejamento interno.
+                // para permitir remanejamento interno, A MENOS que seja um CORINGA.
                 if (
+                  !isCoringa &&
                   coverageTarget?.equipe &&
                   cleanString(v.eq) !== cleanString(coverageTarget.equipe)
                 )
