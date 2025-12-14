@@ -3296,9 +3296,9 @@ function AppContent() {
             value={coverageSearch}
             onChange={(e) => setCoverageSearch(e.target.value)}
             autoFocus
-            className="bg-slate-200 text-slate-900"
+            className="bg-slate-700 text-white border-slate-600"
           />
-          <div className="max-h-60 overflow-y-auto border rounded divide-y">
+          <div className="max-h-60 overflow-y-auto border border-slate-700 rounded divide-y divide-slate-700 bg-slate-900">
             {data
               .filter((v) => {
                 const isCoringa = CORINGA_MATS.includes(v.mat);
@@ -3339,11 +3339,13 @@ function AppContent() {
                 return (
                   <div
                     key={v.mat}
-                    className="p-2 flex justify-between items-center hover:bg-slate-50"
+                    className="p-2 flex justify-between items-center hover:bg-slate-800 transition-colors"
                   >
                     <div>
-                      <div className="font-bold text-sm">{v.nome}</div>
-                      <div className="text-[10px] text-slate-500">
+                      <div className="font-bold text-sm text-slate-200">
+                        {v.nome}
+                      </div>
+                      <div className="text-[10px] text-slate-400">
                         {v.campus} • Eq {v.eq}
                       </div>
                     </div>
@@ -3412,8 +3414,9 @@ function AppContent() {
             value={intervalCoverageSearch}
             onChange={(e) => setIntervalCoverageSearch(e.target.value)}
             autoFocus
+            className="bg-slate-700 text-white border-slate-600"
           />
-          <div className="max-h-60 overflow-y-auto border rounded divide-y">
+          <div className="max-h-60 overflow-y-auto border border-slate-700 rounded divide-y divide-slate-700 bg-slate-900">
             {data
               .filter(
                 (v) =>
@@ -3436,11 +3439,13 @@ function AppContent() {
                 return (
                   <div
                     key={v.mat}
-                    className="p-2 flex justify-between items-center hover:bg-slate-50"
+                    className="p-2 flex justify-between items-center hover:bg-slate-800 transition-colors"
                   >
                     <div>
-                      <div className="font-bold text-sm">{v.nome}</div>
-                      <div className="text-[10px] text-slate-500">
+                      <div className="font-bold text-sm text-slate-200">
+                        {v.nome}
+                      </div>
+                      <div className="text-[10px] text-slate-400">
                         {v.setor}
                       </div>
                     </div>
