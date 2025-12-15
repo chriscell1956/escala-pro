@@ -32,6 +32,7 @@ interface AppHeaderProps {
   >;
   handleSendToSupervision: () => void;
   handleAddNextYear: () => void;
+  isSilentUpdating: boolean;
 }
 
 const AppHeaderComponent: React.FC<AppHeaderProps> = (props) => {
@@ -61,6 +62,7 @@ const AppHeaderComponent: React.FC<AppHeaderProps> = (props) => {
     fileInputRef,
     teamsStatus,
     handleSendToSupervision,
+    isSilentUpdating,
   } = props;
 
   return (
@@ -85,6 +87,12 @@ const AppHeaderComponent: React.FC<AppHeaderProps> = (props) => {
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3">
+          {isSilentUpdating && (
+            <div className="text-xs font-bold text-cyan-300 animate-pulse flex items-center gap-1">
+              <Icons.RefreshCw className="w-3 h-3 animate-spin-slow" />
+              <span>Atualizando...</span>
+            </div>
+          )}
           {/* BARRA DE PROGRESSO (TERMÔMETRO) - Sempre visível para Master */}
           {isMaster && (
             <div className="hidden xl:flex items-center gap-2 bg-white/10 px-3 h-8 rounded-lg border border-white/30 mr-2 backdrop-blur-sm shadow-sm">

@@ -80,6 +80,7 @@ function AppContent() {
     online: boolean;
     message: string;
   }>({ online: false, message: "Verificando conexão..." });
+  const [isSilentUpdating, setIsSilentUpdating] = useState(false);
 
   // --- App State ---
   // FIX: Inicia com o mês atual baseado na data do sistema
@@ -522,7 +523,11 @@ function AppContent() {
   };
 
   const loadDataForMonth = async (m: number, isSilent = false) => {
-    if (!isSilent) setIsLoading(true);
+    if (!isSilent) {
+      setIsLoading(true);
+    } else {
+      setIsSilentUpdating(true); // Ativa o indicador
+    }
     setViewingDraft(false);
 
     const now = new Date();
@@ -553,7 +558,11 @@ function AppContent() {
         // If official data is empty for future, show nothing/placeholder
         if (isFuture) {
           setData([]);
-          if (!isSilent) setIsLoading(false);
+          if (!isSilent) {
+            setIsLoading(false);
+          } else {
+            setTimeout(() => setIsSilentUpdating(false), 500);
+          }
           return;
         }
       }
@@ -795,7 +804,11 @@ function AppContent() {
     }
 
     setData(finalData);
-    if (!isSilent) setIsLoading(false);
+    if (!isSilent) {
+      setIsLoading(false);
+    } else {
+      setTimeout(() => setIsSilentUpdating(false), 500);
+    }
   };
 
   // Modified saveData to handle drafts
@@ -2536,6 +2549,7 @@ function AppContent() {
         fileInputRef={fileInputRef}
         teamsStatus={teamsStatus}
         handleSendToSupervision={handleSendToSupervision}
+        isSilentUpdating={isSilentUpdating}
       />
 
       <div className="bg-slate-900 border-b border-slate-700 p-2 flex flex-col md:flex-row gap-4 print:hidden shadow-sm items-center">
