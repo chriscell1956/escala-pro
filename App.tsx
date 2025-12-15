@@ -3600,7 +3600,7 @@ function AppContent() {
             <div className="flex gap-2">
               <input
                 type="time"
-                className="border rounded p-2 w-full"
+                className="border rounded p-2 w-full bg-slate-700 text-white border-slate-600"
                 value={tempTimeInputs.hStart}
                 onChange={(e) =>
                   setTempTimeInputs({
@@ -3611,7 +3611,7 @@ function AppContent() {
               />
               <input
                 type="time"
-                className="border rounded p-2 w-full"
+                className="border rounded p-2 w-full bg-slate-700 text-white border-slate-600"
                 value={tempTimeInputs.hEnd}
                 onChange={(e) =>
                   setTempTimeInputs({ ...tempTimeInputs, hEnd: e.target.value })
@@ -3621,12 +3621,12 @@ function AppContent() {
           </div>
           <div>
             <label className="text-xs font-bold block mb-1">
-              Novo Intervalo:
+              Novo Intervalo (Início):
             </label>
             <div className="flex gap-2">
               <input
                 type="time"
-                className="border rounded p-2 w-full"
+                className="border rounded p-2 w-full bg-slate-700 text-white border-slate-600"
                 value={tempTimeInputs.rStart}
                 onChange={(e) =>
                   setTempTimeInputs({
