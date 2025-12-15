@@ -889,7 +889,7 @@ function AppContent() {
     let filtered = data.filter((v) => v.campus !== "AFASTADOS");
 
     // Regra Fiscal: Vê apenas sua própria equipe no Lançador
-    if (user?.role === "FISCAL") {
+    if (user?.role === "FISCAL" && !isMaster) {
       // Exclui ADMs específicos
       filtered = filtered.filter((v) => !EXCLUDED_ADM_MATS.includes(v.mat));
 
@@ -919,7 +919,14 @@ function AppContent() {
     }
 
     return filtered.sort((a, b) => a.nome.localeCompare(b.nome));
-  }, [data, selectedLancadorTeam, lancadorSearch, user, currentUserVig]);
+  }, [
+    data,
+    selectedLancadorTeam,
+    lancadorSearch,
+    user,
+    currentUserVig,
+    isMaster,
+  ]);
 
   const lancadorSummary = useMemo(() => {
     const total = lancadorList.length;
