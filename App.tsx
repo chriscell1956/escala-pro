@@ -3285,7 +3285,11 @@ function AppContent() {
                   className="text-xs p-3 rounded-lg border border-slate-100 bg-slate-50 hover:bg-white hover:shadow-sm transition-all"
                 >
                   <div className="flex justify-between text-slate-400 mb-1">
-                    <span>{new Date(log.timestamp).toLocaleString()}</span>
+                    <span>
+                      {new Date(log.timestamp).toLocaleString("pt-BR", {
+                        hour12: false,
+                      })}
+                    </span>
                     <span className="font-bold text-slate-600">{log.user}</span>
                   </div>
                   <div className="font-bold text-slate-800">{log.action}</div>
