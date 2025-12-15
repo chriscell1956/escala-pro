@@ -1501,15 +1501,32 @@ function AppContent() {
     if (data.some((v) => v.mat === newVigForm.mat))
       return alert("Matrícula já existe na escala atual.");
 
+    // --- LÓGICA DE ESPELHAMENTO (BUDDY SYSTEM) ---
+    // Tenta encontrar um "padrinho" na mesma equipe para copiar a escala
+    const teamBuddy = data.find(
+      (v) =>
+        cleanString(v.eq) === cleanString(newVigForm.eq) &&
+        v.campus !== "AFASTADOS",
+    );
+
+    let initialDays: number[] = [];
+
+    if (teamBuddy) {
+      initialDays = [...teamBuddy.dias]; // Copia a escala do padrinho
+    } else {
+      // Fallback se não houver ninguém na equipe (improvável)
+      initialDays = calculateDaysForTeam(newVigForm.eq as Team, month);
+    }
+
     const newVig: Vigilante = {
       nome: newVigForm.nome.toUpperCase(),
-      mat: newVigForm.mat.trim(), // Fix: Trim mat to avoid spaces
+      mat: newVigForm.mat.trim(),
       eq: newVigForm.eq as Team,
       setor: "NOVO",
       campus: "OUTROS",
       horario: "12x36",
       refeicao: "***",
-      dias: calculateDaysForTeam(newVigForm.eq as Team, month),
+      dias: initialDays, // Usa a escala espelhada
       manualLock: false,
       status: "PENDENTE",
       folgasGeradas: [],
@@ -3554,12 +3571,20 @@ function AppContent() {
           />
           <div className="max-h-60 overflow-y-auto border rounded divide-y">
             {data
-              .filter(
-                (v) =>
-                  v.mat !== intervalEditVig?.mat &&
-                  v.campus !== "AFASTADOS" &&
-                  cleanString(v.eq) === cleanString(intervalEditVig?.eq || ""),
-              )
+              .filter((v) => {
+                // Basic checks
+                if (v.mat === intervalEditVig?.mat) return false;
+                if (v.campus === "AFASTADOS") return false;
+
+                // Team Visibility Check
+                if (user?.role === "FISCAL" && currentUserVig) {
+                  const myEq = cleanString(currentUserVig.eq);
+                  const visibleTeams = getVisibleTeams(myEq);
+                  return visibleTeams.includes(cleanString(v.eq));
+                }
+                // Master sees all
+                return true;
+              })
               .filter((v) =>
                 v.nome
                   .toUpperCase()
