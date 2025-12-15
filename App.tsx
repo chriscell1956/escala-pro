@@ -1123,7 +1123,7 @@ function AppContent() {
       if (u.includes("LABORATÓRIO") || u.includes("LIMA")) return "LABORATÓRIO";
       if (u.includes("CHÁCARA")) return "CHÁCARA";
       if (u.includes("COLETA")) return "COLETA";
-      return "OUTROS";
+      return ""; // Alterado de "OUTROS" para "" para ocultar a categoria
     };
     const list =
       intervalCategory === "TODOS"
@@ -1133,8 +1133,12 @@ function AppContent() {
           );
     const grouped: Record<string, IntervalVigilante[]> = {};
     list.forEach((v) => {
-      if (!grouped[v.effectiveCampus]) grouped[v.effectiveCampus] = [];
-      grouped[v.effectiveCampus].push(v);
+      const category = getCategory(v.effectiveCampus);
+      if (category) {
+        // Apenas agrupa se tiver uma categoria válida
+        if (!grouped[category]) grouped[category] = [];
+        grouped[category].push(v);
+      }
     });
     return { list, grouped };
   }, [
@@ -2351,11 +2355,8 @@ function AppContent() {
     const covered = intervalData.list.filter(
       (v) => v.isOnBreak && v.isCovered,
     ).length;
-    const risks = intervalData.list.filter(
-      (v) =>
-        v.isOnBreak &&
-        !v.isCovered &&
-        (v.risk === "RED" || v.risk === "ORANGE"),
+    const uncovered = intervalData.list.filter(
+      (v) => v.isOnBreak && !v.isCovered,
     ).length;
 
     return (
@@ -2401,17 +2402,17 @@ function AppContent() {
               intervalStatusFilter === "RISK" ? "ALL" : "RISK",
             )
           }
-          className={`p-3 border-l-4 cursor-pointer transition-all hover:shadow-md ${risks > 0 ? "border-l-red-500 bg-red-900/50" : "border-l-slate-600 bg-slate-800/50"} ${intervalStatusFilter === "RISK" ? "ring-2 ring-red-500" : ""}`}
+          className={`p-3 border-l-4 cursor-pointer transition-all hover:shadow-md ${uncovered > 0 ? "border-l-red-500 bg-red-900/50" : "border-l-slate-600 bg-slate-800/50"} ${intervalStatusFilter === "RISK" ? "ring-2 ring-red-500" : ""}`}
         >
           <div
-            className={`text-[10px] font-bold uppercase tracking-wider ${risks > 0 ? "text-red-500" : "text-slate-400"}`}
+            className={`text-[10px] font-bold uppercase tracking-wider ${uncovered > 0 ? "text-red-500" : "text-slate-400"}`}
           >
             Descobertos
           </div>
           <div
-            className={`text-2xl font-black ${risks > 0 ? "text-red-400" : "text-slate-200"}`}
+            className={`text-2xl font-black ${uncovered > 0 ? "text-red-400" : "text-slate-200"}`}
           >
-            {risks}
+            {uncovered}
           </div>
         </Card>
       </div>
@@ -2989,7 +2990,6 @@ function AppContent() {
                   <option value="CHÁCARA">Chácara</option>
                   <option value="LABORATÓRIO">Laboratórios</option>
                   <option value="COLETA">Coleta</option>
-                  <option value="OUTROS">Outros</option>
                 </Select>
               </div>
             </div>
@@ -3017,11 +3017,7 @@ function AppContent() {
                         if (intervalStatusFilter === "COVERED")
                           return v.isOnBreak && v.isCovered;
                         if (intervalStatusFilter === "RISK")
-                          return (
-                            v.isOnBreak &&
-                            !v.isCovered &&
-                            (v.risk === "RED" || v.risk === "ORANGE")
-                          );
+                          return v.isOnBreak && !v.isCovered;
                         return true;
                       },
                     );
@@ -3127,7 +3123,7 @@ function AppContent() {
                                   </div>
                                 </div>
 
-                                {canManageIntervals && (
+                                {canManageIntervals && view !== "cftv" && (
                                   <div className="flex flex-col gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity print:hidden">
                                     {vig.isOnBreak && !vig.isCovered ? (
                                       <button
