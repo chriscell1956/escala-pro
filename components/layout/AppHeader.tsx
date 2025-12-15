@@ -93,8 +93,12 @@ const AppHeaderComponent: React.FC<AppHeaderProps> = (props) => {
               >
                 Prog:
               </span>
-              {TEAM_OPTIONS.filter((t) => t !== "ADM").map((t) => {
+              {TEAM_OPTIONS.filter(
+                (t) => t !== "ADM" && t !== "SUPERVISOR",
+              ).map((t) => {
                 const st = teamsStatus[t];
+                if (!st) return null; // FIX: Não renderizar se o status da equipe não existir
+
                 const colorClass = st.ready
                   ? "bg-green-500 text-white shadow-[0_0_10px_rgba(34,197,94,0.6)]"
                   : st.percent > 90

@@ -287,52 +287,59 @@ function AppContent() {
       { ready: boolean; percent: number; label: string }
     > = {};
 
-    TEAM_OPTIONS.filter((t) => t !== "ADM").forEach((team) => {
-      const members = data.filter(
-        (v) => cleanString(v.eq) === team && v.campus !== "AFASTADOS",
-      );
-      const total = members.length;
+    // FIX: Remove ADM e SUPERVISOR do termômetro de progresso
+    TEAM_OPTIONS.filter((t) => t !== "ADM" && t !== "SUPERVISOR").forEach(
+      (team) => {
+        // FIX: Normalização para garantir que ECO1/E1 e ECO2/E2 sejam contados juntos
+        const targetTeam = cleanString(team);
+        const members = data.filter((v) => {
+          if (v.campus === "AFASTADOS") return false;
+          const vTeam = cleanString(v.eq);
+          const vTeamNorm =
+            vTeam === "E1" ? "ECO1" : vTeam === "E2" ? "ECO2" : vTeam;
+          const targetTeamNorm =
+            targetTeam === "E1"
+              ? "ECO1"
+              : targetTeam === "E2"
+                ? "ECO2"
+                : targetTeam;
+          return vTeamNorm === targetTeamNorm;
+        });
 
-      if (total === 0) {
-        status[team] = { ready: false, percent: 0, label: "0/0" };
-        return;
-      }
+        const total = members.length;
 
-      // LÓGICA DE CONTAGEM:
-      // Se for Mês Futuro (Planejamento): Só conta quem teve edição manual (manualLock) ou sugestão aceita (AUTO_OK).
-      // Ignora a propagação automática (que vem como PENDENTE e manualLock=false).
-      // Se for Mês Atual: Conta quem tem dias definidos, pois representa a escala ativa.
-      const filled = members.filter((v) => {
-        if (isFutureMonth) {
-          return (
-            v.manualLock || v.status === "AUTO_OK" || v.status === "MANUAL_OK"
-          );
+        if (total === 0) {
+          status[team] = { ready: false, percent: 0, label: "0/0" };
+          return;
         }
-        return (v.dias && v.dias.length >= 5) || v.manualLock;
-      }).length;
 
-      const isReady = members.some(
-        (v) => (v as { draftReady?: boolean }).draftReady,
-      );
+        // LÓGICA DE CONTAGEM:
+        // Conta apenas quem está confirmado (OK / manualLock = true), alinhado com o status "Pendente/OK" do Lançador.
+        const filled = members.filter((v) => v.manualLock).length;
 
-      // LÓGICA DE TRAVA 99%:
-      // Calcula a porcentagem real baseada no preenchimento
-      let percent = Math.round((filled / total) * 100);
+        const isReady = members.some(
+          (v) => (v as { draftReady?: boolean }).draftReady,
+        );
 
-      // Se deu 100% matematicamente, mas o Fiscal NÃO clicou em "Enviar", trava em 99%
-      if (percent >= 100 && !isReady) {
-        percent = 99;
-      }
+        // LÓGICA DE TRAVA 99%:
+        // Calcula a porcentagem real baseada no preenchimento
+        let percent = Math.round((filled / total) * 100);
 
-      // Apenas se estiver explicitamente marcado como pronto (Enviado), vira 100%
-      if (isReady) percent = 100;
+        // Se deu 100% matematicamente, mas o Fiscal NÃO clicou em "Enviar", trava em 99%
+        if (percent >= 100 && !isReady) {
+          percent = 99;
+        }
 
-      status[team] = {
-        ready: isReady,
-        percent: percent,
-        label: `${filled}/${total}`,
-      };
-    });
+        // Apenas se estiver explicitamente marcado como pronto (Enviado), vira 100%
+        if (isReady) percent = 100;
+
+        status[team] = {
+          ready: isReady,
+          percent: percent,
+          label: `${filled}/${total}`,
+        };
+      },
+    );
     return status;
   }, [data, isFutureMonth]); // Adicionado isFutureMonth nas dependências
 
@@ -591,6 +598,9 @@ function AppContent() {
             ...base
           } = v;
 
+          // FIX: Remove draftReady para garantir que o novo mês comece como pendente (0%)
+          if ("draftReady" in base) delete (base as any).draftReady;
+
           let newCampus = base.campus;
           let newSetor = base.setor;
           let newObs = "";
@@ -610,8 +620,30 @@ function AppContent() {
             }
           }
 
-          const newDays =
-            newCampus === "AFASTADOS" ? [] : calculateDaysForTeam(base.eq, m);
+          // FIX: Lógica específica para ECO ao virar o mês (Dias Úteis)
+          let newDays: number[] = [];
+          const teamClean = cleanString(base.eq);
+
+          if (newCampus === "AFASTADOS") {
+            newDays = [];
+          } else if (["ECO1", "E1", "ECO2", "E2"].includes(teamClean)) {
+            const y = Math.floor(m / 100);
+            const mon = (m % 100) - 1;
+            const dInM = new Date(y, mon + 1, 0).getDate();
+            for (let d = 1; d <= dInM; d++) {
+              const dw = new Date(y, mon, d).getDay();
+              // ECO 1 (6x1) -> Seg a Sab (0=Dom)
+              if (teamClean === "ECO1" || teamClean === "E1") {
+                if (dw !== 0) newDays.push(d);
+              } else {
+                // ECO 2 (5x2) -> Seg a Sex
+                if (dw >= 1 && dw <= 5) newDays.push(d);
+              }
+            }
+          } else {
+            newDays = calculateDaysForTeam(base.eq, m);
+          }
+
           let fixedNome = base.nome;
           if (String(base.mat).trim() === "91611")
             fixedNome = "CHRISTIANO R.G. DE OLIVEIRA";
@@ -638,10 +670,30 @@ function AppContent() {
           );
         } else {
           finalData = INITIAL_DB.map((v) => {
-            const standardDays =
-              v.campus === "AFASTADOS"
-                ? []
-                : calculateDaysForTeam(v.eq, m, v.vacation);
+            let standardDays: number[] = [];
+            const teamClean = cleanString(v.eq);
+
+            if (v.campus === "AFASTADOS") {
+              standardDays = [];
+            } else if (["ECO1", "E1", "ECO2", "E2"].includes(teamClean)) {
+              // Lógica ECO para meses sem histórico (Base Inicial)
+              const y = Math.floor(m / 100);
+              const mon = (m % 100) - 1;
+              const dInM = new Date(y, mon + 1, 0).getDate();
+              for (let d = 1; d <= dInM; d++) {
+                const dw = new Date(y, mon, d).getDay();
+                // ECO 1 (6x1) -> Seg a Sab (0=Dom)
+                if (teamClean === "ECO1" || teamClean === "E1") {
+                  if (dw !== 0) standardDays.push(d);
+                } else {
+                  // ECO 2 (5x2) -> Seg a Sex
+                  if (dw >= 1 && dw <= 5) standardDays.push(d);
+                }
+              }
+            } else {
+              standardDays = calculateDaysForTeam(v.eq, m, v.vacation);
+            }
+
             const finalDays = standardDays.filter(
               (d) => !(v.folgasGeradas || []).includes(d),
             );
@@ -655,6 +707,47 @@ function AppContent() {
         }
       }
     }
+
+    // --- FIX: GARANTIA DE INTEGRIDADE (ECO 1 / ECO 2) ---
+    // Verifica se membros do INITIAL_DB estão faltando na escala carregada e os adiciona.
+    // Isso garante que ECO 1 e ECO 2 apareçam mesmo se não existirem no mês anterior.
+    INITIAL_DB.forEach((dbVig) => {
+      const isPresent = finalData.some(
+        (v) => String(v.mat).trim() === String(dbVig.mat).trim(),
+      );
+
+      if (!isPresent) {
+        let days: number[] = [];
+        const teamClean = cleanString(dbVig.eq);
+
+        if (dbVig.campus === "AFASTADOS") {
+          days = [];
+        } else if (["ECO1", "E1", "ECO2", "E2"].includes(teamClean)) {
+          const y = Math.floor(m / 100);
+          const mon = (m % 100) - 1;
+          const dInM = new Date(y, mon + 1, 0).getDate();
+          for (let d = 1; d <= dInM; d++) {
+            const dw = new Date(y, mon, d).getDay();
+            if (teamClean === "ECO1" || teamClean === "E1") {
+              if (dw !== 0) days.push(d); // 6x1 (Seg-Sab)
+            } else {
+              if (dw >= 1 && dw <= 5) days.push(d); // 5x2 (Seg-Sex)
+            }
+          }
+        } else {
+          days = calculateDaysForTeam(dbVig.eq, m, dbVig.vacation);
+        }
+
+        finalData.push({
+          ...dbVig,
+          dias: days,
+          status: "PENDENTE",
+          manualLock: false,
+          folgasGeradas: [],
+          coberturas: [],
+        });
+      }
+    });
 
     // Restore User if missing
     if (user) {
@@ -738,15 +831,37 @@ function AppContent() {
   };
 
   // --- MEMOIZED VIEWS ---
-  const conflicts = useMemo(
-    () =>
-      analyzeConflicts(
-        data,
-        month,
-        filterEq === "AFASTADOS" ? "TODAS" : filterEq,
-      ),
-    [data, month, filterEq],
-  );
+  const conflicts = useMemo(() => {
+    // FIX: Não exibir alertas de conflito em meses futuros (Planejamento) para não poluir a tela
+    if (isFutureMonth) return [];
+
+    const rawConflicts = analyzeConflicts(
+      data,
+      month,
+      filterEq === "AFASTADOS" ? "TODAS" : filterEq,
+    );
+
+    // FIX: Remove falsos positivos de conflito para equipes ECO nos fins de semana
+    return rawConflicts.filter((c) => {
+      const team = cleanString(c.equipe);
+      const year = Math.floor(month / 100);
+      const mon = (month % 100) - 1;
+      const date = new Date(year, mon, c.dia);
+      const dayOfWeek = date.getDay(); // 0 = Dom, 6 = Sab
+
+      // ECO 1 (6x1) -> Folga Domingo. Se der conflito no Domingo, ignora.
+      if (team === "ECO1" || team === "E1") {
+        if (dayOfWeek === 0) return false;
+      }
+
+      // ECO 2 (5x2) -> Folga Sábado e Domingo. Se der conflito, ignora.
+      if (team === "ECO2" || team === "E2") {
+        if (dayOfWeek === 0 || dayOfWeek === 6) return false;
+      }
+
+      return true;
+    });
+  }, [data, month, filterEq, isFutureMonth]);
 
   const lancadorList = useMemo(() => {
     let filtered = data.filter((v) => v.campus !== "AFASTADOS");
@@ -1443,18 +1558,65 @@ function AppContent() {
       return;
     const newData = data.map((v) => {
       if (v.campus === "AFASTADOS") return v;
-      const newDays = calculateDaysForTeam(v.eq, month, v.vacation);
-      return {
+
+      let newDays: number[] = [];
+      const teamClean = cleanString(v.eq);
+
+      if (["ECO1", "E1", "ECO2", "E2"].includes(teamClean)) {
+        const y = Math.floor(month / 100);
+        const mon = (month % 100) - 1;
+        const dInM = new Date(y, mon + 1, 0).getDate();
+        for (let d = 1; d <= dInM; d++) {
+          const dw = new Date(y, mon, d).getDay();
+          if (teamClean === "ECO1" || teamClean === "E1") {
+            if (dw !== 0) newDays.push(d);
+          } else {
+            if (dw >= 1 && dw <= 5) newDays.push(d);
+          }
+        }
+      } else {
+        newDays = calculateDaysForTeam(v.eq, month, v.vacation);
+      }
+
+      const updatedVig = {
         ...v,
         dias: newDays,
         folgasGeradas: v.folgasGeradas.filter((f) => !newDays.includes(f)),
         manualLock: false,
         status: "PENDENTE",
       };
+
+      // FIX: Remove status de pronto ao regenerar
+      if ("draftReady" in updatedVig) delete (updatedVig as any).draftReady;
+
+      return updatedVig;
     });
     saveData(newData);
     registerLog("SISTEMA", `Regerou escala completa do mês ${month}`);
     showToast("Escala recalculada com sucesso!");
+  };
+
+  const handleClearFutureMonth = async () => {
+    if (!isFutureMonth) return;
+    if (
+      !confirm(
+        `⚠️ TEM CERTEZA? Isso apagará TODOS os dados de ${currentLabel}.\n\nAo recarregar, o sistema tentará gerar a escala novamente com base no mês anterior.`,
+      )
+    )
+      return;
+
+    setIsLoading(true);
+    // Salva array vazio para limpar
+    await saveData([], true);
+
+    // Recarrega para disparar a lógica de geração automática
+    await loadDataForMonth(month);
+
+    setIsLoading(false);
+    showToast(
+      "Mês limpo! A escala foi gerada novamente com base no mês anterior.",
+      "success",
+    );
   };
 
   // --- SMART SUGGESTIONS WITH CONFLICT CHECK ---
@@ -1491,6 +1653,7 @@ function AppContent() {
             vig.dias = newDays;
             vig.folgasGeradas = [d1, d2].filter((x) => x <= 31);
             vig.status = "AUTO_OK";
+            vig.manualLock = true;
             changes++;
           }
         }
@@ -1736,7 +1899,19 @@ function AppContent() {
     const newData = [...data];
     const idx = newData.findIndex((v) => v.mat === editingVig.mat);
     if (idx > -1) {
+      const originalVig = data[idx];
       const updated = { ...editingVig };
+
+      // Se a equipe mudou, recalcula os dias
+      if (originalVig.eq !== updated.eq) {
+        updated.dias = calculateDaysForTeam(
+          updated.eq,
+          month,
+          updated.vacation,
+        );
+        updated.folgasGeradas = []; // Limpa folgas ao trocar de equipe
+      }
+
       if (timeInputs.hStart && timeInputs.hEnd)
         updated.horario = formatTimeInputs(timeInputs.hStart, timeInputs.hEnd);
       if (timeInputs.rStart && timeInputs.rEnd)
@@ -1750,10 +1925,17 @@ function AppContent() {
           updated.dias = allDays.filter((d) => d < s || d > e);
         } else {
           updated.vacation = undefined;
-          updated.dias = calculateDaysForTeam(updated.eq, month);
+          // Recalcula se as férias forem removidas
+          if (originalVig.vacation) {
+            updated.dias = calculateDaysForTeam(updated.eq, month);
+          }
         }
       } else {
         updated.vacation = undefined;
+        // Recalcula se as férias forem removidas
+        if (originalVig.vacation) {
+          updated.dias = calculateDaysForTeam(updated.eq, month);
+        }
       }
       updated.manualLock = true;
       updated.status = "MANUAL_OK";
@@ -2312,7 +2494,7 @@ function AppContent() {
           {canViewCFTV && (
             <button
               onClick={() => setView("cftv")}
-              className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all whitespace-nowrap ${view === "cftv" ? "bg-slate-800 text-white shadow-md border border-slate-600" : "text-slate-400 hover:text-white"}`}
+              className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all whitespace-nowrap ${view === "cftv" ? "bg-blue-600 text-white shadow-md" : "text-slate-400 hover:text-white"}`}
             >
               🎥 MONITORAMENTO
             </button>
@@ -2323,6 +2505,14 @@ function AppContent() {
           >
             📅 SOLICITAÇÕES
           </button>
+          {isMaster && isFutureMonth && (
+            <button
+              onClick={handleClearFutureMonth}
+              className="px-3 py-1.5 rounded-md text-xs font-bold transition-all whitespace-nowrap bg-red-600 text-white shadow-md hover:bg-red-700 ml-2"
+            >
+              🗑️ LIMPAR MÊS
+            </button>
+          )}
         </div>
         <div className="flex items-center gap-2">
           {(!isUser || canManageIntervals || canViewCFTV) &&
@@ -2703,11 +2893,16 @@ function AppContent() {
         )}
 
         {/* --- INTERVALS VIEW (NOVO) --- */}
-        {view === "intervalos" && (
+        {(view === "intervalos" || view === "cftv") && (
           <div className="flex flex-col h-full bg-slate-900 p-4 overflow-y-auto print:overflow-visible print:h-auto">
             <div className="mb-6 flex flex-col md:flex-row gap-4 items-start md:items-center print:hidden">
               <h2 className="text-xl font-black text-white tracking-tight flex items-center gap-2">
-                <span className="text-2xl">🍽️</span> Gestão de Intervalos
+                <span className="text-2xl">
+                  {view === "cftv" ? "🎥" : "🍽️"}
+                </span>{" "}
+                {view === "cftv"
+                  ? "Monitoramento CFTV"
+                  : "Gestão de Intervalos"}
               </h2>
               <div className="flex gap-2">
                 <Select
@@ -2916,173 +3111,6 @@ function AppContent() {
                   })}
               </div>
             )}
-          </div>
-        )}
-
-        {/* --- CFTV MONITORING VIEW (NOVO) --- */}
-        {view === "cftv" && (
-          <div className="flex flex-col h-full bg-slate-900 p-4 overflow-y-auto">
-            <div className="mb-6 flex justify-between items-center">
-              <h2 className="text-xl font-black text-white tracking-tight flex items-center gap-2">
-                <span className="text-2xl animate-pulse">🔴</span> Central de
-                Monitoramento (CFTV)
-              </h2>
-              <div className="text-slate-400 text-xs font-mono">
-                Atualização em Tempo Real
-              </div>
-            </div>
-
-            {/* Dashboard Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-              {(() => {
-                const active = intervalData.list.filter(
-                  (v) => !v.isOnBreak,
-                ).length;
-                const covered = intervalData.list.filter(
-                  (v) => v.isOnBreak && v.isCovered,
-                ).length;
-                const attention = intervalData.list.filter(
-                  (v) =>
-                    v.isOnBreak &&
-                    !v.isCovered &&
-                    (v.risk === "YELLOW" || v.risk === "ORANGE"),
-                ).length;
-                const critical = intervalData.list.filter(
-                  (v) => v.isOnBreak && !v.isCovered && v.risk === "RED",
-                ).length;
-
-                return (
-                  <>
-                    <div
-                      onClick={() => setCftvFilter("ACTIVE")}
-                      className={`cursor-pointer p-4 rounded-xl border-l-4 border-l-blue-500 bg-slate-800 hover:bg-slate-700 transition-all ${cftvFilter === "ACTIVE" ? "ring-2 ring-blue-500" : ""}`}
-                    >
-                      <div className="text-[10px] font-bold text-blue-400 uppercase tracking-wider mb-1">
-                        NO POSTO (AZUL)
-                      </div>
-                      <div className="text-3xl font-black text-white">
-                        {active}
-                      </div>
-                      <div className="text-[10px] text-slate-400 mt-1">
-                        Monitorar Atividade
-                      </div>
-                    </div>
-                    <div
-                      onClick={() => setCftvFilter("COVERED")}
-                      className={`cursor-pointer p-4 rounded-xl border-l-4 border-l-emerald-500 bg-slate-800 hover:bg-slate-700 transition-all ${cftvFilter === "COVERED" ? "ring-2 ring-emerald-500" : ""}`}
-                    >
-                      <div className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider mb-1">
-                        COBERTOS (VERDE)
-                      </div>
-                      <div className="text-3xl font-black text-white">
-                        {covered}
-                      </div>
-                      <div className="text-[10px] text-slate-400 mt-1">
-                        Postos Mantidos
-                      </div>
-                    </div>
-                    <div
-                      onClick={() => setCftvFilter("ATTENTION")}
-                      className={`cursor-pointer p-4 rounded-xl border-l-4 border-l-orange-500 bg-slate-800 hover:bg-slate-700 transition-all ${cftvFilter === "ATTENTION" ? "ring-2 ring-orange-500" : ""}`}
-                    >
-                      <div className="text-[10px] font-bold text-orange-400 uppercase tracking-wider mb-1">
-                        ATENÇÃO (LARANJA)
-                      </div>
-                      <div className="text-3xl font-black text-white">
-                        {attention}
-                      </div>
-                      <div className="text-[10px] text-slate-400 mt-1">
-                        Risco Médio
-                      </div>
-                    </div>
-                    <div
-                      onClick={() => setCftvFilter("CRITICAL")}
-                      className={`cursor-pointer p-4 rounded-xl border-l-4 border-l-red-600 bg-slate-800 hover:bg-slate-700 transition-all ${cftvFilter === "CRITICAL" ? "ring-2 ring-red-600" : ""}`}
-                    >
-                      <div className="text-[10px] font-bold text-red-500 uppercase tracking-wider mb-1">
-                        CRÍTICO (VERMELHO)
-                      </div>
-                      <div className="text-3xl font-black text-white">
-                        {critical}
-                      </div>
-                      <div className="text-[10px] text-slate-400 mt-1">
-                        Focar Câmeras Aqui
-                      </div>
-                    </div>
-                  </>
-                );
-              })()}
-            </div>
-
-            {/* List View */}
-            <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
-              <div className="bg-slate-950/50 px-4 py-3 border-b border-slate-700 flex justify-between items.center">
-                <h3 className="font-bold text-white text-sm uppercase">
-                  {cftvFilter === "ALL"
-                    ? "Visão Geral"
-                    : cftvFilter === "ACTIVE"
-                      ? "Vigilantes no Posto (Azul)"
-                      : cftvFilter === "COVERED"
-                        ? "Postos Cobertos (Verde)"
-                        : cftvFilter === "ATTENTION"
-                          ? "Setores em Atenção (Laranja)"
-                          : "Setores Críticos (Vermelho)"}
-                </h3>
-                <button
-                  onClick={() => setCftvFilter("ALL")}
-                  className="text-[10px] text-slate-400 hover:text-white underline"
-                >
-                  Ver Todos
-                </button>
-              </div>
-              <div className="divide-y divide-slate-700 max-h-[50vh] overflow-y-auto">
-                {intervalData.list
-                  .filter((v) => {
-                    if (cftvFilter === "ALL") return true;
-                    if (cftvFilter === "ACTIVE") return !v.isOnBreak;
-                    if (cftvFilter === "COVERED")
-                      return v.isOnBreak && v.isCovered;
-                    if (cftvFilter === "ATTENTION")
-                      return (
-                        v.isOnBreak &&
-                        !v.isCovered &&
-                        (v.risk === "YELLOW" || v.risk === "ORANGE")
-                      );
-                    if (cftvFilter === "CRITICAL")
-                      return v.isOnBreak && !v.isCovered && v.risk === "RED";
-                    return true;
-                  })
-                  .map((v) => (
-                    <div
-                      key={v.mat}
-                      className="p-3 flex items-center justify-between hover:bg-slate-700/50 transition-colors"
-                    >
-                      <div>
-                        <div className="font-bold text-slate-200 text-sm">
-                          {v.effectiveSector}
-                        </div>
-                        <div className="text-[11px] text-slate-500">
-                          {v.nome} • {v.campus}
-                        </div>
-                      </div>
-                      <div
-                        className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${!v.isOnBreak ? "bg-blue-900/50 text-blue-400 border border-blue-800" : v.isCovered ? "bg-emerald-900/50 text-emerald-400 border border-emerald-800" : v.risk === "RED" ? "bg-red-900/50 text-red-400 border border-red-800 animate-pulse" : "bg-orange-900/50 text-orange-400 border border-orange-800"}`}
-                      >
-                        {!v.isOnBreak
-                          ? "NO POSTO"
-                          : v.isCovered
-                            ? `COBERTO: ${v.coveredBy?.split(" ")[0]}`
-                            : "DESCOBERTO"}
-                      </div>
-                    </div>
-                  ))}
-                {intervalData.list.length === 0 && (
-                  <div className="p-8 text-center text-slate-500">
-                    Nenhum dado para exibir neste horário.
-                  </div>
-                )}
-              </div>
-            </div>
           </div>
         )}
       </main>
@@ -3296,9 +3324,9 @@ function AppContent() {
             value={coverageSearch}
             onChange={(e) => setCoverageSearch(e.target.value)}
             autoFocus
-            className="bg-slate-700 text-white border-slate-600"
+            className="bg-slate-200 text-slate-900"
           />
-          <div className="max-h-60 overflow-y-auto border border-slate-700 rounded divide-y divide-slate-700 bg-slate-900">
+          <div className="max-h-60 overflow-y-auto border rounded divide-y">
             {data
               .filter((v) => {
                 const isCoringa = CORINGA_MATS.includes(v.mat);
@@ -3339,13 +3367,11 @@ function AppContent() {
                 return (
                   <div
                     key={v.mat}
-                    className="p-2 flex justify-between items-center hover:bg-slate-800 transition-colors"
+                    className="p-2 flex justify-between items-center hover:bg-slate-50"
                   >
                     <div>
-                      <div className="font-bold text-sm text-slate-200">
-                        {v.nome}
-                      </div>
-                      <div className="text-[10px] text-slate-400">
+                      <div className="font-bold text-sm">{v.nome}</div>
+                      <div className="text-[10px] text-slate-500">
                         {v.campus} • Eq {v.eq}
                       </div>
                     </div>
@@ -3414,9 +3440,8 @@ function AppContent() {
             value={intervalCoverageSearch}
             onChange={(e) => setIntervalCoverageSearch(e.target.value)}
             autoFocus
-            className="bg-slate-700 text-white border-slate-600"
           />
-          <div className="max-h-60 overflow-y-auto border border-slate-700 rounded divide-y divide-slate-700 bg-slate-900">
+          <div className="max-h-60 overflow-y-auto border rounded divide-y">
             {data
               .filter(
                 (v) =>
@@ -3439,13 +3464,11 @@ function AppContent() {
                 return (
                   <div
                     key={v.mat}
-                    className="p-2 flex justify-between items-center hover:bg-slate-800 transition-colors"
+                    className="p-2 flex justify-between items-center hover:bg-slate-50"
                   >
                     <div>
-                      <div className="font-bold text-sm text-slate-200">
-                        {v.nome}
-                      </div>
-                      <div className="text-[10px] text-slate-400">
+                      <div className="font-bold text-sm">{v.nome}</div>
+                      <div className="text-[10px] text-slate-500">
                         {v.setor}
                       </div>
                     </div>
