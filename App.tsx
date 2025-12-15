@@ -784,8 +784,8 @@ function AppContent() {
           // Mantém 'dias', 'folgasGeradas', 'vacation' do futuro, mas mascara o local/horário
           return {
             ...v,
-            setor: "A DEFINIR",
-            campus: "A DEFINIR",
+            setor: original.setor,
+            campus: original.campus,
             horario: original.horario,
             refeicao: original.refeicao,
           };
@@ -1482,40 +1482,51 @@ function AppContent() {
     await saveData(newData);
     registerLog("EDICAO", "Criou novo vigilante", newVig.nome);
 
-    // 2. Tenta propagar para o próximo mês se ele já existir (CORREÇÃO MAURO)
+    // 2. Tenta propagar para os próximos 3 meses (CORREÇÃO MAURO)
+    // Isso garante que se o mês futuro já foi aberto/salvo, o novo vigilante seja inserido lá também.
     try {
-      const nextM = nextMonth;
-      const nextData = await api.loadData(nextM);
-
-      if (nextData && nextData.length > 0) {
-        // Verifica se já existe lá
-        if (!nextData.some((v) => v.mat === newVig.mat)) {
-          const nextDays = calculateDaysForTeam(newVig.eq, nextM);
-          const nextVigEntry = {
-            ...newVig,
-            dias: nextDays,
-            folgasGeradas: [],
-            coberturas: [],
-            manualLock: false,
-            status: "PENDENTE",
-          };
-          // Remove férias se houver, pois é outro mês
-          delete nextVigEntry.vacation;
-
-          const updatedNextData = [...nextData, nextVigEntry];
-          await api.saveData(nextM, updatedNextData);
-          showToast(
-            `Criado em ${currentLabel} e replicado para o próximo mês!`,
-            "success",
-          );
-        } else {
-          showToast("Vigilante criado! (Já existia no mês seguinte)", "info");
+      let currentM = month;
+      for (let i = 0; i < 3; i++) {
+        // Calcula o próximo mês
+        let y = Math.floor(currentM / 100);
+        let m = currentM % 100;
+        m++;
+        if (m > 12) {
+          m = 1;
+          y++;
         }
-      } else {
-        showToast("Vigilante criado no mês atual.", "success");
+        currentM = y * 100 + m;
+
+        // Tenta carregar o mês futuro
+        const futureData = await api.loadData(currentM);
+
+        if (futureData && futureData.length > 0) {
+          // Se o mês já existe, verifica se o vigilante já está lá
+          if (!futureData.some((v) => v.mat === newVig.mat)) {
+            const futureDays = calculateDaysForTeam(newVig.eq, currentM);
+            const futureVigEntry = {
+              ...newVig,
+              dias: futureDays,
+              folgasGeradas: [],
+              coberturas: [],
+              manualLock: false,
+              status: "PENDENTE",
+            };
+            // Remove férias se houver, pois é outro mês
+            delete futureVigEntry.vacation;
+
+            const updatedFutureData = [...futureData, futureVigEntry];
+            await api.saveData(currentM, updatedFutureData);
+            console.log(`Propagado para o mês ${currentM}: ${newVig.nome}`);
+          }
+        }
       }
+      showToast(
+        `Criado em ${currentLabel} e atualizado nos meses futuros existentes!`,
+        "success",
+      );
     } catch (e) {
-      console.error("Erro ao propagar para mês seguinte", e);
+      console.error("Erro ao propagar para meses seguintes", e);
       showToast(
         "Vigilante criado, mas houve erro ao replicar para futuro.",
         "info",
@@ -1540,9 +1551,46 @@ function AppContent() {
     const newData = data.filter((v) => v.mat !== editingVig.mat);
     await saveData(newData);
     registerLog("EDICAO", "Excluiu vigilante da escala", editingVig.nome);
+
+    // --- CORREÇÃO: Propagar exclusão para os próximos 3 meses ---
+    try {
+      let currentM = month;
+      for (let i = 0; i < 3; i++) {
+        // Calcula o próximo mês
+        let y = Math.floor(currentM / 100);
+        let m = currentM % 100;
+        m++;
+        if (m > 12) {
+          m = 1;
+          y++;
+        }
+        currentM = y * 100 + m;
+
+        // Tenta carregar o mês futuro
+        const futureData = await api.loadData(currentM);
+
+        if (futureData && futureData.length > 0) {
+          // Verifica se o vigilante existe lá e remove
+          const updatedFutureData = futureData.filter(
+            (v) => v.mat !== editingVig.mat,
+          );
+
+          if (updatedFutureData.length !== futureData.length) {
+            await api.saveData(currentM, updatedFutureData);
+            console.log(`Excluído do mês ${currentM}: ${editingVig.nome}`);
+          }
+        }
+      }
+      showToast(
+        "Vigilante removido do mês atual e dos próximos meses!",
+        "info",
+      );
+    } catch (e) {
+      console.error("Erro ao propagar exclusão para meses seguintes", e);
+    }
+
     setEditingVig(null);
     setShowMobileEditor(false);
-    showToast("Vigilante removido com sucesso.", "info");
   };
 
   const handleRegenerateSchedule = () => {
