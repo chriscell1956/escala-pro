@@ -1123,11 +1123,11 @@ function AppContent() {
       if (u.includes("LABORATÓRIO") || u.includes("LIMA")) return "LABORATÓRIO";
       if (u.includes("CHÁCARA")) return "CHÁCARA";
       if (u.includes("COLETA")) return "COLETA";
-      return ""; // Alterado de "OUTROS" para "" para ocultar a categoria
+      return ""; // Oculta ADMINISTRAÇÃO/OUTROS dos cálculos e visualização
     };
     const list =
       intervalCategory === "TODOS"
-        ? rawList
+        ? rawList.filter((v) => getCategory(v.effectiveCampus) !== "")
         : rawList.filter(
             (v) => getCategory(v.effectiveCampus) === intervalCategory,
           );
@@ -3198,6 +3198,7 @@ function AppContent() {
             onChange={(e) =>
               setNewVigForm({ ...newVigForm, nome: e.target.value })
             }
+            className="bg-slate-700 text-white border-slate-600"
           />
           <Input
             placeholder="Matrícula"
@@ -3205,6 +3206,7 @@ function AppContent() {
             onChange={(e) =>
               setNewVigForm({ ...newVigForm, mat: e.target.value })
             }
+            className="bg-slate-700 text-white border-slate-600"
           />
           <div>
             <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">
@@ -3518,7 +3520,9 @@ function AppContent() {
             {data
               .filter(
                 (v) =>
-                  v.mat !== intervalEditVig?.mat && v.campus !== "AFASTADOS",
+                  v.mat !== intervalEditVig?.mat &&
+                  v.campus !== "AFASTADOS" &&
+                  cleanString(v.eq) === cleanString(intervalEditVig?.eq || ""),
               )
               .filter((v) =>
                 v.nome
