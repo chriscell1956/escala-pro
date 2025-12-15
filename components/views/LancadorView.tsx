@@ -222,7 +222,7 @@ const LancadorViewComponent: React.FC<LancadorViewProps> = (props) => {
                 </div>
                 <div>
                   <label className="text-[10px] font-bold text-slate-300 block mb-1">
-                    Refeição:
+                    Refeição (Início):
                   </label>
                   <div className="flex items-center gap-2">
                     <input
@@ -231,17 +231,6 @@ const LancadorViewComponent: React.FC<LancadorViewProps> = (props) => {
                       value={timeInputs.rStart}
                       onChange={(e) =>
                         setTimeInputs({ ...timeInputs, rStart: e.target.value })
-                      }
-                    />
-                    <span className="text-[10px] font-bold text-slate-400">
-                      às
-                    </span>
-                    <input
-                      type="time"
-                      className="flex-1 border border-slate-600 bg-slate-700 text-white rounded p-1.5 text-xs text-center font-bold"
-                      value={timeInputs.rEnd}
-                      onChange={(e) =>
-                        setTimeInputs({ ...timeInputs, rEnd: e.target.value })
                       }
                     />
                   </div>

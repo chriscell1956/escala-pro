@@ -1958,8 +1958,24 @@ function AppContent() {
 
       if (timeInputs.hStart && timeInputs.hEnd)
         updated.horario = formatTimeInputs(timeInputs.hStart, timeInputs.hEnd);
-      if (timeInputs.rStart && timeInputs.rEnd)
-        updated.refeicao = formatTimeInputs(timeInputs.rStart, timeInputs.rEnd);
+
+      // --- LÓGICA DE CÁLCULO AUTOMÁTICO DE INTERVALO (1h15) ---
+      if (timeInputs.rStart) {
+        const [h, m] = timeInputs.rStart.split(":").map(Number);
+        if (!isNaN(h) && !isNaN(m)) {
+          let totalMins = h * 60 + m + 75; // Adiciona 75 minutos (1h15)
+          const endH = Math.floor(totalMins / 60) % 24;
+          const endM = totalMins % 60;
+          const rEndCalc = `${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}`;
+
+          // Salva o intervalo formatado (Início calculado + Fim calculado)
+          updated.refeicao = formatTimeInputs(timeInputs.rStart, rEndCalc);
+        }
+      } else {
+        // Se não tiver início, limpa o intervalo
+        updated.refeicao = "";
+      }
+
       if (vacationInputs.start && vacationInputs.end) {
         const s = parseInt(vacationInputs.start);
         const e = parseInt(vacationInputs.end);
