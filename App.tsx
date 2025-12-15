@@ -235,7 +235,6 @@ function AppContent() {
     canViewLogs: false,
     canPrint: false,
     canSimulate: false,
-    canGenerateNextMonth: false,
     canViewCFTV: false,
   });
 
@@ -1294,7 +1293,6 @@ function AppContent() {
         canViewLogs: false,
         canPrint: false,
         canSimulate: false,
-        canGenerateNextMonth: false,
         canViewCFTV: false,
       });
       setIsUserMgmtModalOpen(false);
@@ -1317,7 +1315,6 @@ function AppContent() {
       canViewLogs: !!userToEdit.canViewLogs,
       canPrint: !!userToEdit.canPrint,
       canSimulate: !!userToEdit.canSimulate,
-      canGenerateNextMonth: !!userToEdit.canGenerateNextMonth,
       canViewCFTV: !!(userToEdit as { canViewCFTV?: boolean }).canViewCFTV,
     });
   };
@@ -1330,7 +1327,6 @@ function AppContent() {
       canViewLogs: false,
       canPrint: false,
       canSimulate: false,
-      canGenerateNextMonth: false,
       canViewCFTV: false,
     });
   };
@@ -3812,20 +3808,6 @@ function AppContent() {
                   }
                 />
                 Simular Escala
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer bg-slate-700 p-2 rounded border border-slate-600 hover:bg-slate-600">
-                <input
-                  type="checkbox"
-                  checked={formPermissions.canGenerateNextMonth}
-                  onChange={() =>
-                    setFormPermissions({
-                      ...formPermissions,
-                      canGenerateNextMonth:
-                        !formPermissions.canGenerateNextMonth,
-                    })
-                  }
-                />
-                Gerar Próximo Mês
               </label>
               <label className="flex items-center gap-2 cursor-pointer bg-slate-700 p-2 rounded border border-slate-600 hover:bg-slate-600">
                 <input

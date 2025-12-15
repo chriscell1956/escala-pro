@@ -1,5 +1,4 @@
-
-export type Team = 'A' | 'B' | 'C' | 'D' | 'E1' | 'E2' | 'ADM' | string;
+export type Team = "A" | "B" | "C" | "D" | "E1" | "E2" | "ADM" | string;
 
 export interface Vacation {
   start: number;
@@ -14,10 +13,10 @@ export interface Coverage {
 }
 
 export interface Request {
-    day: number;
-    option: 'A' | 'B'; // A = Principal, B = Secundária
-    timestamp: number; // Para saber quem pediu primeiro
-    status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  day: number;
+  option: "A" | "B"; // A = Principal, B = Secundária
+  timestamp: number; // Para saber quem pediu primeiro
+  status: "PENDING" | "APPROVED" | "REJECTED";
 }
 
 export interface Vigilante {
@@ -29,16 +28,16 @@ export interface Vigilante {
   horario: string;
   refeicao: string;
   vacation?: Vacation;
-  
+
   // App State properties
   dias: number[]; // Array of days working in the current month
   faltas?: number[];
   saidasAntecipadas?: number[];
-  status?: 'PENDENTE' | 'AUTO_OK' | 'MANUAL_OK' | string;
+  status?: "PENDENTE" | "AUTO_OK" | "MANUAL_OK" | string;
   manualLock: boolean;
   folgasGeradas: number[];
   coberturas: Coverage[];
-  
+
   // Temporary overrides keyed by day number
   tempOverrides?: Record<number, { horario?: string; refeicao?: string }>;
 
@@ -59,38 +58,50 @@ export interface Conflict {
   equipe: string;
 }
 
-export type UserRole = 'MASTER' | 'FISCAL' | 'USER';
+export type UserRole = "MASTER" | "FISCAL" | "USER";
 
 export interface User {
-    mat: string;
-    nome: string;
-    role: UserRole; // MASTER = Gestor, FISCAL = Operacional, USER = Visualização
-    password?: string;
-    // Granular Permissions
-    canManageIntervals?: boolean;
-    canPrint?: boolean;
-    canViewLogs?: boolean;
-    canGenerateNextMonth?: boolean;
-    canSimulate?: boolean; // Permite entrar no modo simulação e publicar
+  mat: string;
+  nome: string;
+  role: UserRole; // MASTER = Gestor, FISCAL = Operacional, USER = Visualização
+  password?: string;
+  // Granular Permissions
+  canManageIntervals?: boolean;
+  canPrint?: boolean;
+  canViewLogs?: boolean;
+  canSimulate?: boolean; // Permite entrar no modo simulação e publicar
 }
 
 export interface AuthResponse {
-    success: boolean;
-    user?: User;
-    token?: string;
-    message?: string;
-    offline?: boolean;
+  success: boolean;
+  user?: User;
+  token?: string;
+  message?: string;
+  offline?: boolean;
 }
 
 export interface AuditLog {
-    id: string;
-    timestamp: number;
-    user: string; // Nome do supervisor que fez a ação
-    action: 'EDICAO' | 'COBERTURA' | 'IMPORTACAO' | 'RESET' | 'SISTEMA' | 'FOLGAS' | 'FERIAS' | 'SOLICITACAO';
-    details: string;
-    targetName?: string; // Nome do vigilante afetado (opcional)
+  id: string;
+  timestamp: number;
+  user: string; // Nome do supervisor que fez a ação
+  action:
+    | "EDICAO"
+    | "COBERTURA"
+    | "IMPORTACAO"
+    | "RESET"
+    | "SISTEMA"
+    | "FOLGAS"
+    | "FERIAS"
+    | "SOLICITACAO";
+  details: string;
+  targetName?: string; // Nome do vigilante afetado (opcional)
 }
 
-export type ViewMode = 'escala' | 'lancador' | 'intervalos' | 'solicitacoes';
+export type ViewMode =
+  | "escala"
+  | "lancador"
+  | "intervalos"
+  | "solicitacoes"
+  | "cftv";
 
-export type IntervalPriority = 'RED' | 'ORANGE' | 'YELLOW' | 'GREEN';
+export type IntervalPriority = "RED" | "ORANGE" | "YELLOW" | "GREEN";
