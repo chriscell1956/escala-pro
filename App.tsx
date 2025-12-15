@@ -2204,10 +2204,22 @@ function AppContent() {
         tempTimeInputs.hStart,
         tempTimeInputs.hEnd,
       );
-      const newRefeicao = formatTimeInputs(
-        tempTimeInputs.rStart,
-        tempTimeInputs.rEnd,
-      );
+
+      // --- LÓGICA DE CÁLCULO AUTOMÁTICO DE INTERVALO (1h15) ---
+      let newRefeicao = "";
+      if (tempTimeInputs.rStart) {
+        const [h, m] = tempTimeInputs.rStart.split(":").map(Number);
+        if (!isNaN(h) && !isNaN(m)) {
+          let totalMins = h * 60 + m + 75; // Adiciona 75 minutos (1h15)
+          const endH = Math.floor(totalMins / 60) % 24;
+          const endM = totalMins % 60;
+          const rEndCalc = `${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}`;
+
+          // Salva o intervalo formatado (Início calculado + Fim calculado)
+          newRefeicao = formatTimeInputs(tempTimeInputs.rStart, rEndCalc);
+        }
+      }
+
       v.tempOverrides[dayNum] = { horario: newSchedule, refeicao: newRefeicao };
       saveData(newData);
       registerLog(
@@ -3328,7 +3340,7 @@ function AppContent() {
             <input
               type="text"
               placeholder="Filtrar por nome..."
-              className="flex-1 border rounded px-2 py-1 text-sm"
+              className="flex-1 border rounded px-2 py-1 text-sm bg-slate-700 text-white border-slate-600"
               value={logFilterSearch}
               onChange={(e) => setLogFilterSearch(e.target.value)}
             />
@@ -3388,7 +3400,7 @@ function AppContent() {
             value={coverageSearch}
             onChange={(e) => setCoverageSearch(e.target.value)}
             autoFocus
-            className="bg-slate-200 text-slate-900"
+            className="bg-slate-700 text-white border-slate-600"
           />
           <div className="max-h-60 overflow-y-auto border rounded divide-y">
             {data
@@ -3504,6 +3516,7 @@ function AppContent() {
             value={intervalCoverageSearch}
             onChange={(e) => setIntervalCoverageSearch(e.target.value)}
             autoFocus
+            className="bg-slate-700 text-white border-slate-600"
           />
           <div className="max-h-60 overflow-y-auto border rounded divide-y">
             {data
@@ -3620,14 +3633,6 @@ function AppContent() {
                     ...tempTimeInputs,
                     rStart: e.target.value,
                   })
-                }
-              />
-              <input
-                type="time"
-                className="border rounded p-2 w-full"
-                value={tempTimeInputs.rEnd}
-                onChange={(e) =>
-                  setTempTimeInputs({ ...tempTimeInputs, rEnd: e.target.value })
                 }
               />
             </div>
