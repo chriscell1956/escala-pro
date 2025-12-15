@@ -67,6 +67,16 @@ type IntervalVigilante = Vigilante & {
 const EXCLUDED_ADM_MATS = ["100497", "60931"];
 const CORINGA_MATS = ["76154", "72911"]; // João Galvão e Marcio Pivaro
 
+// Helper para definir visibilidade cruzada de equipes
+const getVisibleTeams = (fiscalTeam: string) => {
+  const t = cleanString(fiscalTeam);
+  if (t === "A") return ["A", "ECO2", "E2"];
+  if (t === "B") return ["B", "ECO2", "E2"];
+  if (t === "C") return ["C", "ECO1", "E1"];
+  if (t === "D") return ["D", "ECO1", "E1"];
+  return [t];
+};
+
 function AppContent() {
   // --- Auth State ---
   const [user, setUser] = useState<User | null>(null);
@@ -885,7 +895,10 @@ function AppContent() {
 
       if (currentUserVig) {
         const myEq = cleanString(currentUserVig.eq);
-        filtered = filtered.filter((v) => cleanString(v.eq) === myEq);
+        const visibleTeams = getVisibleTeams(myEq);
+        filtered = filtered.filter((v) =>
+          visibleTeams.includes(cleanString(v.eq)),
+        );
       } else {
         filtered = []; // Fiscal sem equipe não vê ninguém
       }
@@ -958,8 +971,9 @@ function AppContent() {
       if (user?.role === "FISCAL" && currentUserVig) {
         const myEq = cleanString(currentUserVig.eq);
         const targetEq = cleanString(v.eq);
+        const visibleTeams = getVisibleTeams(myEq);
         // Se não for da minha equipe, esconde.
-        if (targetEq !== myEq) return false;
+        if (!visibleTeams.includes(targetEq)) return false;
       }
 
       // 3. Filtros da UI
@@ -1076,7 +1090,8 @@ function AppContent() {
       filteredData = filteredData.filter((v) => {
         const vEq = cleanString(v.eq);
         const myEq = cleanString(currentUserVig.eq);
-        return vEq === myEq || vEq === "E1" || vEq === "E2";
+        const visibleTeams = getVisibleTeams(myEq);
+        return visibleTeams.includes(vEq);
       });
     }
 
