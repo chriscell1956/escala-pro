@@ -1092,8 +1092,8 @@ function AppContent() {
     });
 
     let filteredData = data;
-    // Apply Fiscal Restriction for Interval View (Own Team + E1 + E2) - MASTER ignores
-    if (user?.role === "FISCAL" && currentUserVig) {
+    // Apply Fiscal/Master Restriction for Interval View
+    if (user?.role === "FISCAL" && !isMaster && currentUserVig) {
       filteredData = filteredData.filter((v) => {
         const vEq = cleanString(v.eq);
         const myEq = cleanString(currentUserVig.eq);
@@ -1106,8 +1106,6 @@ function AppContent() {
       if (v.campus === "AFASTADOS") return;
       const status = getVigilanteStatus(v, dayNum, filterTime || "");
 
-      // CORREÇÃO: Apenas incluir vigilantes que estão ATIVAMENTE no posto ou em intervalo.
-      // Isso exclui quem está de 'FOLGA' ou 'FÉRIAS', mesmo que trabalhe no dia.
       if (
         !status.active ||
         status.status === "FOLGA" ||
@@ -1118,11 +1116,9 @@ function AppContent() {
       }
 
       const isOnBreak = status.status === "INTERVALO";
-      const coversToday =
-        v.coberturas && v.coberturas.find((c) => c.dia === dayNum);
+      const coversToday = v.coberturas?.find((c) => c.dia === dayNum);
       const coveredBy = coveredSectorsMap.get(cleanString(v.setor));
       const isCovered = !!coveredBy && isOnBreak;
-      const effectiveCampus = status.location || v.campus;
       const risk = calculateIntervalRisk(
         v.setor,
         v.tempOverrides?.[dayNum]?.refeicao || v.refeicao,
@@ -1133,6 +1129,24 @@ function AppContent() {
       const effectiveRefeicao =
         v.tempOverrides?.[dayNum]?.refeicao || v.refeicao;
       const effectiveHorario = v.tempOverrides?.[dayNum]?.horario || v.horario;
+
+      // BUG FIX: Determine effectiveSector based on REAL-TIME status
+      const isActivelyCovering =
+        status.status.includes("COBERTURA") && coversToday;
+      const finalSector = isActivelyCovering
+        ? `${coversToday.local} (COBERTURA)`
+        : v.setor;
+
+      // BUG FIX: Determine effectiveCampus
+      // If covering an interval, ALWAYS use the original campus for categorization to prevent disappearing.
+      // We trust v.campus for the Grouping, but show the specific sector in the list.
+      const isIntervalCoverage =
+        coversToday && coversToday.tipo === "INTERVALO";
+
+      const effectiveCampus = isIntervalCoverage
+        ? v.campus
+        : status.location || v.campus;
+
       rawList.push({
         ...v,
         isOnBreak,
@@ -1142,14 +1156,14 @@ function AppContent() {
         currentStatus: status.status || "NO POSTO",
         isOverridden,
         effectiveCampus,
-        effectiveSector: coversToday
-          ? `${coversToday.local} (COBERTURA)`
-          : v.setor,
+        effectiveSector: finalSector,
         hasTempSchedule,
         effectiveRefeicao,
         effectiveHorario,
       });
     });
+
+    // BUG FIX: Always return a category to avoid hiding users
     const getCategory = (c: string) => {
       const u = c.toUpperCase();
       if (u.includes("CAMPUS III") || u.includes("CAMPUS 3")) return "CAMPUS 3";
@@ -1160,23 +1174,23 @@ function AppContent() {
       if (u.includes("COLETA")) return "COLETA";
       if (u.includes("ADMINISTRAÇÃO")) return "ADMINISTRAÇÃO";
       if (u.includes("OUTROS")) return "OUTROS";
-      return c;
+      return c; // Fallback to the original string
     };
+
     const list =
       intervalCategory === "TODOS"
-        ? rawList.filter((v) => getCategory(v.effectiveCampus) !== "")
+        ? rawList
         : rawList.filter(
             (v) => getCategory(v.effectiveCampus) === intervalCategory,
           );
+
     const grouped: Record<string, IntervalVigilante[]> = {};
     list.forEach((v) => {
       const category = getCategory(v.effectiveCampus);
-      if (category) {
-        // Apenas agrupa se tiver uma categoria válida
-        if (!grouped[category]) grouped[category] = [];
-        grouped[category].push(v);
-      }
+      if (!grouped[category]) grouped[category] = [];
+      grouped[category].push(v);
     });
+
     return { list, grouped };
   }, [
     data,
@@ -1187,6 +1201,7 @@ function AppContent() {
     intervalCategory,
     user,
     currentUserVig,
+    isMaster,
   ]);
 
   // Estado para filtro do CFTV
@@ -1195,7 +1210,14 @@ function AppContent() {
   >("ALL");
   // Estado para filtro interativo da aba Intervalos
   const [intervalStatusFilter, setIntervalStatusFilter] = useState<
-    "ALL" | "ON_BREAK" | "COVERED" | "RISK"
+    | "ALL"
+    | "ON_BREAK"
+    | "COVERED"
+    | "RISK"
+    | "RISK_RED"
+    | "RISK_ORANGE"
+    | "RISK_YELLOW"
+    | "RISK_GREEN"
   >("ALL");
 
   // --- ACTIONS ---
@@ -2409,66 +2431,128 @@ function AppContent() {
     const covered = intervalData.list.filter(
       (v) => v.isOnBreak && v.isCovered,
     ).length;
-    const uncovered = intervalData.list.filter(
-      (v) => v.isOnBreak && !v.isCovered,
+
+    // Detailed Risk Breakdown
+    const countRed = intervalData.list.filter(
+      (v) => v.isOnBreak && !v.isCovered && v.risk === "RED",
+    ).length;
+    const countOrange = intervalData.list.filter(
+      (v) => v.isOnBreak && !v.isCovered && v.risk === "ORANGE",
+    ).length;
+    const countYellow = intervalData.list.filter(
+      (v) => v.isOnBreak && !v.isCovered && v.risk === "YELLOW",
+    ).length;
+    const countGreen = intervalData.list.filter(
+      (v) => v.isOnBreak && !v.isCovered && v.risk === "GREEN",
     ).length;
 
     return (
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6 animate-fade-in">
-        <Card
-          onClick={() => setIntervalStatusFilter("ALL")}
-          className={`p-3 border-l-4 border-l-slate-400 cursor-pointer transition-all hover:shadow-md ${intervalStatusFilter === "ALL" ? "ring-2 ring-slate-400 bg-slate-800" : "bg-slate-800/50"}`}
-        >
-          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-            Efetivo Local
-          </div>
-          <div className="text-2xl font-black text-slate-200">{total}</div>
-        </Card>
-        <Card
-          onClick={() =>
-            setIntervalStatusFilter(
-              intervalStatusFilter === "ON_BREAK" ? "ALL" : "ON_BREAK",
-            )
-          }
-          className={`p-3 border-l-4 border-l-blue-500 cursor-pointer transition-all hover:shadow-md ${intervalStatusFilter === "ON_BREAK" ? "ring-2 ring-blue-500 bg-blue-900/50" : "bg-slate-800/50"}`}
-        >
-          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-            Em Intervalo
-          </div>
-          <div className="text-2xl font-black text-blue-400">{onBreak}</div>
-        </Card>
-        <Card
-          onClick={() =>
-            setIntervalStatusFilter(
-              intervalStatusFilter === "COVERED" ? "ALL" : "COVERED",
-            )
-          }
-          className={`p-3 border-l-4 border-l-emerald-500 cursor-pointer transition-all hover:shadow-md ${intervalStatusFilter === "COVERED" ? "ring-2 ring-emerald-500 bg-emerald-900/50" : "bg-slate-800/50"}`}
-        >
-          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-            Cobertos
-          </div>
-          <div className="text-2xl font-black text-emerald-400">{covered}</div>
-        </Card>
-        <Card
-          onClick={() =>
-            setIntervalStatusFilter(
-              intervalStatusFilter === "RISK" ? "ALL" : "RISK",
-            )
-          }
-          className={`p-3 border-l-4 cursor-pointer transition-all hover:shadow-md ${uncovered > 0 ? "border-l-red-500 bg-red-900/50" : "border-l-slate-600 bg-slate-800/50"} ${intervalStatusFilter === "RISK" ? "ring-2 ring-red-500" : ""}`}
-        >
-          <div
-            className={`text-[10px] font-bold uppercase tracking-wider ${uncovered > 0 ? "text-red-500" : "text-slate-400"}`}
+      <div className="flex flex-col gap-3 mb-6 animate-fade-in">
+        {/* Row 1: Operational Stats */}
+        <div className="grid grid-cols-3 gap-3">
+          <Card
+            onClick={() => setIntervalStatusFilter("ALL")}
+            className={`p-3 border-l-4 border-l-slate-400 cursor-pointer transition-all hover:shadow-md ${intervalStatusFilter === "ALL" ? "ring-2 ring-slate-400 bg-slate-800" : "bg-slate-800/50"}`}
           >
-            Descobertos
-          </div>
-          <div
-            className={`text-2xl font-black ${uncovered > 0 ? "text-red-400" : "text-slate-200"}`}
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+              Efetivo Local
+            </div>
+            <div className="text-2xl font-black text-slate-200">{total}</div>
+          </Card>
+          <Card
+            onClick={() =>
+              setIntervalStatusFilter(
+                intervalStatusFilter === "ON_BREAK" ? "ALL" : "ON_BREAK",
+              )
+            }
+            className={`p-3 border-l-4 border-l-blue-500 cursor-pointer transition-all hover:shadow-md ${intervalStatusFilter === "ON_BREAK" ? "ring-2 ring-blue-500 bg-blue-900/50" : "bg-slate-800/50"}`}
           >
-            {uncovered}
-          </div>
-        </Card>
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+              Em Intervalo
+            </div>
+            <div className="text-2xl font-black text-blue-400">{onBreak}</div>
+          </Card>
+          <Card
+            onClick={() =>
+              setIntervalStatusFilter(
+                intervalStatusFilter === "COVERED" ? "ALL" : "COVERED",
+              )
+            }
+            className={`p-3 border-l-4 border-l-emerald-500 cursor-pointer transition-all hover:shadow-md ${intervalStatusFilter === "COVERED" ? "ring-2 ring-emerald-500 bg-emerald-900/50" : "bg-slate-800/50"}`}
+          >
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+              Cobertos
+            </div>
+            <div className="text-2xl font-black text-emerald-400">
+              {covered}
+            </div>
+          </Card>
+        </div>
+
+        {/* Row 2: Risk Dashboard (The "Traffic Light" System) */}
+        <div className="grid grid-cols-4 gap-2">
+          <Card
+            onClick={() =>
+              setIntervalStatusFilter(
+                intervalStatusFilter === "RISK_RED" ? "ALL" : "RISK_RED",
+              )
+            }
+            className={`p-2 border-l-4 border-l-red-600 cursor-pointer transition-all hover:shadow-md flex flex-col items-center justify-center ${countRed > 0 ? "bg-red-900/80 animate-pulse-slow" : "bg-slate-800/50 opacity-60"} ${intervalStatusFilter === "RISK_RED" ? "ring-2 ring-red-500 scale-105 opacity-100" : ""}`}
+          >
+            <div className="text-2xl font-black text-white">{countRed}</div>
+            <div className="text-[9px] font-bold text-red-200 uppercase tracking-wider">
+              🔴 Crítico
+            </div>
+          </Card>
+
+          <Card
+            onClick={() =>
+              setIntervalStatusFilter(
+                intervalStatusFilter === "RISK_ORANGE" ? "ALL" : "RISK_ORANGE",
+              )
+            }
+            className={`p-2 border-l-4 border-l-orange-500 cursor-pointer transition-all hover:shadow-md flex flex-col items-center justify-center ${countOrange > 0 ? "bg-orange-900/60" : "bg-slate-800/50 opacity-60"} ${intervalStatusFilter === "RISK_ORANGE" ? "ring-2 ring-orange-500 scale-105 opacity-100" : ""}`}
+          >
+            <div className="text-2xl font-black text-orange-100">
+              {countOrange}
+            </div>
+            <div className="text-[9px] font-bold text-orange-300 uppercase tracking-wider">
+              🟠 Alto
+            </div>
+          </Card>
+
+          <Card
+            onClick={() =>
+              setIntervalStatusFilter(
+                intervalStatusFilter === "RISK_YELLOW" ? "ALL" : "RISK_YELLOW",
+              )
+            }
+            className={`p-2 border-l-4 border-l-yellow-500 cursor-pointer transition-all hover:shadow-md flex flex-col items-center justify-center ${countYellow > 0 ? "bg-yellow-900/40" : "bg-slate-800/50 opacity-60"} ${intervalStatusFilter === "RISK_YELLOW" ? "ring-2 ring-yellow-500 scale-105 opacity-100" : ""}`}
+          >
+            <div className="text-2xl font-black text-yellow-100">
+              {countYellow}
+            </div>
+            <div className="text-[9px] font-bold text-yellow-300 uppercase tracking-wider">
+              🟡 Médio
+            </div>
+          </Card>
+
+          <Card
+            onClick={() =>
+              setIntervalStatusFilter(
+                intervalStatusFilter === "RISK_GREEN" ? "ALL" : "RISK_GREEN",
+              )
+            }
+            className={`p-2 border-l-4 border-l-slate-500 cursor-pointer transition-all hover:shadow-md flex flex-col items-center justify-center ${countGreen > 0 ? "bg-slate-700" : "bg-slate-800/50 opacity-60"} ${intervalStatusFilter === "RISK_GREEN" ? "ring-2 ring-slate-400 scale-105 opacity-100" : ""}`}
+          >
+            <div className="text-2xl font-black text-slate-200">
+              {countGreen}
+            </div>
+            <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+              🟢 Baixo
+            </div>
+          </Card>
+        </div>
       </div>
     );
   };
@@ -3073,6 +3157,23 @@ function AppContent() {
                           return v.isOnBreak && v.isCovered;
                         if (intervalStatusFilter === "RISK")
                           return v.isOnBreak && !v.isCovered;
+                        // Specific Risk Filters
+                        if (intervalStatusFilter === "RISK_RED")
+                          return (
+                            v.isOnBreak && !v.isCovered && v.risk === "RED"
+                          );
+                        if (intervalStatusFilter === "RISK_ORANGE")
+                          return (
+                            v.isOnBreak && !v.isCovered && v.risk === "ORANGE"
+                          );
+                        if (intervalStatusFilter === "RISK_YELLOW")
+                          return (
+                            v.isOnBreak && !v.isCovered && v.risk === "YELLOW"
+                          );
+                        if (intervalStatusFilter === "RISK_GREEN")
+                          return (
+                            v.isOnBreak && !v.isCovered && v.risk === "GREEN"
+                          );
                         return true;
                       },
                     );
@@ -3101,6 +3202,10 @@ function AppContent() {
                               vig.isOnBreak &&
                               !vig.isCovered &&
                               (vig.risk === "ORANGE" || vig.risk === "YELLOW");
+                            const isGreenRisk =
+                              vig.isOnBreak &&
+                              !vig.isCovered &&
+                              vig.risk === "GREEN"; // NEW: Green Risk Logic
                             const isCovered = vig.isOnBreak && vig.isCovered;
                             const isActive = !vig.isOnBreak;
 
@@ -3112,6 +3217,9 @@ function AppContent() {
                             if (isCovered)
                               rowClass =
                                 "bg-emerald-900/30 border-l-4 border-l-emerald-500"; // Verde bem visível
+                            if (isGreenRisk)
+                              rowClass =
+                                "bg-slate-800/80 border-l-4 border-l-slate-500 opacity-75"; // NEW: Green Risk looks calm/gray
                             if (isAttention)
                               rowClass =
                                 "bg-orange-900/30 border-l-4 border-l-orange-500"; // Laranja de atenção
@@ -3162,12 +3270,23 @@ function AppContent() {
                                         ? "🍽️ EM INTERVALO"
                                         : "🛡️ NO POSTO"}
                                     </div>
+                                    {/* NEW: Logic for Uncovered Badges */}
                                     {vig.isOnBreak && !vig.isCovered && (
-                                      <div
-                                        className={`text-[10px] font-bold px-2 py-0.5 rounded border inline-flex items-center gap-1 bg-red-900/50 border-red-500 text-red-200`}
-                                      >
-                                        ⚠️ DESCOBERTO
-                                      </div>
+                                      <>
+                                        {vig.risk === "GREEN" ? (
+                                          <div
+                                            className={`text-[10px] font-bold px-2 py-0.5 rounded border inline-flex items-center gap-1 bg-slate-700 border-slate-500 text-slate-300`}
+                                          >
+                                            DESCOBERTO (RISCO BAIXO)
+                                          </div>
+                                        ) : (
+                                          <div
+                                            className={`text-[10px] font-bold px-2 py-0.5 rounded border inline-flex items-center gap-1 bg-red-900/50 border-red-500 text-red-200 animate-pulse`}
+                                          >
+                                            🎥 MONITORAR (RISCO ALTO)
+                                          </div>
+                                        )}
+                                      </>
                                     )}
                                     {vig.isCovered && (
                                       <div className="text-[10px] font-bold px-2 py-0.5 rounded border bg-emerald-900/50 text-emerald-200 border-emerald-500 inline-flex items-center gap-1">
