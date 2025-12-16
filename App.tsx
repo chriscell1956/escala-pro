@@ -426,9 +426,6 @@ function AppContent() {
       }
     }
 
-    const savedOverrides = localStorage.getItem("uno_interval_overrides");
-    if (savedOverrides) setIntervalOverrides(JSON.parse(savedOverrides));
-
     checkSystemStatus();
   }, []);
 
@@ -580,6 +577,10 @@ function AppContent() {
 
     const fetchedLogs = await api.loadLogs(m);
     setLogs(fetchedLogs || []);
+
+    // NEW: Load interval overrides from DB
+    const fetchedOverrides = await api.loadIntervalOverrides();
+    setIntervalOverrides(fetchedOverrides);
 
     let finalData: Vigilante[] = [];
 
@@ -2317,17 +2318,19 @@ function AppContent() {
     setTargetSectorForPriority(sector);
     setIsPriorityModalOpen(true);
   };
-  const savePriorityOverride = (priority: IntervalPriority) => {
+  const savePriorityOverride = async (priority: IntervalPriority) => {
     if (!targetSectorForPriority) return;
     const newOverrides = {
       ...intervalOverrides,
       [targetSectorForPriority]: priority,
     };
-    setIntervalOverrides(newOverrides);
-    localStorage.setItem(
-      "uno_interval_overrides",
-      JSON.stringify(newOverrides),
-    );
+    const success = await api.saveIntervalOverrides(newOverrides);
+    if (success) {
+      setIntervalOverrides(newOverrides);
+      showToast("Prioridade salva e sincronizada!", "success");
+    } else {
+      showToast("Erro ao sincronizar prioridade.", "error");
+    }
     setIsPriorityModalOpen(false);
     setTargetSectorForPriority(null);
     registerLog(
@@ -3273,17 +3276,24 @@ function AppContent() {
                                     {/* NEW: Logic for Uncovered Badges */}
                                     {vig.isOnBreak && !vig.isCovered && (
                                       <>
-                                        {vig.risk === "GREEN" ? (
-                                          <div
-                                            className={`text-[10px] font-bold px-2 py-0.5 rounded border inline-flex items-center gap-1 bg-slate-700 border-slate-500 text-slate-300`}
-                                          >
+                                        {vig.risk === "GREEN" && (
+                                          <div className="text-[10px] font-bold px-2 py-0.5 rounded border inline-flex items-center gap-1 bg-slate-700 border-slate-500 text-slate-300">
                                             DESCOBERTO (RISCO BAIXO)
                                           </div>
-                                        ) : (
-                                          <div
-                                            className={`text-[10px] font-bold px-2 py-0.5 rounded border inline-flex items-center gap-1 bg-red-900/50 border-red-500 text-red-200 animate-pulse`}
-                                          >
+                                        )}
+                                        {vig.risk === "YELLOW" && (
+                                          <div className="text-[10px] font-bold px-2 py-0.5 rounded border inline-flex items-center gap-1 bg-yellow-900/50 border-yellow-500 text-yellow-200">
+                                            🎥 MONITORAR (RISCO MÉDIO)
+                                          </div>
+                                        )}
+                                        {vig.risk === "ORANGE" && (
+                                          <div className="text-[10px] font-bold px-2 py-0.5 rounded border inline-flex items-center gap-1 bg-orange-900/50 border-orange-500 text-orange-200 animate-pulse">
                                             🎥 MONITORAR (RISCO ALTO)
+                                          </div>
+                                        )}
+                                        {vig.risk === "RED" && (
+                                          <div className="text-[10px] font-bold px-2 py-0.5 rounded border inline-flex items-center gap-1 bg-red-900/50 border-red-500 text-red-200 animate-pulse">
+                                            🎥 MONITORAR (RISCO CRÍTICO)
                                           </div>
                                         )}
                                       </>
@@ -3777,7 +3787,8 @@ function AppContent() {
           </div>
           <div>
             <label className="text-xs font-bold block mb-1">
-              Novo Horário:
+              Novo Horário:{" "}
+              <span className="text-slate-400">(Formato 24h)</span>
             </label>
             <div className="flex gap-2">
               <input
@@ -3803,7 +3814,8 @@ function AppContent() {
           </div>
           <div>
             <label className="text-xs font-bold block mb-1">
-              Novo Intervalo (Início):
+              Novo Intervalo (Início):{" "}
+              <span className="text-slate-400">(Formato 24h)</span>
             </label>
             <div className="flex gap-2">
               <input
