@@ -1107,7 +1107,7 @@ function AppContent() {
       const status = getVigilanteStatus(v, dayNum, filterTime || "");
 
       // CORREÇÃO: Apenas incluir vigilantes que estão ATIVAMENTE no posto ou em intervalo.
-      // Isso exclui quem está de 'FOLGA' ou 'FORA DE HORÁRIO', mesmo que trabalhe no dia.
+      // Isso exclui quem está de 'FOLGA' ou 'FÉRIAS', mesmo que trabalhe no dia.
       if (
         !status.active ||
         status.status === "FOLGA" ||
@@ -1158,7 +1158,9 @@ function AppContent() {
       if (u.includes("LABORATÓRIO") || u.includes("LIMA")) return "LABORATÓRIO";
       if (u.includes("CHÁCARA")) return "CHÁCARA";
       if (u.includes("COLETA")) return "COLETA";
-      return ""; // Oculta ADMINISTRAÇÃO/OUTROS dos cálculos e visualização
+      if (u.includes("ADMINISTRAÇÃO")) return "ADMINISTRAÇÃO";
+      if (u.includes("OUTROS")) return "OUTROS";
+      return c;
     };
     const list =
       intervalCategory === "TODOS"
