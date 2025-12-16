@@ -1,6 +1,5 @@
 import React from "react";
 import { Vigilante, User, Conflict } from "../../types";
-import { TEAM_OPTIONS } from "../../constants";
 import { Button, Icons, Badge } from "../ui";
 
 interface EscalaViewProps {
@@ -20,6 +19,7 @@ interface EscalaViewProps {
   handleOpenCoverage: (dia: number, campus: string, equipe: string) => void;
   handleReturnFromAway: (vig: Vigilante) => void;
   handleRemoveCoverage: (vig: Vigilante, dia: number) => void;
+  visibleTeams: string[];
 }
 
 const EscalaViewComponent: React.FC<EscalaViewProps> = (props) => {
@@ -40,6 +40,7 @@ const EscalaViewComponent: React.FC<EscalaViewProps> = (props) => {
     handleOpenCoverage,
     handleReturnFromAway,
     handleRemoveCoverage,
+    visibleTeams,
   } = props;
 
   return (
@@ -57,24 +58,21 @@ const EscalaViewComponent: React.FC<EscalaViewProps> = (props) => {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
-            {user?.role !== "FISCAL" && (
-              <>
-                <div className="w-px h-5 bg-slate-600 mx-2"></div>
-                <select
-                  value={filterEq}
-                  onChange={(e) => setFilterEq(e.target.value)}
-                  className="bg-slate-800 border border-slate-700 rounded-lg text-sm font-bold text-slate-300 focus:outline-none cursor-pointer hover:text-white"
-                >
-                  <option value="TODAS">Todas Equipes</option>
-                  {TEAM_OPTIONS.map((t) => (
-                    <option key={t} value={t}>
-                      Equipe {t}
-                    </option>
-                  ))}
-                  <option value="AFASTADOS">✈️ Afastados</option>
-                </select>
-              </>
-            )}
+
+            <div className="w-px h-5 bg-slate-600 mx-2"></div>
+            <select
+              value={filterEq}
+              onChange={(e) => setFilterEq(e.target.value)}
+              className="bg-slate-800 border border-slate-700 rounded-lg text-sm font-bold text-slate-300 focus:outline-none cursor-pointer hover:text-white"
+            >
+              <option value="TODAS">Todas Equipes</option>
+              {visibleTeams.map((t) => (
+                <option key={t} value={t}>
+                  Equipe {t}
+                </option>
+              ))}
+              <option value="AFASTADOS">✈️ Afastados</option>
+            </select>
           </div>
         </div>
       )}

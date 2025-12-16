@@ -70,10 +70,10 @@ const CORINGA_MATS = ["76154", "72911"]; // João Galvão e Marcio Pivaro
 // Helper para definir visibilidade cruzada de equipes
 const getVisibleTeams = (fiscalTeam: string) => {
   const t = cleanString(fiscalTeam);
-  if (t === "A") return ["A", "ECO2", "E2"];
-  if (t === "B") return ["B", "ECO2", "E2"];
-  if (t === "C") return ["C", "ECO1", "E1"];
-  if (t === "D") return ["D", "ECO1", "E1"];
+  if (t === "A") return ["A", "ECO2"];
+  if (t === "B") return ["B", "ECO2"];
+  if (t === "C") return ["C", "ECO1"];
+  if (t === "D") return ["D", "ECO1"];
   return [t];
 };
 
@@ -886,6 +886,13 @@ function AppContent() {
     });
   }, [data, month, filterEq, isFutureMonth]);
 
+  const visibleTeamsForFilter = useMemo(() => {
+    if (user?.role === "FISCAL" && currentUserVig) {
+      return getVisibleTeams(currentUserVig.eq);
+    }
+    return TEAM_OPTIONS;
+  }, [user, currentUserVig]);
+
   const lancadorList = useMemo(() => {
     let filtered = data.filter((v) => v.campus !== "AFASTADOS");
 
@@ -1094,14 +1101,14 @@ function AppContent() {
 
     let filteredData = data;
     // Apply Fiscal/Master Restriction for Interval View
-    if (user?.role === "FISCAL" && !isMaster && currentUserVig) {
-      filteredData = filteredData.filter((v) => {
-        const vEq = cleanString(v.eq);
-        const myEq = cleanString(currentUserVig.eq);
-        const visibleTeams = getVisibleTeams(myEq);
-        return visibleTeams.includes(vEq);
-      });
-    }
+    // if (user?.role === "FISCAL" && !isMaster && currentUserVig) {
+    //   filteredData = filteredData.filter((v) => {
+    //     const vEq = cleanString(v.eq);
+    //     const myEq = cleanString(currentUserVig.eq);
+    //     const visibleTeams = getVisibleTeams(myEq);
+    //     return visibleTeams.includes(vEq);
+    //   });
+    // }
 
     filteredData.forEach((v) => {
       if (v.campus === "AFASTADOS") return;
@@ -2804,6 +2811,7 @@ function AppContent() {
             handleOpenCoverage={handleOpenCoverage}
             handleReturnFromAway={handleReturnFromAway}
             handleRemoveCoverage={handleRemoveCoverage}
+            visibleTeams={visibleTeamsForFilter}
           />
         )}
 
@@ -2835,6 +2843,7 @@ function AppContent() {
             setIsNewVigModalOpen={setIsNewVigModalOpen}
             handleSmartSuggest={handleSmartSuggest}
             month={month}
+            lancadorVisibleTeams={visibleTeamsForFilter}
           />
         )}
 

@@ -1,6 +1,6 @@
 import React from "react";
 import { Vigilante, User, Team } from "../../types";
-import { TEAM_OPTIONS, SECTOR_OPTIONS } from "../../constants";
+import { SECTOR_OPTIONS } from "../../constants";
 import { Button, Input, Select, Badge } from "../ui";
 import { CalendarGrid } from "../common/CalendarGrid";
 import { calculateDaysForTeam } from "../../utils"; // Importar a função de cálculo
@@ -36,6 +36,7 @@ interface LancadorViewProps {
   setIsNewVigModalOpen: (v: boolean) => void;
   handleSmartSuggest: () => void;
   month: number;
+  lancadorVisibleTeams: string[];
 }
 
 const LancadorViewComponent: React.FC<LancadorViewProps> = (props) => {
@@ -65,6 +66,7 @@ const LancadorViewComponent: React.FC<LancadorViewProps> = (props) => {
     setIsNewVigModalOpen,
     handleSmartSuggest,
     month,
+    lancadorVisibleTeams,
   } = props;
 
   // Função para lidar com a mudança de equipe e recalcular os dias
@@ -83,7 +85,11 @@ const LancadorViewComponent: React.FC<LancadorViewProps> = (props) => {
   return (
     <div className="flex flex-1 h-full overflow-hidden bg-slate-900 relative print:h-auto print:overflow-visible">
       <div
-        className={`w-full md:w-[380px] bg-slate-800 border-r border-slate-700 flex flex-col shadow-xl z-20 shrink-0 h-full absolute md:relative top-0 left-0 bottom-0 transition-transform duration-300 ease-in-out ${showMobileEditor ? "translate-x-0" : "-translate-x-full md:translate-x-0"} print:hidden`}
+        className={`w-full md:w-[380px] bg-slate-800 border-r border-slate-700 flex flex-col shadow-xl z-20 shrink-0 h-full absolute md:relative top-0 left-0 bottom-0 transition-transform duration-300 ease-in-out ${
+          showMobileEditor
+            ? "translate-x-0"
+            : "-translate-x-full md:translate-x-0"
+        } print:hidden`}
       >
         <div className="bg-slate-950 text-white p-4 text-center border-b border-slate-700 relative shrink-0">
           <button
@@ -101,25 +107,23 @@ const LancadorViewComponent: React.FC<LancadorViewProps> = (props) => {
         </div>
 
         <div className="p-4 bg-slate-900 border-b border-slate-700 space-y-3 shrink-0">
-          {user?.role !== "FISCAL" && (
-            <div>
-              <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">
-                1. Filtrar Equipe:
-              </label>
-              <Select
-                value={selectedLancadorTeam}
-                onChange={(e) => setSelectedLancadorTeam(e.target.value)}
-                className="bg-slate-700 text-white border-slate-600 shadow-sm"
-              >
-                <option value="TODAS">-- Todas --</option>
-                {TEAM_OPTIONS.map((t) => (
-                  <option key={t} value={t}>
-                    Equipe {t}
-                  </option>
-                ))}
-              </Select>
-            </div>
-          )}
+          <div>
+            <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">
+              1. Filtrar Equipe:
+            </label>
+            <Select
+              value={selectedLancadorTeam}
+              onChange={(e) => setSelectedLancadorTeam(e.target.value)}
+              className="bg-slate-700 text-white border-slate-600 shadow-sm"
+            >
+              <option value="TODAS">-- Todas --</option>
+              {lancadorVisibleTeams.map((t) => (
+                <option key={t} value={t}>
+                  Equipe {t}
+                </option>
+              ))}
+            </Select>
+          </div>
           <div>
             <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">
               2. Buscar Nome:
@@ -166,7 +170,7 @@ const LancadorViewComponent: React.FC<LancadorViewProps> = (props) => {
                     onChange={(e) => handleTeamChange(e.target.value as Team)}
                     className="w-full text-xs border border-slate-600 rounded p-1.5 bg-slate-700 text-white"
                   >
-                    {TEAM_OPTIONS.map((t) => (
+                    {lancadorVisibleTeams.map((t) => (
                       <option key={t} value={t}>
                         {t}
                       </option>
@@ -261,25 +265,41 @@ const LancadorViewComponent: React.FC<LancadorViewProps> = (props) => {
                   <div className="flex bg-slate-900 rounded-lg p-1 gap-1">
                     <button
                       onClick={() => setEditorMode("days")}
-                      className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${editorMode === "days" ? "bg-slate-700 text-white shadow-sm" : "text-slate-500 hover:text-slate-300"}`}
+                      className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${
+                        editorMode === "days"
+                          ? "bg-slate-700 text-white shadow-sm"
+                          : "text-slate-500 hover:text-slate-300"
+                      }`}
                     >
                       📅 DIAS
                     </button>
                     <button
                       onClick={() => setEditorMode("vacation")}
-                      className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${editorMode === "vacation" ? "bg-amber-100 text-amber-800 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+                      className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${
+                        editorMode === "vacation"
+                          ? "bg-amber-100 text-amber-800 shadow-sm"
+                          : "text-slate-500 hover:text-slate-700"
+                      }`}
                     >
                       🏖️ FÉRIAS
                     </button>
                     <button
                       onClick={() => setEditorMode("falta")}
-                      className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${editorMode === "falta" ? "bg-red-600 text-white shadow-sm" : "text-slate-500 hover:text-slate-300"}`}
+                      className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${
+                        editorMode === "falta"
+                          ? "bg-red-600 text-white shadow-sm"
+                          : "text-slate-500 hover:text-slate-300"
+                      }`}
                     >
                       ❌ FALTA
                     </button>
                     <button
                       onClick={() => setEditorMode("partial")}
-                      className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${editorMode === "partial" ? "bg-orange-500 text-white shadow-sm" : "text-slate-500 hover:text-slate-300"}`}
+                      className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${
+                        editorMode === "partial"
+                          ? "bg-orange-500 text-white shadow-sm"
+                          : "text-slate-500 hover:text-slate-300"
+                      }`}
                     >
                       ⚠️ PARCIAL
                     </button>
@@ -381,7 +401,15 @@ const LancadorViewComponent: React.FC<LancadorViewProps> = (props) => {
                     <tr
                       key={vig.mat}
                       onClick={() => setEditingVig(vig)}
-                      className={`cursor-pointer transition-colors ${editingVig?.mat === vig.mat ? "bg-blue-900/30 border-l-4 border-l-blue-500" : "hover:bg-slate-700 even:bg-slate-800/50"} ${vig.manualLock ? "text-slate-200" : "bg-orange-900/20 text-orange-200"}`}
+                      className={`cursor-pointer transition-colors ${
+                        editingVig?.mat === vig.mat
+                          ? "bg-blue-900/30 border-l-4 border-l-blue-500"
+                          : "hover:bg-slate-700 even:bg-slate-800/50"
+                      } ${
+                        vig.manualLock
+                          ? "text-slate-200"
+                          : "bg-orange-900/20 text-orange-200"
+                      }`}
                     >
                       <td className="px-4 py-3 font-bold">
                         {vig.manualLock ? (
