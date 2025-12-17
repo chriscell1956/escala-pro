@@ -252,6 +252,7 @@ function AppContent() {
   // Password Modal State
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState(""); // NEW: Confirm Password
 
   // --- DERIVED PERMISSIONS & HELPERS ---
   const isMaster = user?.role === "MASTER";
@@ -1486,6 +1487,11 @@ function AppContent() {
     if (e) e.preventDefault();
     if (!user) return;
     if (newPassword.length < 4) return alert("Senha muito curta.");
+    if (newPassword !== confirmPassword)
+      return alert("As senhas não conferem.");
+    if (newPassword === "123456")
+      return alert("A nova senha não pode ser a padrão (123456).");
+
     const users = await api.getUsers();
     const meIndex = users.findIndex((u) => u.mat === user.mat);
     if (meIndex > -1) {
@@ -2569,79 +2575,107 @@ function AppContent() {
 
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-brand-800 p-4 relative">
-        <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md border-t-8 border-gold-500 relative transition-all animate-fade-in">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-brand-900 to-slate-900 p-4 relative overflow-hidden">
+        {/* Background Pattern */}
+        <div className="absolute inset-0 opacity-10 pointer-events-none">
+          <div
+            className="absolute inset-0"
+            style={{
+              backgroundImage:
+                "radial-gradient(circle at 2px 2px, rgba(255,255,255,0.15) 1px, transparent 0)",
+              backgroundSize: "24px 24px",
+            }}
+          ></div>
+        </div>
+
+        <div className="bg-slate-800/90 backdrop-blur-xl rounded-3xl shadow-2xl p-8 w-full max-w-md border border-slate-700 relative transition-all animate-fade-in z-10">
           <div className="text-center mb-8">
-            <div className="flex justify-center mb-6">
-              <UnoesteSecurityLogo className="w-40 h-auto drop-shadow-xl" />
+            <div className="flex justify-center mb-6 transform hover:scale-105 transition-transform duration-300">
+              <UnoesteSecurityLogo className="w-48 h-auto drop-shadow-2xl" />
             </div>
-            <h2 className="text-brand-800 font-black text-2xl tracking-tight uppercase">
-              Sistema de Escalas
+            <h2 className="text-white font-black text-3xl tracking-tight uppercase mb-1">
+              Acesso Restrito
             </h2>
-            <h3 className="text-gold-500 font-bold text-lg tracking-widest">
-              SEGURANÇA
+            <h3 className="text-brand-500 font-bold text-sm tracking-[0.2em] uppercase">
+              Gestão de Escalas
             </h3>
           </div>
-          <form onSubmit={handleLogin} className="space-y-4">
-            <Input
-              autoFocus
-              value={loginMat}
-              onChange={(e) => setLoginMat(e.target.value)}
-              placeholder="Matrícula"
-              className="bg-gray-50 text-lg py-3"
-            />
-            <div className="relative">
+          <form onSubmit={handleLogin} className="space-y-5">
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-slate-400 uppercase ml-1">
+                Matrícula
+              </label>
               <Input
-                type={showLoginPass ? "text" : "password"}
-                value={loginPass}
-                onChange={(e) => setLoginPass(e.target.value)}
-                placeholder="Senha (Padrão: 123456)"
-                className="bg-gray-50 text-lg py-3 pr-10"
+                autoFocus
+                value={loginMat}
+                onChange={(e) => setLoginMat(e.target.value)}
+                placeholder="Digite sua matrícula..."
+                className="bg-slate-900 text-white text-lg py-3 border-slate-700 focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-200 placeholder:text-slate-600"
               />
-              <button
-                type="button"
-                onClick={() => setShowLoginPass(!showLoginPass)}
-                className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600"
-                tabIndex={-1}
-              >
-                {showLoginPass ? <Icons.EyeOff /> : <Icons.Eye />}
-              </button>
             </div>
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-slate-400 uppercase ml-1">
+                Senha
+              </label>
+              <div className="relative">
+                <Input
+                  type={showLoginPass ? "text" : "password"}
+                  value={loginPass}
+                  onChange={(e) => setLoginPass(e.target.value)}
+                  placeholder="••••••"
+                  className="bg-slate-900 text-white text-lg py-3 pr-10 border-slate-700 focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-200 placeholder:text-slate-600"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowLoginPass(!showLoginPass)}
+                  className="absolute right-3 top-3.5 text-slate-500 hover:text-white transition-colors"
+                  tabIndex={-1}
+                >
+                  {showLoginPass ? <Icons.EyeOff /> : <Icons.Eye />}
+                </button>
+              </div>
+            </div>
+
             {authError && (
-              <div className="text-red-600 text-sm font-bold text-center bg-red-50 p-2 rounded border border-red-100 animate-pulse">
-                {authError}
+              <div className="text-red-400 text-sm font-bold text-center bg-red-900/20 p-3 rounded-xl border border-red-800 animate-shake flex items-center justify-center gap-2">
+                <span>⚠️</span> {authError}
               </div>
             )}
+
             <Button
               type="submit"
-              className="w-full py-3 text-lg font-bold shadow-lg"
+              className="w-full py-4 text-lg font-black shadow-lg bg-gradient-to-r from-brand-600 to-brand-700 hover:from-brand-500 hover:to-brand-600 transform hover:-translate-y-0.5 transition-all duration-200 rounded-xl text-white"
             >
-              ENTRAR
+              ENTRAR NO SISTEMA
             </Button>
+
             <div
-              className={`mt-4 text-center text-xs font-mono py-2 rounded border ${dbStatus.online ? "bg-green-50 text-green-700 border-green-200" : "bg-orange-50 text-orange-700 border-orange-200"}`}
+              className={`mt-6 text-center text-[10px] font-mono py-2 rounded-lg border ${dbStatus.online ? "bg-emerald-900/20 text-emerald-400 border-emerald-800" : "bg-orange-900/20 text-orange-400 border-orange-800"}`}
             >
               {dbStatus.online ? (
-                <span className="flex items-center justify-center gap-1">
-                  ✅ Conectado
+                <span className="flex items-center justify-center gap-1 font-bold">
+                  <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+                  SISTEMA ONLINE
                 </span>
               ) : (
                 <div>
                   <div className="font-bold flex items-center justify-center gap-1">
-                    ⚠️ Falha na Conexão
+                    ⚠️ CONEXÃO INSTÁVEL
                   </div>
-                  <div className="opacity-80 mt-1">{dbStatus.message}</div>
                   <button
                     type="button"
                     onClick={checkSystemStatus}
-                    className="mt-2 text-[10px] underline hover:text-black"
+                    className="mt-1 underline hover:text-white"
                   >
-                    Tentar Novamente
+                    Tentar Reconectar
                   </button>
                 </div>
               )}
             </div>
           </form>
+        </div>
+        <div className="absolute bottom-4 text-white/20 text-xs font-bold tracking-widest">
+          UNOESTE SEGURANÇA PRO © 2025
         </div>
       </div>
     );
@@ -3904,6 +3938,12 @@ function AppContent() {
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
             autoFocus
+          />
+          <Input
+            type="password"
+            placeholder="Confirmar Nova Senha"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
           />
           <Button type="submit" className="w-full">
             SALVAR NOVA SENHA
