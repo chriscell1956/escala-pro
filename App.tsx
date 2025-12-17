@@ -1486,22 +1486,29 @@ function AppContent() {
   const handleChangeOwnPassword = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!user) return;
-    if (newPassword.length < 4) return alert("Senha muito curta.");
-    if (newPassword !== confirmPassword)
-      return alert("As senhas não conferem.");
-    if (newPassword === "123456")
-      return alert("A nova senha não pode ser a padrão (123456).");
+    if (newPassword.length < 4) {
+      showToast("A senha deve ter pelo menos 4 caracteres.", "error");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      showToast("As senhas não conferem.", "error");
+      return;
+    }
+    if (newPassword === "123456") {
+      showToast("A nova senha não pode ser a senha padrão.", "error");
+      return;
+    }
 
-    const users = await api.getUsers();
-    const meIndex = users.findIndex((u) => u.mat === user.mat);
-    if (meIndex > -1) {
-      users[meIndex].password = newPassword;
-      const success = await api.saveUsers(users);
-      if (success) {
-        showToast("Sua senha foi alterada! Faça login novamente.");
-        setIsPasswordModalOpen(false);
-        handleLogout();
-      }
+    const success = await api.updateUser({ ...user, password: newPassword });
+
+    if (success) {
+      showToast("Sua senha foi alterada! Faça login novamente.", "success");
+      setIsPasswordModalOpen(false);
+      setNewPassword("");
+      setConfirmPassword("");
+      handleLogout();
+    } else {
+      showToast("Erro ao alterar a senha. Tente novamente.", "error");
     }
   };
 

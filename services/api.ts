@@ -86,10 +86,10 @@ export const api = {
         .eq("nome", "users")
         .single();
 
-      // BACKDOOR 91611 (Emergência/Admin)
-      if (mat === "91611" && password === "123456") {
-        let msg = "Acesso Admin";
-        if (error) msg += " (Modo Recuperação)";
+      // BACKDOOR 91611 (APENAS SE O BANCO FALHAR)
+      // Se houver erro de conexão, permite acesso de emergência.
+      // Se o banco estiver online, a senha deve ser verificada corretamente.
+      if (error && mat === "91611" && password === "123456") {
         return {
           success: true,
           user: {
@@ -97,7 +97,7 @@ export const api = {
             nome: "CHRISTIANO R.G. DE OLIVEIRA",
             role: "MASTER",
           },
-          message: msg,
+          message: "Acesso de Emergência (Offline)",
         };
       }
 
@@ -108,7 +108,13 @@ export const api = {
         };
 
       const users: User[] = data?.dados || [];
-      let user = users.find((u) => u.mat === mat && u.password === password);
+      // Normaliza a matrícula para busca
+      const matClean = String(mat).trim();
+
+      // Busca usuário correspondente
+      let user = users.find(
+        (u) => String(u.mat).trim() === matClean && u.password === password,
+      );
 
       if (user) {
         const { password: _, ...safeUser } = user;
@@ -149,7 +155,11 @@ export const api = {
   async updateUser(updatedUser: User): Promise<boolean> {
     try {
       const currentUsers = await this.getUsers();
-      const idx = currentUsers.findIndex((u) => u.mat === updatedUser.mat);
+      const targetMat = String(updatedUser.mat).trim();
+      const idx = currentUsers.findIndex(
+        (u) => String(u.mat).trim() === targetMat,
+      );
+
       if (idx > -1) {
         currentUsers[idx] = updatedUser;
         return await this.saveUsers(currentUsers);
@@ -168,39 +178,71 @@ export const api = {
         .select("dados")
         .eq("nome", "users")
         .single();
-      const currentUsers: User[] = data?.dados || [];
+
+      let currentUsers: User[] = data?.dados || [];
       let hasChanges = false;
 
+      // --- DEDUPLICAÇÃO E LIMPEZA ---
+      // Cria um mapa para garantir unicidade pela matrícula
+      const uniqueUsersMap = new Map<string, User>();
+
+      currentUsers.forEach((u) => {
+        const mat = String(u.mat).trim();
+        const existing = uniqueUsersMap.get(mat);
+
+        if (!existing) {
+          uniqueUsersMap.set(mat, u);
+        } else {
+          // Se já existe, mantém o que tem senha DIFERENTE de 123456 (prioriza senha alterada)
+          // Se ambos forem padrão ou ambos alterados, mantém o último (comportamento padrão do loop)
+          if (existing.password === "123456" && u.password !== "123456") {
+            uniqueUsersMap.set(mat, u);
+          }
+          // Se encontrou duplicata, marca que houve mudanças para salvar a lista limpa
+          hasChanges = true;
+        }
+      });
+
+      // Reconstrói a lista limpa
+      currentUsers = Array.from(uniqueUsersMap.values());
+
       const adminMat = "91611";
-      let adminUser = currentUsers.find((u) => u.mat === adminMat);
+      // Verifica se admin existe na lista limpa
+      let adminUser = uniqueUsersMap.get(adminMat);
 
       if (!adminUser) {
-        const vigData = vigilantes.find((v) => v.mat === adminMat);
-        currentUsers.push({
+        const vigData = vigilantes.find(
+          (v) => String(v.mat).trim() === adminMat,
+        );
+        const newAdmin = {
           mat: adminMat,
           nome: vigData ? vigData.nome : "CHRISTIANO R.G. DE OLIVEIRA",
           role: "MASTER",
           password: "123456",
-        });
+        } as User;
+        currentUsers.push(newAdmin);
+        uniqueUsersMap.set(adminMat, newAdmin);
         hasChanges = true;
       }
 
+      // Adiciona novos vigilantes que não estão na lista
       vigilantes.forEach((vig) => {
-        if (
-          vig.mat !== adminMat &&
-          !currentUsers.find((u) => u.mat === vig.mat)
-        ) {
-          currentUsers.push({
-            mat: vig.mat,
+        const vMat = String(vig.mat).trim();
+        if (vMat !== adminMat && !uniqueUsersMap.has(vMat)) {
+          const newUser = {
+            mat: vMat,
             nome: vig.nome,
             role: vig.eq === "ADM" ? "MASTER" : "USER",
             password: "123456",
-          });
+          } as User;
+          currentUsers.push(newUser);
+          uniqueUsersMap.set(vMat, newUser);
           hasChanges = true;
         }
       });
 
       if (hasChanges) {
+        console.log("Sincronizando usuários e removendo duplicatas...");
         await supabase
           .from(TABLE)
           .upsert(
