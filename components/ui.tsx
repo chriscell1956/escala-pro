@@ -421,7 +421,7 @@ export const Input: React.FC<React.InputHTMLAttributes<HTMLInputElement>> = ({
 }) => {
   return (
     <input
-      className={`w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent text-sm shadow-sm ${className}`}
+      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent text-sm shadow-sm bg-slate-700 text-white border-slate-600 placeholder-slate-400 ${className}`}
       {...props}
     />
   );
@@ -432,7 +432,7 @@ export const Select: React.FC<
 > = ({ className = "", children, ...props }) => {
   return (
     <select
-      className={`w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent text-sm shadow-sm ${className}`}
+      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent text-sm shadow-sm bg-slate-700 text-white border-slate-600 ${className}`}
       {...props}
     >
       {children}
@@ -466,7 +466,7 @@ export const Card: React.FC<{
 }> = ({ children, className = "", onClick }) => (
   <div
     onClick={onClick}
-    className={`bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden ${onClick ? "cursor-pointer hover:shadow-md transition-shadow" : ""} ${className}`}
+    className={`bg-slate-800 rounded-xl shadow-sm border border-slate-700 overflow-hidden ${onClick ? "cursor-pointer hover:shadow-md transition-shadow" : ""} ${className}`}
   >
     {children}
   </div>
