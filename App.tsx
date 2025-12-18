@@ -353,16 +353,16 @@ function AppContent() {
     return status;
   }, [data, isFutureMonth]); // Adicionado isFutureMonth nas dependências
 
-  // const nextMonth = useMemo(() => {
-  //   let y = Math.floor(month / 100);
-  //   let m = month % 100;
-  //   m++;
-  //   if (m > 12) {
-  //     m = 1;
-  //     y++;
-  //   }
-  //   return y * 100 + m;
-  // }, [month]);
+  const nextMonth = useMemo(() => {
+    let y = Math.floor(month / 100);
+    let m = month % 100;
+    m++;
+    if (m > 12) {
+      m = 1;
+      y++;
+    }
+    return y * 100 + m;
+  }, [month]);
 
   const currentLabel = useMemo(
     () =>
@@ -546,6 +546,11 @@ function AppContent() {
     // 2. If Manager/Fiscal AND Future, Try to load DRAFT.
 
     let fetchedData = await api.loadData(m, false); // Load Official
+    let isPublishedData = false;
+
+    if (fetchedData && fetchedData.length > 0) {
+      isPublishedData = true;
+    }
 
     // If user is Fiscal/Master, check if a DRAFT exists for this month
     if (user?.role !== "USER" && isFuture) {
@@ -626,15 +631,38 @@ function AppContent() {
           let newStatus = "PENDENTE";
 
           if (base.campus === "AFASTADOS") {
-            const shouldReturn = checkVacationReturn(base.obs || "", m);
-            if (shouldReturn) {
-              const original = INITIAL_DB.find((db) => db.mat === base.mat);
-              if (original && original.campus !== "AFASTADOS") {
-                newCampus = original.campus;
-                newSetor = original.setor;
+            // Lógica de INSS vs Férias no AFASTADOS
+            const isINSS =
+              (base.obs || "").toUpperCase().includes("INSS") ||
+              (base.setor || "").toUpperCase().includes("INSS");
+
+            if (isINSS) {
+              // Mantém afastado se for INSS
+              newCampus = "AFASTADOS";
+              newSetor = base.setor;
+              newObs = base.obs || "";
+            } else {
+              // Se não for INSS (ex: Férias), verifica retorno ou reseta
+              const shouldReturn = checkVacationReturn(base.obs || "", m);
+              if (shouldReturn) {
+                const original = INITIAL_DB.find((db) => db.mat === base.mat);
+                if (original && original.campus !== "AFASTADOS") {
+                  newCampus = original.campus;
+                  newSetor = original.setor;
+                } else {
+                  newCampus = "OUTROS";
+                  newSetor = "RETORNO";
+                }
               } else {
-                newCampus = "OUTROS";
-                newSetor = "RETORNO";
+                // Se não tem data de retorno definida e não é INSS, assume que volta (limpeza de férias)
+                const original = INITIAL_DB.find((db) => db.mat === base.mat);
+                if (original && original.campus !== "AFASTADOS") {
+                  newCampus = original.campus;
+                  newSetor = original.setor;
+                } else {
+                  newCampus = "OUTROS";
+                  newSetor = "RETORNO";
+                }
               }
             }
           }
@@ -689,10 +717,11 @@ function AppContent() {
           );
         } else {
           finalData = INITIAL_DB.map((v) => {
+            const { vacation: _v, ...baseVig } = v; // Destructure to remove vacation
             let standardDays: number[] = [];
-            const teamClean = cleanString(v.eq);
+            const teamClean = cleanString(baseVig.eq);
 
-            if (v.campus === "AFASTADOS") {
+            if (baseVig.campus === "AFASTADOS") {
               standardDays = [];
             } else if (["ECO1", "E1", "ECO2", "E2"].includes(teamClean)) {
               // Lógica ECO para meses sem histórico (Base Inicial)
@@ -710,15 +739,15 @@ function AppContent() {
                 }
               }
             } else {
-              standardDays = calculateDaysForTeam(v.eq, m, v.vacation);
+              standardDays = calculateDaysForTeam(baseVig.eq, m);
             }
 
             const finalDays = standardDays.filter(
-              (d) => !(v.folgasGeradas || []).includes(d),
+              (d) => !(baseVig.folgasGeradas || []).includes(d),
             );
             return {
-              ...v,
-              eq: cleanString(v.eq),
+              ...baseVig,
+              eq: cleanString(baseVig.eq),
               dias: finalDays,
               status: "PENDENTE",
             } as Vigilante;
@@ -754,11 +783,16 @@ function AppContent() {
             }
           }
         } else {
-          days = calculateDaysForTeam(dbVig.eq, m, dbVig.vacation);
+          // CHANGE: Ignore vacation from INITIAL_DB when restoring integrity for future months
+          // We only want base data, not temporary events like vacation from the seed
+          days = calculateDaysForTeam(dbVig.eq, m);
         }
 
+        // Remove vacation from object before pushing
+        const { vacation: _v, ...vigWithoutVacation } = dbVig;
+
         finalData.push({
-          ...dbVig,
+          ...vigWithoutVacation,
           dias: days,
           status: "PENDENTE",
           manualLock: false,
@@ -797,7 +831,8 @@ function AppContent() {
     // --- PROTEÇÃO DE DADOS DO VIGILANTE (Feature 2) ---
     // Se for Usuário Comum e Mês Futuro: Mostra os dias reais (folgas/trabalho),
     // mas mantém Setor/Horário/Campus "atuais" para evitar confusão com mudanças não oficializadas.
-    if (user?.role === "USER" && isFuture) {
+    // CORREÇÃO: Só aplica máscara se NÃO for dado publicado (isPublishedData === false)
+    if (user?.role === "USER" && isFuture && !isPublishedData) {
       finalData = finalData.map((v) => {
         // Mantém 'dias', 'folgasGeradas', 'vacation' do futuro, mas mascara o local/horário
         return {
@@ -1209,9 +1244,9 @@ function AppContent() {
   ]);
 
   // Estado para filtro do CFTV
-  // const [cftvFilter, setCftvFilter] = useState<
-  //   "ALL" | "CRITICAL" | "ATTENTION" | "COVERED" | "ACTIVE"
-  // >("ALL");
+  const [cftvFilter, setCftvFilter] = useState<
+    "ALL" | "CRITICAL" | "ATTENTION" | "COVERED" | "ACTIVE"
+  >("ALL");
   // Estado para filtro interativo da aba Intervalos
   const [intervalStatusFilter, setIntervalStatusFilter] = useState<
     | "ALL"
@@ -1446,21 +1481,21 @@ function AppContent() {
       showToast(`Permissão de ${targetUser.nome} alterada para ${newRole}`);
     else loadUsers();
   };
-  // const handleTogglePermission = async (
-  //   targetUser: User,
-  //   permission: keyof User,
-  // ) => {
-  //   if (targetUser.role === "MASTER") return;
-  //   const updatedUser: User = {
-  //     ...targetUser,
-  //     [permission]: !targetUser[permission],
-  //   };
-  //   const updatedList = allUsers.map((u) =>
-  //     u.mat === targetUser.mat ? updatedUser : u,
-  //   );
-  //   setAllUsers(updatedList);
-  //   await api.updateUser(updatedUser);
-  // };
+  const handleTogglePermission = async (
+    targetUser: User,
+    permission: keyof User,
+  ) => {
+    if (targetUser.role === "MASTER") return;
+    const updatedUser: User = {
+      ...targetUser,
+      [permission]: !targetUser[permission],
+    };
+    const updatedList = allUsers.map((u) =>
+      u.mat === targetUser.mat ? updatedUser : u,
+    );
+    setAllUsers(updatedList);
+    await api.updateUser(updatedUser);
+  };
   const handleResetPassword = async (targetUser: User) => {
     if (!confirm(`Resetar senha de ${targetUser.nome} para '123456'?`)) return;
     const updatedUser = { ...targetUser, password: "123456" };
@@ -1688,53 +1723,6 @@ function AppContent() {
     setEditingVig(null);
     setShowMobileEditor(false);
   };
-
-  // const handleRegenerateSchedule = () => {
-  //   if (
-  //     !confirm(
-  //       `⚠️ RECALCULAR ESCALA (${currentLabel})?\n\nIsso irá redefinir os dias de trabalho...`,
-  //     )
-  //   )
-  //     return;
-  //   const newData = data.map((v) => {
-  //     if (v.campus === "AFASTADOS") return v;
-
-  //     let newDays: number[] = [];
-  //     const teamClean = cleanString(v.eq);
-
-  //     if (["ECO1", "E1", "ECO2", "E2"].includes(teamClean)) {
-  //       const y = Math.floor(month / 100);
-  //       const mon = (month % 100) - 1;
-  //       const dInM = new Date(y, mon + 1, 0).getDate();
-  //       for (let d = 1; d <= dInM; d++) {
-  //         const dw = new Date(y, mon, d).getDay();
-  //         if (teamClean === "ECO1" || teamClean === "E1") {
-  //           if (dw !== 0) newDays.push(d);
-  //         } else {
-  //           if (dw >= 1 && dw <= 5) newDays.push(d);
-  //         }
-  //       }
-  //     } else {
-  //       newDays = calculateDaysForTeam(v.eq, month, v.vacation);
-  //     }
-
-  //     const updatedVig = {
-  //       ...v,
-  //       dias: newDays,
-  //       folgasGeradas: v.folgasGeradas.filter((f) => !newDays.includes(f)),
-  //       manualLock: false,
-  //       status: "PENDENTE",
-  //     };
-
-  //     // FIX: Remove status de pronto ao regenerar
-  //     if ("draftReady" in updatedVig) delete (updatedVig as any).draftReady;
-
-  //     return updatedVig;
-  //   });
-  //   saveData(newData);
-  //   registerLog("SISTEMA", `Regerou escala completa do mês ${month}`);
-  //   showToast("Escala recalculada com sucesso!");
-  // };
 
   const handleClearFutureMonth = async () => {
     if (!isFutureMonth) return;
@@ -2802,17 +2790,15 @@ function AppContent() {
           >
             📅 SOLICITAÇÕES
           </button>
-          {isMaster && isFutureMonth && (
+          {isMaster && isFutureMonth && view === "lancador" && (
             <button
               onClick={handleClearFutureMonth}
               className="px-3 py-1.5 rounded-md text-xs font-bold transition-all whitespace-nowrap bg-red-600 text-white shadow-md hover:bg-red-700 ml-2"
             >
               🗑️ LIMPAR MÊS{" "}
-              {view === "lancador" && selectedLancadorTeam !== "TODAS"
+              {selectedLancadorTeam !== "TODAS"
                 ? `(${selectedLancadorTeam})`
-                : view === "escala" && filterEq !== "TODAS"
-                  ? `(${filterEq})`
-                  : ""}
+                : ""}
             </button>
           )}
         </div>
