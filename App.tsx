@@ -546,10 +546,11 @@ function AppContent() {
     // 2. If Manager/Fiscal AND Future, Try to load DRAFT.
 
     let fetchedData = await api.loadData(m, false); // Load Official
-    let isPublishedData = false;
 
+    // Capture which matriculas are officially published
+    const officialMatriculas = new Set<string>();
     if (fetchedData && fetchedData.length > 0) {
-      isPublishedData = true;
+      fetchedData.forEach((v) => officialMatriculas.add(String(v.mat).trim()));
     }
 
     // If user is Fiscal/Master, check if a DRAFT exists for this month
@@ -791,9 +792,19 @@ function AppContent() {
         // Remove vacation from object before pushing
         const { vacation: _v, ...vigWithoutVacation } = dbVig;
 
+        // FIX: Se for mês futuro, força "A DEFINIR" na restauração para evitar mostrar setor antigo
+        const isRestoredFuture =
+          isFuture && vigWithoutVacation.campus !== "AFASTADOS";
+
         finalData.push({
           ...vigWithoutVacation,
           dias: days,
+          setor: isRestoredFuture ? "A DEFINIR" : vigWithoutVacation.setor,
+          campus: isRestoredFuture ? "A DEFINIR" : vigWithoutVacation.campus,
+          horario: isRestoredFuture ? "A DEFINIR" : vigWithoutVacation.horario,
+          refeicao: isRestoredFuture
+            ? "A DEFINIR"
+            : vigWithoutVacation.refeicao,
           status: "PENDENTE",
           manualLock: false,
           folgasGeradas: [],
@@ -815,9 +826,17 @@ function AppContent() {
             backupUser.campus === "AFASTADOS"
               ? []
               : calculateDaysForTeam(backupUser.eq, m, backupUser.vacation);
+
+          const isRestoredFuture =
+            isFuture && backupUser.campus !== "AFASTADOS";
+
           const restoredVig: Vigilante = {
             ...backupUser,
             dias: standardDays,
+            setor: isRestoredFuture ? "A DEFINIR" : backupUser.setor,
+            campus: isRestoredFuture ? "A DEFINIR" : backupUser.campus,
+            horario: isRestoredFuture ? "A DEFINIR" : backupUser.horario,
+            refeicao: isRestoredFuture ? "A DEFINIR" : backupUser.refeicao,
             status: "PENDENTE",
             manualLock: false,
             folgasGeradas: [],
@@ -831,17 +850,20 @@ function AppContent() {
     // --- PROTEÇÃO DE DADOS DO VIGILANTE (Feature 2) ---
     // Se for Usuário Comum e Mês Futuro: Mostra os dias reais (folgas/trabalho),
     // mas mantém Setor/Horário/Campus "atuais" para evitar confusão com mudanças não oficializadas.
-    // CORREÇÃO: Só aplica máscara se NÃO for dado publicado (isPublishedData === false)
-    if (user?.role === "USER" && isFuture && !isPublishedData) {
+    // CORREÇÃO: Verifica se a matrícula do usuário está no conjunto de matrículas oficiais (publicadas)
+    if (user?.role === "USER" && isFuture) {
       finalData = finalData.map((v) => {
-        // Mantém 'dias', 'folgasGeradas', 'vacation' do futuro, mas mascara o local/horário
-        return {
-          ...v,
-          setor: "A DEFINIR",
-          campus: "A DEFINIR",
-          horario: "A DEFINIR",
-          refeicao: "A DEFINIR",
-        };
+        // Se a matrícula NÃO estiver na lista oficial (foi limpa ou é rascunho), mascara os dados
+        if (!officialMatriculas.has(String(v.mat).trim())) {
+          return {
+            ...v,
+            setor: "A DEFINIR",
+            campus: "A DEFINIR",
+            horario: "A DEFINIR",
+            refeicao: "A DEFINIR",
+          };
+        }
+        return v;
       });
     }
 
@@ -1741,24 +1763,58 @@ function AppContent() {
 
     if (
       !confirm(
-        `⚠️ TEM CERTEZA?\n\nIsso apagará os dados de ${currentLabel} para a equipe: ${targetTeam}.\n\nAo recarregar, o sistema irá gerar a escala novamente (Reset).`,
+        `⚠️ TEM CERTEZA?\n\nIsso redefinirá a escala de ${currentLabel} para "A DEFINIR" na equipe: ${targetTeam}.\n\nOs dados de setor e posto serão limpos, mas o cadastro dos vigilantes (e férias) será mantido.`,
       )
     )
       return;
 
     setIsLoading(true);
 
+    // Helper para resetar um vigilante
+    const resetVigilante = (v: Vigilante): Vigilante => {
+      // Se estiver afastado, mantém o status de afastamento, apenas destrava
+      if (v.campus === "AFASTADOS") {
+        return {
+          ...v,
+          manualLock: false,
+          status: "PENDENTE",
+        };
+      }
+
+      // Recalcula dias padrão (mantendo férias se houver)
+      const days = calculateDaysForTeam(v.eq, month, v.vacation);
+
+      return {
+        ...v,
+        setor: "A DEFINIR",
+        campus: "A DEFINIR",
+        horario: "A DEFINIR",
+        refeicao: "A DEFINIR",
+        status: "PENDENTE",
+        obs: "",
+        dias: days,
+        manualLock: false,
+        folgasGeradas: [],
+        coberturas: [],
+        tempOverrides: {},
+        saidasAntecipadas: [],
+        faltas: [],
+      };
+    };
+
     let newData: Vigilante[] = [];
 
     if (targetTeam === "TODAS") {
-      // Limpa tudo (array vazio)
-      newData = [];
+      // Reseta todos, mantendo a estrutura do array
+      newData = data.map(resetVigilante);
     } else {
-      // Mantém apenas quem NÃO é da equipe alvo
-      // Isso força o sistema a recriar os membros da equipe alvo na próxima carga
-      newData = data.filter(
-        (v) => cleanString(v.eq) !== cleanString(targetTeam),
-      );
+      // Reseta apenas a equipe alvo
+      newData = data.map((v) => {
+        if (cleanString(v.eq) === cleanString(targetTeam)) {
+          return resetVigilante(v);
+        }
+        return v;
+      });
     }
 
     // Salva como Rascunho (Draft) pois estamos em modo simulação/futuro
@@ -1769,10 +1825,7 @@ function AppContent() {
     await loadDataForMonth(month);
 
     setIsLoading(false);
-    showToast(
-      `Mês limpo para ${targetTeam}! A escala foi resetada.`,
-      "success",
-    );
+    showToast(`Mês resetado para "A DEFINIR" (${targetTeam})!`, "success");
   };
 
   // --- SMART SUGGESTIONS WITH CONFLICT CHECK ---
