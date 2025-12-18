@@ -232,6 +232,14 @@ function AppContent() {
     string | null
   >(null);
 
+  // Vacation Manager State (Master Only)
+  const [isVacationManagerOpen, setIsVacationManagerOpen] = useState(false);
+  const [vacationManagerForm, setVacationManagerForm] = useState({
+    mat: "",
+    start: "",
+    end: "",
+  });
+
   // Help Modal
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
 
@@ -355,17 +363,6 @@ function AppContent() {
     );
     return status;
   }, [data, isFutureMonth]); // Adicionado isFutureMonth nas dependências
-
-  const nextMonth = useMemo(() => {
-    let y = Math.floor(month / 100);
-    let m = month % 100;
-    m++;
-    if (m > 12) {
-      m = 1;
-      y++;
-    }
-    return y * 100 + m;
-  }, [month]);
 
   const currentLabel = useMemo(
     () =>
@@ -633,15 +630,17 @@ function AppContent() {
       if (prevData && prevData.length > 0) {
         // If previous month exists, use its roster as base for current month
         finalData = prevData.map((v) => {
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
           const {
-            vacation: _v,
-            tempOverrides: _t,
-            folgasGeradas: _f,
-            coberturas: _c,
+            vacation,
+            tempOverrides,
+            folgasGeradas,
+            coberturas,
             ...base
           } = v;
 
           // FIX: Remove draftReady para garantir que o novo mês comece como pendente (0%)
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           if ("draftReady" in base) delete (base as any).draftReady;
 
           let newCampus = base.campus;
@@ -736,7 +735,8 @@ function AppContent() {
           );
         } else {
           finalData = INITIAL_DB.map((v) => {
-            const { vacation: _v, ...baseVig } = v; // Destructure to remove vacation
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { vacation, ...baseVig } = v; // Destructure to remove vacation
             let standardDays: number[] = [];
             const teamClean = cleanString(baseVig.eq);
 
@@ -808,7 +808,8 @@ function AppContent() {
         }
 
         // Remove vacation from object before pushing
-        const { vacation: _v, ...vigWithoutVacation } = dbVig;
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { vacation, ...vigWithoutVacation } = dbVig;
 
         // FIX: Se for mês futuro, força "A DEFINIR" na restauração para evitar mostrar setor antigo
         const isRestoredFuture =
@@ -1283,10 +1284,6 @@ function AppContent() {
     isMaster,
   ]);
 
-  // Estado para filtro do CFTV
-  const [cftvFilter, setCftvFilter] = useState<
-    "ALL" | "CRITICAL" | "ATTENTION" | "COVERED" | "ACTIVE"
-  >("ALL");
   // Estado para filtro interativo da aba Intervalos
   const [intervalStatusFilter, setIntervalStatusFilter] = useState<
     | "ALL"
@@ -1520,21 +1517,6 @@ function AppContent() {
     if (success)
       showToast(`Permissão de ${targetUser.nome} alterada para ${newRole}`);
     else loadUsers();
-  };
-  const handleTogglePermission = async (
-    targetUser: User,
-    permission: keyof User,
-  ) => {
-    if (targetUser.role === "MASTER") return;
-    const updatedUser: User = {
-      ...targetUser,
-      [permission]: !targetUser[permission],
-    };
-    const updatedList = allUsers.map((u) =>
-      u.mat === targetUser.mat ? updatedUser : u,
-    );
-    setAllUsers(updatedList);
-    await api.updateUser(updatedUser);
   };
   const handleResetPassword = async (targetUser: User) => {
     if (!confirm(`Resetar senha de ${targetUser.nome} para '123456'?`)) return;
@@ -2088,6 +2070,80 @@ function AppContent() {
     showToast("Solicitação resetada para PENDENTE.");
   };
 
+  // NOVA FUNÇÃO: Limpar todas as solicitações do mês atual (Faxina Geral)
+  const handleClearAllRequests = async () => {
+    if (
+      !confirm(
+        `⚠️ PERIGO: Isso apagará TODAS as solicitações de folga de ${currentLabel} para TODOS os vigilantes.\n\nUse isso para corrigir bugs de dados antigos.\n\nDeseja continuar?`,
+      )
+    )
+      return;
+
+    const newData = data.map((v) => ({
+      ...v,
+      requests: [], // Zera o array de pedidos
+      requestsLocked: false, // Destrava para novos pedidos
+    }));
+
+    await saveData(newData);
+    registerLog(
+      "SISTEMA",
+      "Limpou todas as solicitações do mês (Reset Geral).",
+    );
+    showToast("Todas as solicitações foram removidas com sucesso!", "success");
+  };
+
+  // NOVA FUNÇÃO: Lançamento de Férias pelo Master (Opção 2)
+  const handleLaunchVacation = async () => {
+    if (
+      !vacationManagerForm.mat ||
+      !vacationManagerForm.start ||
+      !vacationManagerForm.end
+    ) {
+      return alert("Preencha a matrícula e as datas de início e fim.");
+    }
+
+    const start = parseInt(vacationManagerForm.start);
+    const end = parseInt(vacationManagerForm.end);
+
+    if (isNaN(start) || isNaN(end) || start > end) {
+      return alert("Datas inválidas.");
+    }
+
+    const newData = [...data];
+    const idx = newData.findIndex((v) => v.mat === vacationManagerForm.mat);
+
+    if (idx === -1) {
+      return alert("Vigilante não encontrado neste mês.");
+    }
+
+    const target = { ...newData[idx] };
+
+    // Aplica as férias
+    target.vacation = { start, end };
+
+    // Remove os dias de trabalho que caem dentro das férias
+    target.dias = target.dias.filter((d) => d < start || d > end);
+
+    // Se for férias o mês todo (ou quase), já joga para o setor FÉRIAS para limpar a visão do Fiscal
+    if (start === 1 && end >= 28) {
+      target.setor = "FÉRIAS";
+      target.campus = "OUTROS";
+      target.manualLock = true; // Já deixa confirmado
+      target.status = "MANUAL_OK";
+    }
+
+    newData[idx] = target;
+    await saveData(newData);
+    registerLog(
+      "EDICAO",
+      `Lançou FÉRIAS (${start} a ${end}) via Gestor`,
+      target.nome,
+    );
+    showToast(`Férias lançadas para ${target.nome}!`, "success");
+    setVacationManagerForm({ mat: "", start: "", end: "" }); // Limpa para o próximo
+  };
+
   const handleExport = () => {
     const jsonString = JSON.stringify(data, null, 2);
     const blob = new Blob([jsonString], { type: "application/json" });
@@ -2118,7 +2174,7 @@ function AppContent() {
         } else {
           alert("Arquivo inválido.");
         }
-      } catch (err) {
+      } catch {
         alert("Erro ao ler arquivo JSON.");
       }
     };
@@ -2220,6 +2276,34 @@ function AppContent() {
       updated.manualLock = true;
       updated.status = "MANUAL_OK";
       updated.setor = updated.setor.toUpperCase();
+
+      // FEATURE: Atalho Inteligente para Férias
+      // Se o usuário digitar "FÉRIAS" ou "FERIAS" no campo Setor, o sistema marca o mês todo.
+      if (updated.setor === "FÉRIAS" || updated.setor === "FERIAS") {
+        updated.vacation = { start: 1, end: 31 };
+        updated.dias = []; // Remove dias de trabalho para não contabilizar no efetivo
+        // Se o campus ainda for A DEFINIR, move para OUTROS para organizar e sair da lista de pendentes
+        if (updated.campus === "A DEFINIR") updated.campus = "OUTROS";
+      }
+
+      // FIX: Auto-detecta o Campus baseado no nome do Setor para tirar do "A DEFINIR"
+      // Se o usuário digitou um setor mas o campus continua "A DEFINIR", o sistema organiza automaticamente.
+      // AGORA: Verifica sempre se há palavra-chave para corrigir campus errado (ex: estava OUTROS, virou CAMPUS 1)
+      if (updated.setor !== "A DEFINIR" && updated.campus !== "AFASTADOS") {
+        const s = updated.setor;
+        if (s.includes("CAMPUS 3") || s.includes("CAMPUS III"))
+          updated.campus = "CAMPUS 3";
+        else if (s.includes("CAMPUS 2") || s.includes("CAMPUS II"))
+          updated.campus = "CAMPUS 2";
+        else if (s.includes("CAMPUS 1") || s.includes("CAMPUS I"))
+          updated.campus = "CAMPUS 1";
+        else if (s.includes("AGRÁRIAS") || s.includes("AGRARIAS"))
+          updated.campus = "AGRÁRIAS";
+        else if (s.includes("HOSPITAL") || s.includes("HR"))
+          updated.campus = "HOSPITAL";
+        else if (updated.campus === "A DEFINIR") updated.campus = "OUTROS"; // Só move para OUTROS se estava A DEFINIR
+      }
+
       newData[idx] = updated;
       saveData(newData);
       registerLog("EDICAO", "Alteração manual.", updated.nome);
@@ -2905,6 +2989,16 @@ function AppContent() {
                 : ""}
             </button>
           )}
+
+          {/* BOTÃO DE GESTÃO DE FÉRIAS (SÓ MASTER) */}
+          {isMaster && (
+            <button
+              onClick={() => setIsVacationManagerOpen(true)}
+              className="px-3 py-1.5 rounded-md text-xs font-bold transition-all whitespace-nowrap bg-yellow-600 text-white shadow-md hover:bg-yellow-700 ml-2 flex items-center gap-1"
+            >
+              🏖️ GESTÃO DE FÉRIAS
+            </button>
+          )}
         </div>
         <div className="flex items-center gap-2">
           {(!isUser || canManageIntervals || canViewCFTV) &&
@@ -3190,6 +3284,14 @@ function AppContent() {
                   <span className="text-brand-400 border-b-2 border-brand-500">
                     {currentLabel}
                   </span>
+                  {isMaster && (
+                    <button
+                      onClick={handleClearAllRequests}
+                      className="ml-auto text-xs bg-red-900/50 hover:bg-red-800 text-red-200 border border-red-700 px-3 py-1.5 rounded flex items-center gap-2 transition-colors"
+                    >
+                      🗑️ LIMPAR TODAS AS SOLICITAÇÕES
+                    </button>
+                  )}
                 </h2>
 
                 {data.filter((v) => v.requests && v.requests.length > 0)
@@ -4191,6 +4293,97 @@ function AppContent() {
 
           <p className="text-xs text-slate-500 text-center mt-2">
             Versão 3.5.4 (Pro) - Unoeste Segurança
+          </p>
+        </div>
+      </Modal>
+
+      {/* Vacation Manager Modal (Master Only) */}
+      <Modal
+        title="Gestão Centralizada de Férias"
+        isOpen={isVacationManagerOpen}
+        onClose={() => setIsVacationManagerOpen(false)}
+      >
+        <div className="space-y-4">
+          <div className="bg-yellow-50 p-3 rounded text-xs text-yellow-800 border border-yellow-200">
+            Use este painel para lançar férias antes de liberar a escala para os
+            fiscais. Isso garante que os dias estarão bloqueados
+            automaticamente.
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">
+              Vigilante (Matrícula ou Nome):
+            </label>
+            <Input
+              placeholder="Digite para buscar..."
+              value={vacationManagerForm.mat}
+              onChange={(e) =>
+                setVacationManagerForm({
+                  ...vacationManagerForm,
+                  mat: e.target.value,
+                })
+              }
+              list="vigilantes-list"
+              className="bg-slate-700 text-white border-slate-600"
+            />
+            <datalist id="vigilantes-list">
+              {data.map((v) => (
+                <option key={v.mat} value={v.mat}>
+                  {v.nome}
+                </option>
+              ))}
+            </datalist>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">
+                Dia Início:
+              </label>
+              <Input
+                type="number"
+                min="1"
+                max="31"
+                value={vacationManagerForm.start}
+                onChange={(e) =>
+                  setVacationManagerForm({
+                    ...vacationManagerForm,
+                    start: e.target.value,
+                  })
+                }
+                className="bg-slate-700 text-white border-slate-600"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">
+                Dia Fim:
+              </label>
+              <Input
+                type="number"
+                min="1"
+                max="31"
+                value={vacationManagerForm.end}
+                onChange={(e) =>
+                  setVacationManagerForm({
+                    ...vacationManagerForm,
+                    end: e.target.value,
+                  })
+                }
+                className="bg-slate-700 text-white border-slate-600"
+              />
+            </div>
+          </div>
+
+          <Button
+            onClick={handleLaunchVacation}
+            className="w-full bg-yellow-600 hover:bg-yellow-700 text-white font-bold"
+          >
+            LANÇAR FÉRIAS
+          </Button>
+
+          <p className="text-[10px] text-center text-slate-500 mt-2">
+            Se for o mês todo (ex: 1 a 30), o sistema moverá automaticamente
+            para o setor &quot;FÉRIAS&quot;.
           </p>
         </div>
       </Modal>
