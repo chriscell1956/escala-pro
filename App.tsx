@@ -202,6 +202,9 @@ function AppContent() {
   const [isLogModalOpen, setIsLogModalOpen] = useState(false);
   const [logFilterSearch, setLogFilterSearch] = useState("");
 
+  // REF PARA CONTROLE DE EDIÇÃO (Evita limpar horário ao mudar setor)
+  const lastEditedMat = useRef<string | null>(null);
+
   // Interval Management State
   const [intervalEditVig, setIntervalEditVig] = useState<Vigilante | null>(
     null,
@@ -340,9 +343,9 @@ function AppContent() {
           percent = 99;
         }
 
-        // Apenas se estiver explicitamente marcado como pronto (Enviado), vira 100%
-        if (isReady) percent = 100;
-
+        // ALTERAÇÃO: Se estiver pronto (Enviado), mantemos o status 'ready' como true (ficará Verde),
+        // mas NÃO forçamos a porcentagem para 100%. Mostramos a porcentagem real (ex: 74%)
+        // para que o Supervisor saiba exatamente quanto foi preenchido.
         status[team] = {
           ready: isReady,
           percent: percent,
@@ -476,21 +479,29 @@ function AppContent() {
 
   useEffect(() => {
     if (editingVig) {
-      const h = extractTimeInputs(editingVig.horario);
-      const r = extractTimeInputs(editingVig.refeicao);
-      setTimeInputs({
-        hStart: h.start,
-        hEnd: h.end,
-        rStart: r.start,
-        rEnd: r.end,
-      });
-      setVacationInputs({
-        start: editingVig.vacation ? String(editingVig.vacation.start) : "",
-        end: editingVig.vacation ? String(editingVig.vacation.end) : "",
-      });
+      // SÓ RESETA OS INPUTS SE FOR UM VIGILANTE DIFERENTE
+      // Isso permite mudar o Setor sem perder o Horário que você acabou de digitar
+      if (editingVig.mat !== lastEditedMat.current) {
+        const h = extractTimeInputs(editingVig.horario);
+        const r = extractTimeInputs(editingVig.refeicao);
+        setTimeInputs({
+          hStart: h.start,
+          hEnd: h.end,
+          rStart: r.start,
+          rEnd: r.end,
+        });
+        setVacationInputs({
+          start: editingVig.vacation ? String(editingVig.vacation.start) : "",
+          end: editingVig.vacation ? String(editingVig.vacation.end) : "",
+        });
+        // Default to 'days' unless already in vacation mode
+        if (editorMode !== "vacation") setEditorMode("days");
+
+        lastEditedMat.current = editingVig.mat;
+      }
       setShowMobileEditor(true);
-      // Default to 'days' unless already in vacation mode
-      if (editorMode !== "vacation") setEditorMode("days");
+    } else {
+      lastEditedMat.current = null;
     }
   }, [editingVig]);
 
