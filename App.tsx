@@ -522,6 +522,13 @@ function AppContent() {
     }
   }, [tempEditVig, filterDay]);
 
+  // FORÇA ATUALIZAÇÃO AO ENTRAR NA ABA DE SOLICITAÇÕES
+  useEffect(() => {
+    if (view === "solicitacoes") {
+      loadDataForMonth(month);
+    }
+  }, [view]);
+
   useEffect(() => {
     if (isUserMgmtModalOpen && user?.role === "MASTER") {
       loadUsers();
@@ -2048,6 +2055,39 @@ function AppContent() {
     );
     showToast("Solicitação rejeitada.");
   };
+
+  // NOVA FUNÇÃO: Permite desfazer uma aprovação/rejeição acidental
+  const handleResetRequest = (vig: Vigilante, req: Request) => {
+    const newData = [...data];
+    const idx = newData.findIndex((v) => v.mat === vig.mat);
+    if (idx === -1) return;
+    const targetVig = { ...newData[idx] };
+    if (!targetVig.requests) return;
+    const rIndex = targetVig.requests.findIndex((r) => r.day === req.day);
+    if (rIndex > -1) {
+      const currentStatus = targetVig.requests[rIndex].status;
+      // Se estava aprovado, reverte a folga (adiciona o dia de volta ao trabalho)
+      if (currentStatus === "APPROVED") {
+        targetVig.folgasGeradas = targetVig.folgasGeradas.filter(
+          (d) => d !== req.day,
+        );
+        if (!targetVig.dias.includes(req.day)) {
+          targetVig.dias.push(req.day);
+          targetVig.dias.sort((a, b) => a - b);
+        }
+      }
+      targetVig.requests[rIndex].status = "PENDING";
+    }
+    newData[idx] = targetVig;
+    saveData(newData);
+    registerLog(
+      "SOLICITACAO",
+      `Resetou solicitação dia ${req.day}`,
+      targetVig.nome,
+    );
+    showToast("Solicitação resetada para PENDENTE.");
+  };
+
   const handleExport = () => {
     const jsonString = JSON.stringify(data, null, 2);
     const blob = new Blob([jsonString], { type: "application/json" });
@@ -3146,9 +3186,12 @@ function AppContent() {
             ) : isFiscal || isMaster ? (
               <div className="max-w-5xl mx-auto">
                 <h2 className="text-2xl font-black text-slate-200 mb-6 flex items-center gap-2">
-                  <span className="text-3xl">📥</span> Gerenciamento de
-                  Solicitações
+                  <span className="text-3xl">📥</span> Solicitações:{" "}
+                  <span className="text-brand-400 border-b-2 border-brand-500">
+                    {currentLabel}
+                  </span>
                 </h2>
+
                 {data.filter((v) => v.requests && v.requests.length > 0)
                   .length === 0 ? (
                   <div className="bg-slate-800 rounded-xl shadow-sm p-12 text-center border-2 border-dashed border-slate-700">
@@ -3166,9 +3209,9 @@ function AppContent() {
                           return false;
                         // FISCAL FILTER: Show only requests from OWN TEAM. Master sees ALL.
                         if (user?.role === "FISCAL" && currentUserVig) {
-                          return (
-                            cleanString(v.eq) === cleanString(currentUserVig.eq)
-                          );
+                          const myEq = cleanString(currentUserVig.eq);
+                          const visibleTeams = getVisibleTeams(myEq);
+                          return visibleTeams.includes(cleanString(v.eq));
                         }
                         return true;
                       })
@@ -3225,12 +3268,23 @@ function AppContent() {
                                   )}
 
                                   {req.status !== "PENDING" && (
-                                    <div
-                                      className={`px-2 py-1 rounded text-[10px] font-bold uppercase ml-2 ${req.status === "APPROVED" ? "bg-emerald-500 text-white" : "bg-red-500 text-white"}`}
-                                    >
-                                      {req.status === "APPROVED"
-                                        ? "APROVADO"
-                                        : "REJEITADO"}
+                                    <div className="flex items-center gap-2 ml-2">
+                                      <div
+                                        className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${req.status === "APPROVED" ? "bg-emerald-500 text-white" : "bg-red-500 text-white"}`}
+                                      >
+                                        {req.status === "APPROVED"
+                                          ? "APROVADO"
+                                          : "REJEITADO"}
+                                      </div>
+                                      <button
+                                        onClick={() =>
+                                          handleResetRequest(vig, req)
+                                        }
+                                        className="w-6 h-6 rounded bg-slate-700 text-slate-400 hover:bg-slate-600 hover:text-white transition-colors flex items-center justify-center"
+                                        title="Desfazer decisão"
+                                      >
+                                        <span className="text-xs">↩️</span>
+                                      </button>
                                     </div>
                                   )}
                                 </div>
