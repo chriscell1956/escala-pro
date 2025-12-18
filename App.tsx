@@ -200,7 +200,6 @@ function AppContent() {
   // Logs State
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [isLogModalOpen, setIsLogModalOpen] = useState(false);
-  const [, setLogFilterDate] = useState("");
   const [logFilterSearch, setLogFilterSearch] = useState("");
 
   // Interval Management State
@@ -354,16 +353,16 @@ function AppContent() {
     return status;
   }, [data, isFutureMonth]); // Adicionado isFutureMonth nas dependências
 
-  const nextMonth = useMemo(() => {
-    let y = Math.floor(month / 100);
-    let m = month % 100;
-    m++;
-    if (m > 12) {
-      m = 1;
-      y++;
-    }
-    return y * 100 + m;
-  }, [month]);
+  // const nextMonth = useMemo(() => {
+  //   let y = Math.floor(month / 100);
+  //   let m = month % 100;
+  //   m++;
+  //   if (m > 12) {
+  //     m = 1;
+  //     y++;
+  //   }
+  //   return y * 100 + m;
+  // }, [month]);
 
   const currentLabel = useMemo(
     () =>
@@ -800,18 +799,14 @@ function AppContent() {
     // mas mantém Setor/Horário/Campus "atuais" para evitar confusão com mudanças não oficializadas.
     if (user?.role === "USER" && isFuture) {
       finalData = finalData.map((v) => {
-        const original = INITIAL_DB.find((db) => db.mat === v.mat);
-        if (original) {
-          // Mantém 'dias', 'folgasGeradas', 'vacation' do futuro, mas mascara o local/horário
-          return {
-            ...v,
-            setor: original.setor,
-            campus: original.campus,
-            horario: original.horario,
-            refeicao: original.refeicao,
-          };
-        }
-        return v;
+        // Mantém 'dias', 'folgasGeradas', 'vacation' do futuro, mas mascara o local/horário
+        return {
+          ...v,
+          setor: "A DEFINIR",
+          campus: "A DEFINIR",
+          horario: "A DEFINIR",
+          refeicao: "A DEFINIR",
+        };
       });
     }
 
@@ -834,7 +829,7 @@ function AppContent() {
     // If Current Month, standard behavior is Official unless we add a specific "Draft Mode" toggle for current month too.
     // For now, let's assume Future = Draft by default for managers.
 
-    const saveAsDraft = isSimulationMode && !forcePublish;
+    const saveAsDraft = (isFutureMonth || isSimulationMode) && !forcePublish;
 
     const success = await api.saveData(month, newData, saveAsDraft);
 
@@ -1214,9 +1209,9 @@ function AppContent() {
   ]);
 
   // Estado para filtro do CFTV
-  const [cftvFilter, setCftvFilter] = useState<
-    "ALL" | "CRITICAL" | "ATTENTION" | "COVERED" | "ACTIVE"
-  >("ALL");
+  // const [cftvFilter, setCftvFilter] = useState<
+  //   "ALL" | "CRITICAL" | "ATTENTION" | "COVERED" | "ACTIVE"
+  // >("ALL");
   // Estado para filtro interativo da aba Intervalos
   const [intervalStatusFilter, setIntervalStatusFilter] = useState<
     | "ALL"
@@ -1451,21 +1446,21 @@ function AppContent() {
       showToast(`Permissão de ${targetUser.nome} alterada para ${newRole}`);
     else loadUsers();
   };
-  const handleTogglePermission = async (
-    targetUser: User,
-    permission: keyof User,
-  ) => {
-    if (targetUser.role === "MASTER") return;
-    const updatedUser: User = {
-      ...targetUser,
-      [permission]: !targetUser[permission],
-    };
-    const updatedList = allUsers.map((u) =>
-      u.mat === targetUser.mat ? updatedUser : u,
-    );
-    setAllUsers(updatedList);
-    await api.updateUser(updatedUser);
-  };
+  // const handleTogglePermission = async (
+  //   targetUser: User,
+  //   permission: keyof User,
+  // ) => {
+  //   if (targetUser.role === "MASTER") return;
+  //   const updatedUser: User = {
+  //     ...targetUser,
+  //     [permission]: !targetUser[permission],
+  //   };
+  //   const updatedList = allUsers.map((u) =>
+  //     u.mat === targetUser.mat ? updatedUser : u,
+  //   );
+  //   setAllUsers(updatedList);
+  //   await api.updateUser(updatedUser);
+  // };
   const handleResetPassword = async (targetUser: User) => {
     if (!confirm(`Resetar senha de ${targetUser.nome} para '123456'?`)) return;
     const updatedUser = { ...targetUser, password: "123456" };
@@ -1694,72 +1689,100 @@ function AppContent() {
     setShowMobileEditor(false);
   };
 
-  const handleRegenerateSchedule = () => {
-    if (
-      !confirm(
-        `⚠️ RECALCULAR ESCALA (${currentLabel})?\n\nIsso irá redefinir os dias de trabalho...`,
-      )
-    )
-      return;
-    const newData = data.map((v) => {
-      if (v.campus === "AFASTADOS") return v;
+  // const handleRegenerateSchedule = () => {
+  //   if (
+  //     !confirm(
+  //       `⚠️ RECALCULAR ESCALA (${currentLabel})?\n\nIsso irá redefinir os dias de trabalho...`,
+  //     )
+  //   )
+  //     return;
+  //   const newData = data.map((v) => {
+  //     if (v.campus === "AFASTADOS") return v;
 
-      let newDays: number[] = [];
-      const teamClean = cleanString(v.eq);
+  //     let newDays: number[] = [];
+  //     const teamClean = cleanString(v.eq);
 
-      if (["ECO1", "E1", "ECO2", "E2"].includes(teamClean)) {
-        const y = Math.floor(month / 100);
-        const mon = (month % 100) - 1;
-        const dInM = new Date(y, mon + 1, 0).getDate();
-        for (let d = 1; d <= dInM; d++) {
-          const dw = new Date(y, mon, d).getDay();
-          if (teamClean === "ECO1" || teamClean === "E1") {
-            if (dw !== 0) newDays.push(d);
-          } else {
-            if (dw >= 1 && dw <= 5) newDays.push(d);
-          }
-        }
-      } else {
-        newDays = calculateDaysForTeam(v.eq, month, v.vacation);
-      }
+  //     if (["ECO1", "E1", "ECO2", "E2"].includes(teamClean)) {
+  //       const y = Math.floor(month / 100);
+  //       const mon = (month % 100) - 1;
+  //       const dInM = new Date(y, mon + 1, 0).getDate();
+  //       for (let d = 1; d <= dInM; d++) {
+  //         const dw = new Date(y, mon, d).getDay();
+  //         if (teamClean === "ECO1" || teamClean === "E1") {
+  //           if (dw !== 0) newDays.push(d);
+  //         } else {
+  //           if (dw >= 1 && dw <= 5) newDays.push(d);
+  //         }
+  //       }
+  //     } else {
+  //       newDays = calculateDaysForTeam(v.eq, month, v.vacation);
+  //     }
 
-      const updatedVig = {
-        ...v,
-        dias: newDays,
-        folgasGeradas: v.folgasGeradas.filter((f) => !newDays.includes(f)),
-        manualLock: false,
-        status: "PENDENTE",
-      };
+  //     const updatedVig = {
+  //       ...v,
+  //       dias: newDays,
+  //       folgasGeradas: v.folgasGeradas.filter((f) => !newDays.includes(f)),
+  //       manualLock: false,
+  //       status: "PENDENTE",
+  //     };
 
-      // FIX: Remove status de pronto ao regenerar
-      if ("draftReady" in updatedVig) delete (updatedVig as any).draftReady;
+  //     // FIX: Remove status de pronto ao regenerar
+  //     if ("draftReady" in updatedVig) delete (updatedVig as any).draftReady;
 
-      return updatedVig;
-    });
-    saveData(newData);
-    registerLog("SISTEMA", `Regerou escala completa do mês ${month}`);
-    showToast("Escala recalculada com sucesso!");
-  };
+  //     return updatedVig;
+  //   });
+  //   saveData(newData);
+  //   registerLog("SISTEMA", `Regerou escala completa do mês ${month}`);
+  //   showToast("Escala recalculada com sucesso!");
+  // };
 
   const handleClearFutureMonth = async () => {
     if (!isFutureMonth) return;
+
+    // --- LÓGICA DE LIMPEZA INTELIGENTE ---
+    // Verifica qual filtro está ativo para decidir o que limpar
+    let targetTeam = "TODAS";
+    if (view === "lancador") {
+      targetTeam = selectedLancadorTeam;
+    } else if (view === "escala") {
+      targetTeam = filterEq;
+    }
+
+    // Se o filtro for "AFASTADOS", não faz sentido limpar, então assume TODAS
+    if (targetTeam === "AFASTADOS") targetTeam = "TODAS";
+
     if (
       !confirm(
-        `⚠️ TEM CERTEZA? Isso apagará TODOS os dados de ${currentLabel}.\n\nAo recarregar, o sistema tentará gerar a escala novamente com base no mês anterior.`,
+        `⚠️ TEM CERTEZA?\n\nIsso apagará os dados de ${currentLabel} para a equipe: ${targetTeam}.\n\nAo recarregar, o sistema irá gerar a escala novamente (Reset).`,
       )
     )
       return;
 
     setIsLoading(true);
-    // Salva array vazio para limpar
-    await saveData([], true);
 
-    // Recarrega para disparar a lógica de geração automática
+    let newData: Vigilante[] = [];
+
+    if (targetTeam === "TODAS") {
+      // Limpa tudo (array vazio)
+      newData = [];
+    } else {
+      // Mantém apenas quem NÃO é da equipe alvo
+      // Isso força o sistema a recriar os membros da equipe alvo na próxima carga
+      newData = data.filter(
+        (v) => cleanString(v.eq) !== cleanString(targetTeam),
+      );
+    }
+
+    // Salva como Rascunho (Draft) pois estamos em modo simulação/futuro
+    // Isso garante que a limpeza afete o rascunho atual
+    await saveData(newData, false);
+
+    // Recarrega para disparar a lógica de geração automática para os que foram removidos
     await loadDataForMonth(month);
 
     setIsLoading(false);
     showToast(
-      "Mês limpo! A escala foi gerada novamente com base no mês anterior.",
+      `Mês limpo para ${targetTeam}! A escala foi resetada.`,
       "success",
     );
   };
@@ -2784,7 +2807,12 @@ function AppContent() {
               onClick={handleClearFutureMonth}
               className="px-3 py-1.5 rounded-md text-xs font-bold transition-all whitespace-nowrap bg-red-600 text-white shadow-md hover:bg-red-700 ml-2"
             >
-              🗑️ LIMPAR MÊS
+              🗑️ LIMPAR MÊS{" "}
+              {view === "lancador" && selectedLancadorTeam !== "TODAS"
+                ? `(${selectedLancadorTeam})`
+                : view === "escala" && filterEq !== "TODAS"
+                  ? `(${filterEq})`
+                  : ""}
             </button>
           )}
         </div>
