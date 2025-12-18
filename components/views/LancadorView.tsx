@@ -1,9 +1,9 @@
 import React from "react";
 import { Vigilante, User, Team } from "../../types";
 import { SECTOR_OPTIONS } from "../../constants";
-import { Button, Input, Select, Badge } from "../ui";
+import { Button, Input, Select, Badge, Icons } from "../ui";
 import { CalendarGrid } from "../common/CalendarGrid";
-import { calculateDaysForTeam } from "../../utils"; // Importar a função de cálculo
+import { calculateDaysForTeam } from "../../utils";
 
 interface LancadorViewProps {
   showMobileEditor: boolean;
@@ -29,10 +29,10 @@ interface LancadorViewProps {
   setEditorMode: (v: "days" | "vacation" | "falta" | "partial") => void;
   handleSaveEditor: () => void;
   handleDeleteVigilante: () => void;
-  handleToggleDay: (vig: Vigilante, day: number) => void;
-  handleToggleVacation: (vig: Vigilante, day: number) => void;
-  handleToggleFalta: (vig: Vigilante, day: number) => void;
-  handleTogglePartial: (vig: Vigilante, day: number) => void;
+  handleToggleDay: (vig: Vigilante, day: number) => void; // Mantido para compatibilidade, mas não usado no grid local
+  handleToggleVacation: (vig: Vigilante, day: number) => void; // Mantido para compatibilidade
+  handleToggleFalta: (vig: Vigilante, day: number) => void; // Mantido para compatibilidade
+  handleTogglePartial: (vig: Vigilante, day: number) => void; // Mantido para compatibilidade
   setIsNewVigModalOpen: (v: boolean) => void;
   handleSmartSuggest: () => void;
   month: number;
@@ -59,27 +59,125 @@ const LancadorViewComponent: React.FC<LancadorViewProps> = (props) => {
     setEditorMode,
     handleSaveEditor,
     handleDeleteVigilante,
-    handleToggleDay,
-    handleToggleVacation,
-    handleToggleFalta,
-    handleTogglePartial,
     setIsNewVigModalOpen,
     handleSmartSuggest,
     month,
     lancadorVisibleTeams,
   } = props;
 
-  // Função para lidar com a mudança de equipe e recalcular os dias
+  // --- LÓGICA LOCAL DE EDIÇÃO (SEM SALVAR NO BANCO) ---
+
   const handleTeamChange = (newTeam: Team) => {
     if (editingVig) {
       const newDays = calculateDaysForTeam(newTeam, month, editingVig.vacation);
       setEditingVig({
         ...editingVig,
         eq: newTeam,
-        dias: newDays, // Atualiza os dias no estado de edição
-        folgasGeradas: [], // Opcional: resetar folgas geradas
+        dias: newDays,
+        folgasGeradas: [],
       });
     }
+  };
+
+  const localToggleDay = (_: Vigilante, day: number) => {
+    if (!editingVig) return;
+    const target = { ...editingVig };
+
+    // Garante arrays
+    target.dias = target.dias || [];
+    target.folgasGeradas = target.folgasGeradas || [];
+
+    if (target.dias.includes(day)) {
+      // Remove dia de trabalho -> Vira folga
+      target.dias = target.dias.filter((d) => d !== day);
+      if (!target.folgasGeradas.includes(day)) target.folgasGeradas.push(day);
+    } else {
+      // Adiciona dia de trabalho -> Remove folga
+      target.dias.push(day);
+      target.dias.sort((a, b) => a - b);
+      target.folgasGeradas = target.folgasGeradas.filter((d) => d !== day);
+    }
+    // Remove de outras listas se houver conflito
+    target.faltas = (target.faltas || []).filter((d) => d !== day);
+
+    setEditingVig(target);
+  };
+
+  const localToggleFalta = (_: Vigilante, day: number) => {
+    if (!editingVig) return;
+    const target = { ...editingVig };
+    target.faltas = target.faltas || [];
+
+    if (target.faltas.includes(day)) {
+      target.faltas = target.faltas.filter((d) => d !== day);
+    } else {
+      target.faltas.push(day);
+      target.faltas.sort((a, b) => a - b);
+      // Se marcou falta, remove do dia trabalhado
+      target.dias = (target.dias || []).filter((d) => d !== day);
+    }
+    setEditingVig(target);
+  };
+
+  const localTogglePartial = (_: Vigilante, day: number) => {
+    if (!editingVig) return;
+    const target = { ...editingVig };
+    target.saidasAntecipadas = target.saidasAntecipadas || [];
+
+    if (target.saidasAntecipadas.includes(day)) {
+      target.saidasAntecipadas = target.saidasAntecipadas.filter(
+        (d) => d !== day,
+      );
+    } else {
+      target.saidasAntecipadas.push(day);
+      target.saidasAntecipadas.sort((a, b) => a - b);
+      // Se é parcial, garante que está como trabalhado
+      if (!target.dias.includes(day)) {
+        target.dias.push(day);
+        target.dias.sort((a, b) => a - b);
+        target.folgasGeradas = (target.folgasGeradas || []).filter(
+          (d) => d !== day,
+        );
+      }
+    }
+    setEditingVig(target);
+  };
+
+  const localToggleVacation = (_: Vigilante, day: number) => {
+    if (!editingVig) return;
+    const target = { ...editingVig };
+    const currentVacation = target.vacation || { start: 0, end: 0 };
+    let newVacation = { ...currentVacation };
+
+    if (!newVacation.start || newVacation.start === 0) {
+      newVacation.start = day;
+      newVacation.end = day;
+    } else if (day < newVacation.start) {
+      newVacation.start = day;
+    } else if (day > newVacation.start) {
+      newVacation.end = day;
+    } else if (day === newVacation.start && day === newVacation.end) {
+      // Reset se clicar no único dia selecionado
+      newVacation = { start: 0, end: 0 };
+    } else if (day === newVacation.start) {
+      // Reset simples
+      newVacation = { start: 0, end: 0 };
+    } else {
+      // Reset e começa novo
+      newVacation = { start: day, end: day };
+    }
+
+    if (newVacation.start === 0) {
+      target.vacation = undefined;
+    } else {
+      target.vacation = newVacation;
+      // Limpa dias de trabalho no período de férias
+      target.dias = (target.dias || []).filter(
+        (d) => d < newVacation.start || d > newVacation.end,
+      );
+    }
+
+    setEditingVig(target);
   };
 
   return (
@@ -305,16 +403,26 @@ const LancadorViewComponent: React.FC<LancadorViewProps> = (props) => {
                     </button>
                   </div>
                 </div>
+
+                {/* CALENDÁRIO COM HANDLERS LOCAIS */}
                 <CalendarGrid
                   vig={editingVig}
                   month={month}
                   editorMode={editorMode}
-                  onToggleDay={handleToggleDay}
-                  onToggleVacation={handleToggleVacation}
-                  onToggleFalta={handleToggleFalta}
-                  onTogglePartial={handleTogglePartial}
+                  onToggleDay={localToggleDay}
+                  onToggleVacation={localToggleVacation}
+                  onToggleFalta={localToggleFalta}
+                  onTogglePartial={localTogglePartial}
                 />
-                <div className="flex flex-col gap-2 pt-2 border-t border-slate-700">
+
+                <div className="flex flex-col gap-3 pt-4 border-t border-slate-700">
+                  <Button
+                    onClick={handleSaveEditor}
+                    className="w-full h-12 text-sm bg-emerald-600 hover:bg-emerald-700 text-white font-black shadow-lg uppercase tracking-wide transform active:scale-95 transition-all"
+                  >
+                    <Icons.Save className="w-5 h-5" /> SALVAR ALTERAÇÕES
+                  </Button>
+
                   <div className="flex gap-2">
                     <Button
                       onClick={() => {
@@ -322,23 +430,18 @@ const LancadorViewComponent: React.FC<LancadorViewProps> = (props) => {
                         setShowMobileEditor(false);
                       }}
                       variant="secondary"
-                      className="flex-1 h-8 text-xs"
+                      className="flex-1 h-8 text-xs bg-slate-700 border-slate-600 text-slate-300 hover:bg-slate-600 hover:text-white"
                     >
                       Cancelar
                     </Button>
                     <Button
-                      onClick={handleSaveEditor}
-                      className="flex-1 h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-md"
+                      onClick={handleDeleteVigilante}
+                      variant="ghost"
+                      className="flex-1 h-8 text-xs text-red-400 hover:bg-red-900/20 hover:text-red-300 border border-transparent hover:border-red-900/30"
                     >
-                      SALVAR
+                      <Icons.Trash className="w-3 h-3 mr-1" /> Excluir
                     </Button>
                   </div>
-                  <Button
-                    onClick={handleDeleteVigilante}
-                    className="w-full h-8 text-xs bg-red-900/30 hover:bg-red-900/50 text-red-400 border border-red-800 font-bold"
-                  >
-                    EXCLUIR VIGILANTE
-                  </Button>
                 </div>
               </div>
             </div>

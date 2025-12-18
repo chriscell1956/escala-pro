@@ -2061,15 +2061,19 @@ function AppContent() {
         updated.horario = formatTimeInputs(timeInputs.hStart, timeInputs.hEnd);
 
       // --- LÓGICA DE CÁLCULO AUTOMÁTICO DE INTERVALO (1h15) ---
-      if (timeInputs.rStart) {
+      if (timeInputs.rStart && timeInputs.rEnd) {
+        // Se o usuário preencheu início e fim, usa os valores dele.
+        updated.refeicao = formatTimeInputs(timeInputs.rStart, timeInputs.rEnd);
+      } else if (timeInputs.rStart) {
+        // Senão, se preencheu só o início, calcula o fim automaticamente.
         const [h, m] = timeInputs.rStart.split(":").map(Number);
         if (!isNaN(h) && !isNaN(m)) {
           let totalMins = h * 60 + m + 75; // Adiciona 75 minutos (1h15)
           const endH = Math.floor(totalMins / 60) % 24;
           const endM = totalMins % 60;
-          const rEndCalc = `${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}`;
-
-          // Salva o intervalo formatado (Início calculado + Fim calculado)
+          const rEndCalc = `${String(endH).padStart(2, "0")}:${String(
+            endM,
+          ).padStart(2, "0")}`;
           updated.refeicao = formatTimeInputs(timeInputs.rStart, rEndCalc);
         }
       } else {
@@ -2308,15 +2312,22 @@ function AppContent() {
 
       // --- LÓGICA DE CÁLCULO AUTOMÁTICO DE INTERVALO (1h15) ---
       let newRefeicao = "";
-      if (tempTimeInputs.rStart) {
+      if (tempTimeInputs.rStart && tempTimeInputs.rEnd) {
+        // Se o usuário preencheu início e fim, usa os valores dele.
+        newRefeicao = formatTimeInputs(
+          tempTimeInputs.rStart,
+          tempTimeInputs.rEnd,
+        );
+      } else if (tempTimeInputs.rStart) {
+        // Senão, se preencheu só o início, calcula o fim automaticamente.
         const [h, m] = tempTimeInputs.rStart.split(":").map(Number);
         if (!isNaN(h) && !isNaN(m)) {
           let totalMins = h * 60 + m + 75; // Adiciona 75 minutos (1h15)
           const endH = Math.floor(totalMins / 60) % 24;
           const endM = totalMins % 60;
-          const rEndCalc = `${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}`;
-
-          // Salva o intervalo formatado (Início calculado + Fim calculado)
+          const rEndCalc = `${String(endH).padStart(2, "0")}:${String(
+            endM,
+          ).padStart(2, "0")}`;
           newRefeicao = formatTimeInputs(tempTimeInputs.rStart, rEndCalc);
         }
       }
