@@ -40,6 +40,7 @@ import {
   Select,
 } from "./components/ui";
 import { api } from "./services/api";
+import { sectorPresets } from "./presets";
 
 // --- IMPORTS DE COMPONENTES REFATORADOS ---
 import { ErrorBoundary } from "./components/common/ErrorBoundary";
@@ -630,7 +631,6 @@ function AppContent() {
       if (prevData && prevData.length > 0) {
         // If previous month exists, use its roster as base for current month
         finalData = prevData.map((v) => {
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
           const {
             vacation,
             tempOverrides,
@@ -2226,6 +2226,19 @@ function AppContent() {
           updated.vacation,
         );
         updated.folgasGeradas = []; // Limpa folgas ao trocar de equipe
+      }
+
+      // Aplica o preset do setor, se existir
+      const preset = sectorPresets[updated.setor.toUpperCase()];
+      if (preset) {
+        const turno =
+          updated.eq === "A" || updated.eq === "B" ? "NOTURNO" : "DIURNO";
+        const turnoPreset = preset[turno];
+        if (turnoPreset) {
+          updated.campus = turnoPreset.campus;
+          updated.horario = turnoPreset.horario;
+          updated.refeicao = turnoPreset.refeicao;
+        }
       }
 
       if (timeInputs.hStart && timeInputs.hEnd)
