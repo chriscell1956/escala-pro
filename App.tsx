@@ -265,6 +265,24 @@ function AppContent() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState(""); // NEW: Confirm Password
 
+  // --- Collapsed Sectors State ---
+  // Inicia com um Set vazio, mas vamos popular no useEffect quando os dados carregarem
+  const [collapsedSectors, setCollapsedSectors] = useState<Set<string>>(
+    new Set(),
+  );
+
+  const toggleSectorCollapse = (sector: string) => {
+    setCollapsedSectors((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(sector)) {
+        newSet.delete(sector);
+      } else {
+        newSet.add(sector);
+      }
+      return newSet;
+    });
+  };
+
   // --- DERIVED PERMISSIONS & HELPERS ---
   const isMaster = user?.role === "MASTER";
   const isFiscal = user?.role === "FISCAL" || isMaster || user?.canSimulate; // "isFiscal" here implies "Has Fiscal Capabilities or higher"
@@ -474,6 +492,15 @@ function AppContent() {
       loadDataForMonth(month);
     }
   }, [month, user]);
+
+  // --- AUTO-COLLAPSE EFFECT ---
+  // Quando os dados são carregados, colapsa todos os setores por padrão
+  useEffect(() => {
+    if (data.length > 0) {
+      const allCampuses = new Set(data.map((v) => v.campus));
+      setCollapsedSectors(allCampuses);
+    }
+  }, [data]);
 
   useEffect(() => {
     if (editingVig) {
@@ -737,6 +764,10 @@ function AppContent() {
           finalData = INITIAL_DB.map((v) => {
             // eslint-disable-next-line @typescript-eslint/no-unused-vars
             const { vacation, ...baseVig } = v; // Destructure to remove vacation
+
+            // FIX: Correção forçada da matrícula do Claudecir (de 61665 para 61655)
+            if (String(baseVig.mat).trim() === "61665") baseVig.mat = "61655";
+
             let standardDays: number[] = [];
             const teamClean = cleanString(baseVig.eq);
 
@@ -779,15 +810,19 @@ function AppContent() {
     // Verifica se membros do INITIAL_DB estão faltando na escala carregada e os adiciona.
     // Isso garante que ECO 1 e ECO 2 apareçam mesmo se não existirem no mês anterior.
     INITIAL_DB.forEach((dbVig) => {
+      // FIX: Correção forçada da matrícula do Claudecir antes de verificar existência
+      const fixedDbVig = { ...dbVig };
+      if (String(fixedDbVig.mat).trim() === "61665") fixedDbVig.mat = "61655";
+
       const isPresent = finalData.some(
-        (v) => String(v.mat).trim() === String(dbVig.mat).trim(),
+        (v) => String(v.mat).trim() === String(fixedDbVig.mat).trim(),
       );
 
       if (!isPresent) {
         let days: number[] = [];
-        const teamClean = cleanString(dbVig.eq);
+        const teamClean = cleanString(fixedDbVig.eq);
 
-        if (dbVig.campus === "AFASTADOS") {
+        if (fixedDbVig.campus === "AFASTADOS") {
           days = [];
         } else if (["ECO1", "E1", "ECO2", "E2"].includes(teamClean)) {
           const y = Math.floor(m / 100);
@@ -804,12 +839,12 @@ function AppContent() {
         } else {
           // CHANGE: Ignore vacation from INITIAL_DB when restoring integrity for future months
           // We only want base data, not temporary events like vacation from the seed
-          days = calculateDaysForTeam(dbVig.eq, m);
+          days = calculateDaysForTeam(fixedDbVig.eq, m);
         }
 
         // Remove vacation from object before pushing
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { vacation, ...vigWithoutVacation } = dbVig;
+        const { vacation, ...vigWithoutVacation } = fixedDbVig;
 
         // FIX: Se for mês futuro, força "A DEFINIR" na restauração para evitar mostrar setor antigo
         const isRestoredFuture =
@@ -1744,6 +1779,45 @@ function AppContent() {
 
     setEditingVig(null);
     setShowMobileEditor(false);
+  };
+
+  const handleLaunchFutureMonth = async () => {
+    if (!isFutureMonth) return;
+    if (
+      !confirm(
+        `🚀 LANÇAR ESCALA?\n\nIsso irá gerar e CONFIRMAR a escala de ${currentLabel} para TODOS os vigilantes baseados no cadastro inicial.\n\nQualquer alteração manual feita neste rascunho será sobrescrita.`,
+      )
+    )
+      return;
+
+    setIsLoading(true);
+
+    const newData = INITIAL_DB.map((v) => {
+      const baseVig = { ...v };
+      // Fix Claudecir
+      if (String(baseVig.mat).trim() === "61665") baseVig.mat = "61655";
+      if (String(baseVig.mat).trim() === "91611")
+        baseVig.nome = "CHRISTIANO R.G. DE OLIVEIRA";
+
+      // Calculate days for the target month
+      const days = calculateDaysForTeam(baseVig.eq, month);
+
+      return {
+        ...baseVig,
+        dias: days,
+        manualLock: true,
+        status: "MANUAL_OK",
+        folgasGeradas: [],
+        coberturas: [],
+        obs: "",
+        // Preserve AFASTADOS if defined in INITIAL_DB, otherwise standard campus
+        campus: baseVig.campus === "AFASTADOS" ? "AFASTADOS" : baseVig.campus,
+      } as Vigilante;
+    });
+
+    await saveData(newData, true); // Force publish
+    setIsLoading(false);
+    showToast(`Escala de ${currentLabel} lançada com sucesso!`, "success");
   };
 
   const handleClearFutureMonth = async () => {
@@ -2991,6 +3065,17 @@ function AppContent() {
           >
             📅 SOLICITAÇÕES
           </button>
+
+          {/* NEW BUTTON */}
+          {isMaster && isFutureMonth && (
+            <button
+              onClick={handleLaunchFutureMonth}
+              className="px-3 py-1.5 rounded-md text-xs font-bold transition-all whitespace-nowrap bg-emerald-600 text-white shadow-md hover:bg-emerald-700 ml-2 flex items-center gap-1"
+            >
+              🚀 LANÇAR MÊS
+            </button>
+          )}
+
           {isMaster && isFutureMonth && view === "lancador" && (
             <button
               onClick={handleClearFutureMonth}
@@ -3089,6 +3174,8 @@ function AppContent() {
             handleReturnFromAway={handleReturnFromAway}
             handleRemoveCoverage={handleRemoveCoverage}
             visibleTeams={visibleTeamsForFilter}
+            collapsedSectors={collapsedSectors}
+            toggleSectorCollapse={toggleSectorCollapse}
           />
         )}
 
