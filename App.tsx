@@ -47,6 +47,7 @@ import { ErrorBoundary } from "./components/common/ErrorBoundary";
 import { LancadorView } from "./components/views/LancadorView";
 import { AppHeader } from "./components/layout/AppHeader";
 import { EscalaView } from "./components/views/EscalaView";
+import { AlocacaoView } from "./components/views/AlocacaoView";
 // Nota: CalendarGrid agora é usado internamente pelo LancadorView, não precisa importar aqui
 
 // Define extended type for Interval View
@@ -494,11 +495,19 @@ function AppContent() {
   }, [month, user]);
 
   // --- AUTO-COLLAPSE EFFECT ---
-  // Quando os dados são carregados, colapsa todos os setores por padrão
+  // Quando os dados são carregados, colapsa todos os setores por padrão (APENAS NA PRIMEIRA VEZ)
+  const hasInitializedCollapse = useRef(false);
+
+  // Reset flag when switching months
   useEffect(() => {
-    if (data.length > 0) {
+    hasInitializedCollapse.current = false;
+  }, [month]);
+
+  useEffect(() => {
+    if (data.length > 0 && !hasInitializedCollapse.current) {
       const allCampuses = new Set(data.map((v) => v.campus));
       setCollapsedSectors(allCampuses);
+      hasInitializedCollapse.current = true;
     }
   }, [data]);
 
@@ -962,8 +971,8 @@ function AppContent() {
 
   // --- MEMOIZED VIEWS ---
   const conflicts = useMemo(() => {
-    // FIX: Não exibir alertas de conflito em meses futuros (Planejamento) para não poluir a tela
-    if (isFutureMonth) return [];
+    // FIX: Exibir alertas também no planejamento (mês futuro)
+    // if (isFutureMonth) return [];
 
     const rawConflicts = analyzeConflicts(
       data,
@@ -1296,8 +1305,8 @@ function AppContent() {
       intervalCategory === "TODOS"
         ? rawList
         : rawList.filter(
-            (v) => getCategory(v.effectiveCampus) === intervalCategory,
-          );
+          (v) => getCategory(v.effectiveCampus) === intervalCategory,
+        );
 
     const grouped: Record<string, IntervalVigilante[]> = {};
     list.forEach((v) => {
@@ -2398,6 +2407,19 @@ function AppContent() {
       setShowMobileEditor(false);
     }
   };
+
+  const handleUpdateVigilante = (mat: string, changes: Partial<Vigilante>) => {
+    setData((prev) =>
+      prev.map((v) => {
+        if (v.mat === mat) {
+          const updated = { ...v, ...changes };
+          if (!updated.manualLock) updated.manualLock = true;
+          return updated;
+        }
+        return v;
+      })
+    );
+  };
   const handleToggleDay = (vig: Vigilante, day: number) => {
     if (!isFiscal) return;
     const newData = [...data];
@@ -3034,14 +3056,24 @@ function AppContent() {
             ESCALA
           </button>
           {isFiscal && (
-            <button
-              onClick={() => {
-                setView("lancador");
-              }}
-              className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all whitespace-nowrap ${view === "lancador" ? "bg-blue-600 text-white shadow-md" : "text-slate-400 hover:text-white"}`}
-            >
-              LANÇADOR
-            </button>
+            <>
+              <button
+                onClick={() => {
+                  setView("lancador");
+                }}
+                className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all whitespace-nowrap ${view === "lancador" ? "bg-blue-600 text-white shadow-md" : "text-slate-400 hover:text-white"}`}
+              >
+                LANÇADOR (CLÁSSICO)
+              </button>
+              <button
+                onClick={() => {
+                  setView("alocacao");
+                }}
+                className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all whitespace-nowrap ${view === "alocacao" ? "bg-purple-600 text-white shadow-md" : "text-slate-400 hover:text-white"}`}
+              >
+                ✨ NOVO LANÇADOR
+              </button>
+            </>
           )}
           {canManageIntervals && (
             <button
@@ -3179,6 +3211,19 @@ function AppContent() {
           />
         )}
 
+        {/* --- NOVO LANÇADOR (ALOCAÇÃO) --- */}
+        {view === "alocacao" && (
+          <AlocacaoView
+            currentLabel={currentLabel}
+            vigilantes={lancadorList}
+            presets={presets}
+            expandedSectors={expandedSectors}
+            toggleSectorExpansion={toggleSectorExpansion}
+            onUpdateVigilante={handleUpdateVigilante}
+            lancadorVisibleTeams={getLancadorVisibleTeams(user?.role === "FISCAL" && currentUserVig ? currentUserVig.eq : "A", isMaster)}
+          />
+        )}
+
         {/* --- LANÇADOR VIEW --- */}
         {view === "lancador" && (
           <LancadorView
@@ -3207,7 +3252,11 @@ function AppContent() {
             setIsNewVigModalOpen={setIsNewVigModalOpen}
             handleSmartSuggest={handleSmartSuggest}
             month={month}
-            lancadorVisibleTeams={visibleTeamsForFilter}
+            month={month}
+            lancadorVisibleTeams={getLancadorVisibleTeams(user?.role === "FISCAL" && currentUserVig ? currentUserVig.eq : "A", isMaster)}
+            expandedSectors={expandedSectors}
+            toggleSectorExpansion={toggleSectorExpansion}
+            presets={presets}
           />
         )}
 
@@ -4161,10 +4210,10 @@ function AppContent() {
                   filterTime,
                 ).status !== "INTERVALO",
             ).length === 0 && (
-              <div className="p-4 text-center text-slate-400 text-xs">
-                Nenhum vigilante disponível encontrado.
-              </div>
-            )}
+                <div className="p-4 text-center text-slate-400 text-xs">
+                  Nenhum vigilante disponível encontrado.
+                </div>
+              )}
           </div>
         </div>
       </Modal>
@@ -4580,7 +4629,7 @@ function AppContent() {
                       canViewCFTV: !(
                         formPermissions as { canViewCFTV?: boolean }
                       ).canViewCFTV,
-                    } as any)
+                    })
                   }
                 />
                 Acesso CFTV (Monitoramento)
