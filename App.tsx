@@ -48,6 +48,8 @@ import { ErrorBoundary } from "./components/common/ErrorBoundary";
 import { LancadorView } from "./components/views/LancadorView";
 import { AppHeader } from "./components/layout/AppHeader";
 import { EscalaView } from "./components/views/EscalaView";
+import { AlocacaoView } from "./components/views/AlocacaoView";
+import { PresetManager } from "./components/views/PresetManager";
 // Nota: CalendarGrid agora é usado internamente pelo LancadorView, não precisa importar aqui
 
 // Define extended type for Interval View
@@ -1341,8 +1343,8 @@ function AppContent() {
       intervalCategory === "TODOS"
         ? rawList
         : rawList.filter(
-          (v) => getCategory(v.effectiveCampus) === intervalCategory,
-        );
+            (v) => getCategory(v.effectiveCampus) === intervalCategory,
+          );
 
     const grouped: Record<string, IntervalVigilante[]> = {};
     list.forEach((v) => {
@@ -2489,7 +2491,7 @@ function AppContent() {
           return updated;
         }
         return v;
-      })
+      }),
     );
   };
   const handleToggleDay = (vig: Vigilante, day: number) => {
@@ -3292,6 +3294,26 @@ function AppContent() {
             handleReturnFromAway={handleReturnFromAway}
             handleRemoveCoverage={handleRemoveCoverage}
             visibleTeams={visibleTeamsForFilter}
+            collapsedSectors={collapsedSectors}
+            toggleSectorCollapse={toggleSectorCollapse}
+          />
+        )}
+
+        {/* --- NOVO LANÇADOR (ALOCAÇÃO) --- */}
+        {view === "alocacao" && (
+          <AlocacaoView
+            currentLabel={currentLabel}
+            vigilantes={lancadorList}
+            presets={presets}
+            expandedSectors={expandedSectors}
+            toggleSectorExpansion={toggleSectorExpansion}
+            onUpdateVigilante={handleUpdateVigilante}
+            lancadorVisibleTeams={getLancadorVisibleTeams(
+              user?.role === "FISCAL" && currentUserVig
+                ? currentUserVig.eq
+                : "A",
+              isMaster,
+            )}
           />
         )}
 
@@ -3323,7 +3345,15 @@ function AppContent() {
             setIsNewVigModalOpen={setIsNewVigModalOpen}
             handleSmartSuggest={handleSmartSuggest}
             month={month}
-            lancadorVisibleTeams={visibleTeamsForFilter}
+            lancadorVisibleTeams={getLancadorVisibleTeams(
+              user?.role === "FISCAL" && currentUserVig
+                ? currentUserVig.eq
+                : "A",
+              isMaster,
+            )}
+            expandedSectors={expandedSectors}
+            toggleSectorExpansion={toggleSectorExpansion}
+            presets={presets}
           />
         )}
 
@@ -4277,10 +4307,10 @@ function AppContent() {
                   filterTime,
                 ).status !== "INTERVALO",
             ).length === 0 && (
-                <div className="p-4 text-center text-slate-400 text-xs">
-                  Nenhum vigilante disponível encontrado.
-                </div>
-              )}
+              <div className="p-4 text-center text-slate-400 text-xs">
+                Nenhum vigilante disponível encontrado.
+              </div>
+            )}
           </div>
         </div>
       </Modal>

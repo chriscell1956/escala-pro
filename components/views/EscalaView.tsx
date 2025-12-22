@@ -131,7 +131,7 @@ const EscalaViewComponent: React.FC<EscalaViewProps> = (props) => {
                 (c) => c.equipe === currentUserVig.eq,
               );
             }
-            const isCollapsed = !expandedSectors?.has(campus);
+
             return (
               <div
                 key={campus}
@@ -144,8 +144,9 @@ const EscalaViewComponent: React.FC<EscalaViewProps> = (props) => {
                   <div className="w-1.5 h-4 bg-blue-500 rounded-full print:bg-black"></div>{" "}
                   {campus}
                   <div
-                    className={`ml-auto transform transition-transform duration-200 ${isCollapsed ? "rotate-0" : "rotate-180"
-                      }`}
+                    className={`ml-auto transform transition-transform duration-200 ${
+                      isCollapsed ? "rotate-0" : "rotate-180"
+                    }`}
                   >
                     {/* SUBSTITUÍDO O ÍCONE POR TEXTO PARA TESTE */}
                     <span className="text-lg">▼</span>
