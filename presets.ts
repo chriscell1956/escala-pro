@@ -264,6 +264,18 @@ export const sectorPresets: Record<
       refeicao: "22h às 23h",
     },
   },
+  "CHÁCARA DA DONA ANA": {
+    DIURNO: {
+      campus: "CHÁCARA DA DONA ANA",
+      horario: "06h às 18h",
+      refeicao: "11h40 às 12h40",
+    },
+    NOTURNO: {
+      campus: "CHÁCARA DA DONA ANA",
+      horario: "18h às 06h",
+      refeicao: "22h às 23h",
+    },
+  },
   // LABORATORIO
   "LIMA 01": {
     DIURNO: {

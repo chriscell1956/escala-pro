@@ -1,9 +1,10 @@
-import React from "react";
-import { Vigilante, User, Team } from "../../types";
-import { SECTOR_OPTIONS } from "../../constants";
+import React, { useMemo } from "react";
+import { Vigilante, User, Team, DepartmentPreset } from "../../types";
+import { sectorPresets } from "../../presets";
 import { Button, Input, Select, Badge, Icons } from "../ui";
 import { CalendarGrid } from "../common/CalendarGrid";
 import { calculateDaysForTeam } from "../../utils";
+import { SHIFT_TYPES, ShiftType } from "../../constants";
 
 interface LancadorViewProps {
   showMobileEditor: boolean;
@@ -37,6 +38,9 @@ interface LancadorViewProps {
   handleSmartSuggest: () => void;
   month: number;
   lancadorVisibleTeams: string[];
+  expandedSectors: Set<string>;
+  toggleSectorExpansion: (sector: string) => void;
+  presets: DepartmentPreset[];
 }
 
 const LancadorViewComponent: React.FC<LancadorViewProps> = (props) => {
@@ -63,6 +67,10 @@ const LancadorViewComponent: React.FC<LancadorViewProps> = (props) => {
     handleSmartSuggest,
     month,
     lancadorVisibleTeams,
+
+    expandedSectors,
+    toggleSectorExpansion,
+    presets,
   } = props;
 
   // --- LÓGICA LOCAL DE EDIÇÃO (SEM SALVAR NO BANCO) ---
@@ -180,6 +188,42 @@ const LancadorViewComponent: React.FC<LancadorViewProps> = (props) => {
     setEditingVig(target);
   };
 
+  const sectorOptions = useMemo(() => {
+    if (!editingVig) return [];
+
+    const userTeam = editingVig.eq;
+    let allowedShiftTypes: ShiftType[] = [];
+
+    if (userTeam === "A" || userTeam === "B") {
+      allowedShiftTypes = ["12x36_NOTURNO"];
+    } else if (userTeam === "C" || userTeam === "D") {
+      allowedShiftTypes = ["12x36_DIURNO"];
+    } else {
+      // For E1, E2, Adm, etc.
+      allowedShiftTypes = ["EXP_1", "EXP_2", "EXP_ADM"];
+    }
+
+    // Use the 'presets' prop which contains the loaded DepartmentPreset objects (with 'type', 'name', etc.)
+    // If presets is empty (e.g. not loaded yet), we might have no options, which is expected until load.
+    const filteredPresets = presets.filter((preset) => {
+      if (preset.type) {
+        return allowedShiftTypes.includes(preset.type as ShiftType);
+      }
+      // Fallback for presets without a 'type' property (should have name)
+      if (preset.name) {
+        const isNight =
+          preset.name.includes("Noturno") ||
+          preset.timeStart.startsWith("18") ||
+          preset.timeStart.startsWith("19");
+        const neededType = isNight ? "12x36_NOTURNO" : "12x36_DIURNO";
+        return allowedShiftTypes.includes(neededType as ShiftType);
+      }
+      return false;
+    });
+
+    return filteredPresets.map((p) => p.sector).sort();
+  }, [editingVig, presets]);
+
   return (
     <div className="flex flex-1 h-full overflow-hidden bg-slate-900 relative print:h-auto print:overflow-visible">
       <div
@@ -280,7 +324,7 @@ const LancadorViewComponent: React.FC<LancadorViewProps> = (props) => {
                     Setor:
                   </label>
                   <Input
-                    list="sector-options"
+                    list="sector-options-list"
                     value={editingVig.setor}
                     onChange={(e) =>
                       setEditingVig({
@@ -290,8 +334,8 @@ const LancadorViewComponent: React.FC<LancadorViewProps> = (props) => {
                     }
                     className="h-8 text-xs bg-slate-700 text-white border-slate-600"
                   />
-                  <datalist id="sector-options">
-                    {SECTOR_OPTIONS.map((s) => (
+                  <datalist id="sector-options-list">
+                    {sectorOptions.map((s) => (
                       <option key={s} value={s} />
                     ))}
                   </datalist>
@@ -494,55 +538,98 @@ const LancadorViewComponent: React.FC<LancadorViewProps> = (props) => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-700">
-                {lancadorList.map((vig) => {
-                  // Alerta se não tiver dias escalados ou se tiver folgas pendentes
-                  const hasAlert =
-                    (vig.dias || []).length === 0 ||
-                    ((vig.folgasGeradas || []).length > 0 && !vig.manualLock);
+                {/* GROUP BY CAMPUS LOGIC */}
+                {Array.from(new Set(lancadorList.map((v) => v.campus)))
+                  .sort()
+                  .map((campus) => {
+                    const isCollapsed = !expandedSectors.has(campus);
+                    const groupMembers = lancadorList.filter(
+                      (v) => v.campus === campus,
+                    );
 
-                  return (
-                    <tr
-                      key={vig.mat}
-                      onClick={() => setEditingVig(vig)}
-                      className={`cursor-pointer transition-colors ${
-                        editingVig?.mat === vig.mat
-                          ? "bg-blue-900/30 border-l-4 border-l-blue-500"
-                          : "hover:bg-slate-700 even:bg-slate-800/50"
-                      } ${
-                        vig.manualLock
-                          ? "text-slate-200"
-                          : "bg-orange-900/20 text-orange-200"
-                      }`}
-                    >
-                      <td className="px-4 py-3 font-bold">
-                        {vig.manualLock ? (
-                          <span className="flex items-center gap-1 text-slate-400">
-                            <span className="text-lg">👤</span> OK
-                          </span>
-                        ) : (
-                          <span className="flex items-center gap-1 text-orange-500">
-                            <span className="text-lg">⏳</span> Pendente
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 font-bold flex items-center gap-2">
-                        {vig.nome}
-                        {hasAlert && (
-                          <span
-                            className="text-lg animate-pulse"
-                            title="Alerta: Sem escala ou folgas pendentes"
-                          >
-                            ⚠️
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <Badge team={vig.eq} />
-                      </td>
-                      <td className="px-4 py-3 text-slate-400">{vig.setor}</td>
-                    </tr>
-                  );
-                })}
+                    if (groupMembers.length === 0) return null;
+
+                    return (
+                      <React.Fragment key={campus}>
+                        {/* Group Header */}
+                        <tr className="bg-slate-900/50 border-b border-slate-700">
+                          <td colSpan={4} className="p-0">
+                            <button
+                              onClick={() => toggleSectorExpansion(campus)}
+                              className="w-full flex items-center justify-between px-4 py-2 text-left hover:bg-slate-800 transition-colors"
+                            >
+                              <div className="flex items-center gap-2 font-black text-slate-300 uppercase tracking-widest text-[10px]">
+                                <span>{isCollapsed ? "➕" : "➖"}</span>
+                                {campus}
+                                <span className="bg-slate-800 px-1.5 py-0.5 rounded text-[9px] text-slate-500 ml-2">
+                                  {groupMembers.length}
+                                </span>
+                              </div>
+                              <div className="text-[9px] font-bold text-slate-600 uppercase">
+                                {isCollapsed ? "Expandir" : "Minimizar"}
+                              </div>
+                            </button>
+                          </td>
+                        </tr>
+
+                        {/* Group Rows (Hidden if collapsed) */}
+                        {!isCollapsed &&
+                          groupMembers.map((vig) => {
+                            // Alerta se não tiver dias escalados ou se tiver folgas pendentes
+                            const hasAlert =
+                              (vig.dias || []).length === 0 ||
+                              ((vig.folgasGeradas || []).length > 0 &&
+                                !vig.manualLock);
+
+                            return (
+                              <tr
+                                key={vig.mat}
+                                onClick={() => setEditingVig(vig)}
+                                className={`cursor-pointer transition-colors ${
+                                  editingVig?.mat === vig.mat
+                                    ? "bg-blue-900/30 border-l-4 border-l-blue-500"
+                                    : "hover:bg-slate-700 even:bg-slate-800/50"
+                                } ${
+                                  vig.manualLock
+                                    ? "text-slate-200"
+                                    : "bg-orange-900/20 text-orange-200"
+                                }`}
+                              >
+                                <td className="px-4 py-3 font-bold">
+                                  {vig.manualLock ? (
+                                    <span className="flex items-center gap-1 text-slate-400">
+                                      <span className="text-lg">👤</span> OK
+                                    </span>
+                                  ) : (
+                                    <span className="flex items-center gap-1 text-orange-500">
+                                      <span className="text-lg">⏳</span>{" "}
+                                      Pendente
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="px-4 py-3 font-bold flex items-center gap-2">
+                                  {vig.nome}
+                                  {hasAlert && (
+                                    <span
+                                      className="text-lg animate-pulse"
+                                      title="Alerta: Sem escala ou folgas pendentes"
+                                    >
+                                      ⚠️
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="px-4 py-3 text-center">
+                                  <Badge team={vig.eq} />
+                                </td>
+                                <td className="px-4 py-3 text-slate-400">
+                                  {vig.setor}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                      </React.Fragment>
+                    );
+                  })}
               </tbody>
             </table>
           </div>

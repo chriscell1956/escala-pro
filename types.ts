@@ -106,3 +106,16 @@ export type ViewMode =
   | "alocacao";
 
 export type IntervalPriority = "RED" | "ORANGE" | "YELLOW" | "GREEN";
+
+export interface DepartmentPreset {
+  id: string;
+  name: string; // e.g. "Portaria Principal - Manhã"
+  campus: string;
+  sector: string;
+  type?: string; // ShiftType key (e.g., "12x36_DIURNO")
+  timeStart: string;
+  timeEnd: string;
+  mealStart?: string;
+  mealEnd?: string;
+  team?: Team; // Keeping for backward compatibility or direct assignment if needed
+}

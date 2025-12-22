@@ -5,6 +5,7 @@ import {
   AuditLog,
   User,
   IntervalPriority,
+  DepartmentPreset,
 } from "../types";
 
 // --- CONFIGURAÇÃO DO SUPABASE (NUVEM) ---
@@ -365,6 +366,42 @@ export const api = {
       return true;
     } catch (e) {
       console.error("Erro ao salvar prioridades de intervalo:", e);
+      return false;
+    }
+  },
+
+  // --- NEW: Presets Management ---
+
+  async loadPresets(): Promise<DepartmentPreset[]> {
+    if (!supabase) return [];
+    try {
+      const key = "unoeste_presets";
+      const { data } = await supabase
+        .from(TABLE)
+        .select("dados")
+        .eq("nome", key)
+        .single();
+      return data?.dados || [];
+    } catch (e) {
+      console.error("Erro ao carregar presets:", e);
+      return [];
+    }
+  },
+
+  async savePresets(presets: DepartmentPreset[]): Promise<boolean> {
+    if (!supabase) return false;
+    try {
+      const key = "unoeste_presets";
+      const { error } = await supabase
+        .from(TABLE)
+        .upsert({ nome: key, dados: presets }, { onConflict: "nome" });
+      if (error) {
+        console.error("Erro ao salvar presets:", error);
+        return false;
+      }
+      return true;
+    } catch (e) {
+      console.error("Erro ao salvar presets:", e);
       return false;
     }
   },

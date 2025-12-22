@@ -1,9 +1,11 @@
 import React from "react";
-import { User } from "../../types";
+import { User, Conflict } from "../../types";
 import { Button, Icons, UnoesteSecurityLogo } from "../ui";
 import { TEAM_OPTIONS } from "../../constants";
 
 interface AppHeaderProps {
+  conflicts?: Conflict[];
+  setIsPresetManagerOpen: (v: boolean) => void;
   user: User;
   month: number;
   setMonth: (m: number) => void;
@@ -63,6 +65,8 @@ const AppHeaderComponent: React.FC<AppHeaderProps> = (props) => {
     teamsStatus,
     handleSendToSupervision,
     isSilentUpdating,
+    setIsPresetManagerOpen,
+    conflicts = [],
   } = props;
 
   return (
@@ -242,16 +246,28 @@ const AppHeaderComponent: React.FC<AppHeaderProps> = (props) => {
                 </Button>
               )}
               {isMaster && (
-                <Button
-                  className="!bg-white/10 !text-white border !border-white/30 hover:!bg-white/20 shadow-sm backdrop-blur-sm text-[10px] h-8 px-2 font-bold uppercase tracking-wide hidden sm:flex"
-                  onClick={() => setIsUserMgmtModalOpen(true)}
-                  title="Gestão de Usuários"
-                >
-                  <span className="hidden md:inline">USUÁRIOS</span>
-                  <span className="md:hidden">
-                    <Icons.Users />
-                  </span>
-                </Button>
+                <>
+                  <Button
+                    className="!bg-white/10 !text-white border !border-white/30 hover:!bg-white/20 shadow-sm backdrop-blur-sm text-[10px] h-8 px-2 font-bold uppercase tracking-wide hidden sm:flex"
+                    onClick={() => setIsUserMgmtModalOpen(true)}
+                    title="Gestão de Usuários"
+                  >
+                    <span className="hidden md:inline">USUÁRIOS</span>
+                    <span className="md:hidden">
+                      <Icons.Users />
+                    </span>
+                  </Button>
+                  <Button
+                    className="!bg-white/10 !text-white border !border-white/30 hover:!bg-white/20 shadow-sm backdrop-blur-sm text-[10px] h-8 px-2 font-bold uppercase tracking-wide hidden sm:flex"
+                    onClick={() => setIsPresetManagerOpen(true)}
+                    title="Gerenciar Postos"
+                  >
+                    <span className="hidden md:inline">POSTOS</span>
+                    <span className="md:hidden">
+                      <Icons.Settings />
+                    </span>
+                  </Button>
+                </>
               )}
             </div>
           )}

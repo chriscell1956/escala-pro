@@ -9,6 +9,7 @@ import {
   UserRole,
   Request,
   Team,
+  DepartmentPreset,
 } from "./types";
 import {
   INITIAL_DB,
@@ -47,7 +48,6 @@ import { ErrorBoundary } from "./components/common/ErrorBoundary";
 import { LancadorView } from "./components/views/LancadorView";
 import { AppHeader } from "./components/layout/AppHeader";
 import { EscalaView } from "./components/views/EscalaView";
-import { AlocacaoView } from "./components/views/AlocacaoView";
 // Nota: CalendarGrid agora é usado internamente pelo LancadorView, não precisa importar aqui
 
 // Define extended type for Interval View
@@ -70,16 +70,41 @@ const EXCLUDED_ADM_MATS = ["100497", "60931"];
 const CORINGA_MATS = ["76154", "72911"]; // João Galvão e Marcio Pivaro
 
 // Helper para definir visibilidade cruzada de equipes
-const getVisibleTeams = (fiscalTeam: string) => {
+const getVisibleTeams = (fiscalTeam: string, isMaster: boolean) => {
+  if (isMaster) return ["A", "B", "C", "D", "ECO1", "ECO2"];
+
   const t = cleanString(fiscalTeam);
+  if (t === "A") return ["A", "ECO1", "ECO2"];
+  if (t === "B") return ["B", "ECO2"];
+  if (t === "C") return ["C", "ECO1", "ECO2"];
+  if (t === "D") return ["D", "ECO1", "ECO2"];
+
+  return [t];
+};
+
+// HELPER NOVA: Visibilidade restrita para o LANÇADOR (Pedido do usuário)
+const getLancadorVisibleTeams = (fiscalTeam: string, isMaster: boolean) => {
+  if (isMaster) return ["A", "B", "C", "D", "ECO1", "ECO2"];
+
+  const t = cleanString(fiscalTeam);
+  // Equipes Noturnas -> Própria + ECO2
   if (t === "A") return ["A", "ECO2"];
   if (t === "B") return ["B", "ECO2"];
+
+  // Equipes Diurnas -> Própria + ECO1
   if (t === "C") return ["C", "ECO1"];
   if (t === "D") return ["D", "ECO1"];
+
   return [t];
 };
 
 function AppContent() {
+  // --- Config State ---
+  const [expandedSectors, setExpandedSectors] = useState<Set<string>>(
+    new Set(),
+  );
+  const [presets, setPresets] = useState<DepartmentPreset[]>([]);
+  const [isPresetManagerOpen, setIsPresetManagerOpen] = useState(false);
   // --- Auth State ---
   const [user, setUser] = useState<User | null>(null);
   const [loginMat, setLoginMat] = useState("");
@@ -411,6 +436,13 @@ function AppContent() {
     return v || null;
   }, [data, user, month]);
 
+  // Load Presets on Init (if Master)
+  useEffect(() => {
+    if (user?.role === "MASTER") {
+      api.loadPresets().then(setPresets);
+    }
+  }, [user]);
+
   // --- Effects ---
 
   // --- LIVE CLOCK EFFECT ---
@@ -582,6 +614,7 @@ function AppContent() {
   };
 
   const loadDataForMonth = async (m: number, isSilent = false) => {
+    setFilterDay(""); // FIX: Limpa filtro de dia ao trocar de mês para evitar "tela branca"
     if (!isSilent) {
       setIsLoading(true);
     } else {
@@ -971,8 +1004,8 @@ function AppContent() {
 
   // --- MEMOIZED VIEWS ---
   const conflicts = useMemo(() => {
-    // FIX: Exibir alertas também no planejamento (mês futuro)
-    // if (isFutureMonth) return [];
+    // FIX: Não exibir alertas de conflito em meses futuros (Planejamento) para não poluir a tela
+    if (isFutureMonth) return [];
 
     const rawConflicts = analyzeConflicts(
       data,
@@ -1003,11 +1036,14 @@ function AppContent() {
   }, [data, month, filterEq, isFutureMonth]);
 
   const visibleTeamsForFilter = useMemo(() => {
-    if (user?.role === "FISCAL" && currentUserVig) {
-      return getVisibleTeams(currentUserVig.eq);
+    if (user?.role === "FISCAL") {
+      const userTeam = currentUserVig ? cleanString(currentUserVig.eq) : "";
+      if (!currentUserVig) return [userTeam]; // If fiscal but no current vig data, return just their (empty) team
+
+      return getVisibleTeams(currentUserVig.eq, isMaster);
     }
     return TEAM_OPTIONS;
-  }, [user, currentUserVig]);
+  }, [user, data, isMaster, filterEq, currentUserVig]);
 
   const lancadorList = useMemo(() => {
     let filtered = data.filter((v) => v.campus !== "AFASTADOS");
@@ -1102,7 +1138,7 @@ function AppContent() {
       if (user?.role === "FISCAL" && currentUserVig) {
         const myEq = cleanString(currentUserVig.eq);
         const targetEq = cleanString(v.eq);
-        const visibleTeams = getVisibleTeams(myEq);
+        const visibleTeams = getVisibleTeams(myEq, isMaster);
         // Se não for da minha equipe, esconde.
         if (!visibleTeams.includes(targetEq)) return false;
       }
@@ -2311,16 +2347,52 @@ function AppContent() {
         updated.folgasGeradas = []; // Limpa folgas ao trocar de equipe
       }
 
-      // Aplica o preset do setor, se existir
-      const preset = sectorPresets[updated.setor.toUpperCase()];
-      if (preset) {
-        const turno =
-          updated.eq === "A" || updated.eq === "B" ? "NOTURNO" : "DIURNO";
-        const turnoPreset = preset[turno];
-        if (turnoPreset) {
-          updated.campus = turnoPreset.campus;
-          updated.horario = turnoPreset.horario;
-          updated.refeicao = turnoPreset.refeicao;
+      // Aplica o preset do setor, se existir (AGORA DINÂMICO via DB)
+      // Procura primeiro pelo nome exato do Posto/Setor na lista de Presets
+      // Ou tenta encontrar combinando SETOR + TURNO (manter compatibilidade)
+
+      const turno =
+        updated.eq === "A" || updated.eq === "B" ? "Noturno" : "Diurno"; // Case sensitive para o preset name
+
+      // Tentativa 1: Match exato pelo Nome do Setor da UI == Nome do Preset (Ex: "Portaria - Diurno")
+      let foundPreset = presets.find(
+        (p) =>
+          p.name === updated.setor || p.name === `${updated.setor} - ${turno}`,
+      );
+
+      // Tentativa 2: Match pelo campo 'sector' do Preset == updated.setor
+      // Isso é melhor pois o usuário digita apenas o setor ("Portaria")
+      if (!foundPreset) {
+        // Filter presets that match the sector AND approximate time range or just pick the first matching the team logic
+        // Simplified: Find a preset with same Sector name and matching generic shift logic
+        const targetShiftLabel =
+          updated.eq === "A" || updated.eq === "B" ? "Noturno" : "Diurno";
+        foundPreset = presets.find(
+          (p) =>
+            p.sector === updated.setor && p.name.includes(targetShiftLabel),
+        );
+      }
+
+      if (foundPreset) {
+        updated.campus = foundPreset.campus;
+        updated.horario = `${foundPreset.timeStart} - ${foundPreset.timeEnd}`;
+        if (foundPreset.mealStart && foundPreset.mealEnd) {
+          updated.refeicao = `${foundPreset.mealStart} - ${foundPreset.mealEnd}`;
+        } else {
+          updated.refeicao = ""; // Limpa se não tiver
+        }
+      } else {
+        // Fallback para o antigo sistema Hardcoded (se o banco ainda estiver vazio ou falhar)
+        const preset = sectorPresets[updated.setor.toUpperCase()];
+        if (preset) {
+          const turnoKey =
+            updated.eq === "A" || updated.eq === "B" ? "NOTURNO" : "DIURNO";
+          const turnoPreset = preset[turnoKey];
+          if (turnoPreset) {
+            updated.campus = turnoPreset.campus;
+            updated.horario = turnoPreset.horario;
+            updated.refeicao = turnoPreset.refeicao;
+          }
         }
       }
 
@@ -3007,6 +3079,18 @@ function AppContent() {
     );
   }
 
+  const toggleSectorExpansion = (sector: string) => {
+    setExpandedSectors((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(sector)) {
+        newSet.delete(sector);
+      } else {
+        newSet.add(sector);
+      }
+      return newSet;
+    });
+  };
+
   return (
     <div className="flex flex-col h-screen bg-slate-900 text-slate-200 font-sans print:h-auto print:overflow-visible">
       <input
@@ -3041,10 +3125,12 @@ function AppContent() {
         handleExport={handleExport}
         setIsLogModalOpen={setIsLogModalOpen}
         setIsUserMgmtModalOpen={setIsUserMgmtModalOpen}
+        setIsPresetManagerOpen={setIsPresetManagerOpen} // Pass the new state setter
         fileInputRef={fileInputRef}
         teamsStatus={teamsStatus}
         handleSendToSupervision={handleSendToSupervision}
         isSilentUpdating={isSilentUpdating}
+        conflicts={conflicts}
       />
 
       <div className="bg-slate-900 border-b border-slate-700 p-2 flex flex-col md:flex-row gap-4 print:hidden shadow-sm items-center">
@@ -3206,21 +3292,6 @@ function AppContent() {
             handleReturnFromAway={handleReturnFromAway}
             handleRemoveCoverage={handleRemoveCoverage}
             visibleTeams={visibleTeamsForFilter}
-            collapsedSectors={collapsedSectors}
-            toggleSectorCollapse={toggleSectorCollapse}
-          />
-        )}
-
-        {/* --- NOVO LANÇADOR (ALOCAÇÃO) --- */}
-        {view === "alocacao" && (
-          <AlocacaoView
-            currentLabel={currentLabel}
-            vigilantes={lancadorList}
-            presets={presets}
-            expandedSectors={expandedSectors}
-            toggleSectorExpansion={toggleSectorExpansion}
-            onUpdateVigilante={handleUpdateVigilante}
-            lancadorVisibleTeams={getLancadorVisibleTeams(user?.role === "FISCAL" && currentUserVig ? currentUserVig.eq : "A", isMaster)}
           />
         )}
 
@@ -3252,11 +3323,7 @@ function AppContent() {
             setIsNewVigModalOpen={setIsNewVigModalOpen}
             handleSmartSuggest={handleSmartSuggest}
             month={month}
-            month={month}
-            lancadorVisibleTeams={getLancadorVisibleTeams(user?.role === "FISCAL" && currentUserVig ? currentUserVig.eq : "A", isMaster)}
-            expandedSectors={expandedSectors}
-            toggleSectorExpansion={toggleSectorExpansion}
-            presets={presets}
+            lancadorVisibleTeams={visibleTeamsForFilter}
           />
         )}
 
@@ -4273,6 +4340,14 @@ function AppContent() {
                   })
                 }
               />
+              <input
+                type="time"
+                className="border rounded p-2 w-full bg-slate-700 text-white border-slate-600"
+                value={tempTimeInputs.rEnd}
+                onChange={(e) =>
+                  setTempTimeInputs({ ...tempTimeInputs, rEnd: e.target.value })
+                }
+              />
             </div>
           </div>
           <Button onClick={handleSaveTempSchedule} className="w-full mt-2">
@@ -4745,6 +4820,13 @@ function AppContent() {
           </div>
         </div>
       </Modal>
+
+      <PresetManager
+        isOpen={isPresetManagerOpen}
+        onClose={() => setIsPresetManagerOpen(false)}
+        presets={presets}
+        setPresets={setPresets}
+      />
 
       {/* Toast Container */}
       {toast && (
