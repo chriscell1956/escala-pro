@@ -20,7 +20,7 @@ interface EscalaViewProps {
   handleReturnFromAway: (vig: Vigilante) => void;
   handleRemoveCoverage: (vig: Vigilante, dia: number) => void;
   visibleTeams: string[];
-  collapsedSectors: Set<string>;
+  expandedSectors: Set<string>;
   toggleSectorCollapse: (sector: string) => void;
 }
 
@@ -43,7 +43,7 @@ const EscalaViewComponent: React.FC<EscalaViewProps> = (props) => {
     handleReturnFromAway,
     handleRemoveCoverage,
     visibleTeams,
-    collapsedSectors,
+    expandedSectors,
     toggleSectorCollapse,
   } = props;
 
@@ -122,7 +122,7 @@ const EscalaViewComponent: React.FC<EscalaViewProps> = (props) => {
         {Object.keys(groupedData)
           .sort()
           .map((campus) => {
-            const isCollapsed = collapsedSectors.has(campus);
+            const isExpanded = expandedSectors.has(campus);
             let currentConflictsForCampus = conflicts.filter(
               (c) => c.campus === campus,
             );
@@ -135,7 +135,7 @@ const EscalaViewComponent: React.FC<EscalaViewProps> = (props) => {
             return (
               <div
                 key={campus}
-                className={`mb-6 bg-slate-800 rounded-xl shadow-sm border border-slate-700 overflow-hidden break-inside-avoid print:shadow-none print:border-none print:mb-4 transition-all ${isCollapsed ? "opacity-75 hover:opacity-100" : ""}`}
+                className={`mb-6 bg-slate-800 rounded-xl shadow-sm border border-slate-700 overflow-hidden break-inside-avoid print:shadow-none print:border-none print:mb-4 transition-all ${!isExpanded ? "opacity-75 hover:opacity-100" : ""}`}
               >
                 <button
                   onClick={() => toggleSectorCollapse(campus)}
@@ -145,14 +145,14 @@ const EscalaViewComponent: React.FC<EscalaViewProps> = (props) => {
                   {campus}
                   <div
                     className={`ml-auto transform transition-transform duration-200 ${
-                      isCollapsed ? "rotate-0" : "rotate-180"
+                      !isExpanded ? "rotate-0" : "rotate-180"
                     }`}
                   >
                     {/* SUBSTITUÍDO O ÍCONE POR TEXTO PARA TESTE */}
                     <span className="text-lg">▼</span>
                   </div>
                 </button>
-                {!isCollapsed && (
+                {isExpanded && (
                   <>
                     {currentConflictsForCampus.length > 0 &&
                       (isFiscal || isMaster) && (
@@ -207,13 +207,12 @@ const EscalaViewComponent: React.FC<EscalaViewProps> = (props) => {
                       )}
                     <div className="overflow-x-auto print:block print:overflow-visible">
                       <table className="w-full text-left text-sm min-w-[600px] md:min-w-0">
-                        <thead className="bg-slate-950 text-slate-400 border-b border-slate-700 font-medium print:bg-gray-200 print:text-black">
+                        <thead className="bg-slate-950 text-slate-400 font-bold border-b border-slate-700 print:bg-gray-200 print:text-black">
                           <tr>
+                            <th className="px-4 py-3 w-32">STATUS</th>
                             <th className="px-4 py-3">NOME</th>
-                            <th className="px-4 py-3 w-10 text-center">EQ</th>
-                            <th className="px-4 py-3 w-16">MAT</th>
-                            <th className="px-4 py-3">STATUS / ESCALA</th>
-                            <th className="px-4 py-3 w-24">HORÁRIO</th>
+                            <th className="px-4 py-3 w-16 text-center">EQ</th>
+                            <th className="px-4 py-3">SETOR</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-700">
@@ -232,102 +231,29 @@ const EscalaViewComponent: React.FC<EscalaViewProps> = (props) => {
                                 key={vig.mat}
                                 className={`${isAfastado ? "bg-amber-900/20 border-l-4 border-amber-500" : "even:bg-slate-800 odd:bg-slate-700/50 hover:bg-slate-600"} border-b border-slate-700 text-sm print:bg-white print:border-black transition-colors`}
                               >
+                                <td className="px-4 py-4 font-bold">
+                                  {vig.manualLock ? (
+                                    <span className="flex items-center gap-1 text-slate-400">
+                                      <span className="text-lg">👤</span> OK
+                                    </span>
+                                  ) : (
+                                    <span className="flex items-center gap-1 text-orange-500">
+                                      <span className="text-lg">⏳</span>{" "}
+                                      Pendente
+                                    </span>
+                                  )}
+                                </td>
                                 <td className="px-4 py-4">
                                   <div className="font-bold text-slate-200 text-base">
                                     {vig.nome}
                                   </div>
-                                  <div className="text-xs text-slate-400">
-                                    {vig.setor}
-                                  </div>
+                                  {/* Optional: Show alert if necessary, similar to LancadorView */}
                                 </td>
                                 <td className="px-4 py-4 text-center">
                                   <Badge team={vig.eq} />
                                 </td>
-                                <td className="px-4 py-4 font-mono text-slate-400 font-medium">
-                                  {vig.mat}
-                                </td>
-                                <td className="px-4 py-4">
-                                  {isAfastado ? (
-                                    <div className="flex justify-between items-center">
-                                      <span className="font-bold text-amber-500">
-                                        {vig.status}: {vig.obs}
-                                      </span>
-                                      {isFiscal && (
-                                        <Button
-                                          variant="secondary"
-                                          className="px-2 py-0.5 text-[10px] h-6 bg-slate-700 border border-slate-600 text-white hover:bg-slate-600 print:hidden"
-                                          onClick={() =>
-                                            handleReturnFromAway(vig)
-                                          }
-                                        >
-                                          Retornar
-                                        </Button>
-                                      )}
-                                    </div>
-                                  ) : (
-                                    <div className="flex flex-col gap-1">
-                                      {filterDay &&
-                                        vig.displayStatus &&
-                                        vig.displayStatus.active && (
-                                          <div className="mb-1">
-                                            <span
-                                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold border shadow-sm ${vig.displayStatus.variant === "success" ? "bg-green-900/50 text-green-300 border-green-700" : vig.displayStatus.variant === "warning" ? "bg-orange-900/50 text-orange-300 border-orange-700" : "bg-slate-700 text-slate-400"}`}
-                                            >
-                                              {vig.displayStatus.status}
-                                            </span>
-                                          </div>
-                                        )}
-                                      <div className="flex flex-wrap items-center gap-2 text-xs leading-tight">
-                                        <span className="text-slate-300 font-semibold tracking-tight whitespace-nowrap">
-                                          <span className="text-[10px] text-slate-500 font-normal mr-1">
-                                            DIAS:
-                                          </span>
-                                          {vig.dias?.join(", ")}
-                                        </span>
-                                        {vig.folgasGeradas?.length > 0 && (
-                                          <span className="text-[10px] font-black bg-red-900/50 text-red-300 px-1.5 py-0.5 rounded border border-red-800 tracking-wide whitespace-nowrap">
-                                            FOLGAS:{" "}
-                                            {vig.folgasGeradas.join(", ")}
-                                          </span>
-                                        )}
-                                        {vig.vacation && (
-                                          <span className="text-[10px] bg-yellow-900/50 text-yellow-300 px-1.5 py-0.5 rounded border border-yellow-700 font-bold whitespace-nowrap">
-                                            FÉRIAS: {vig.vacation.start} a{" "}
-                                            {vig.vacation.end}
-                                          </span>
-                                        )}
-                                        {vig.coberturas?.map((c, idx) => {
-                                          const isInterval =
-                                            c.tipo === "INTERVALO";
-                                          return (
-                                            <div
-                                              key={idx}
-                                              className={`text-[10px] px-2 py-0.5 rounded border font-bold flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity whitespace-nowrap ${isInterval ? "bg-orange-900/50 text-orange-300 border-orange-700" : "bg-blue-900/50 text-blue-300 border-blue-700"}`}
-                                              onClick={() =>
-                                                handleRemoveCoverage(vig, c.dia)
-                                              }
-                                            >
-                                              <span className="uppercase text-[9px] opacity-75 mr-1">
-                                                {isInterval ? "COB." : c.tipo}
-                                              </span>
-                                              <span>
-                                                {c.dia}➜{c.local}
-                                              </span>
-                                              <div className="bg-white/20 rounded-full p-0.5 hover:bg-red-500 hover:text-white transition-colors w-3 h-3 flex items-center justify-center">
-                                                <Icons.X />
-                                              </div>
-                                            </div>
-                                          );
-                                        })}
-                                      </div>
-                                    </div>
-                                  )}
-                                </td>
-                                <td className="px-4 py-4 text-xs text-slate-400">
-                                  <div className="font-bold text-sm text-slate-300">
-                                    {vig.horario}
-                                  </div>
-                                  <div>Ref: {vig.refeicao}</div>
+                                <td className="px-4 py-4 text-slate-400">
+                                  {vig.setor}
                                 </td>
                               </tr>
                             );

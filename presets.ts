@@ -1,3 +1,5 @@
+import { DepartmentPreset } from "./types";
+
 export interface SectorPreset {
   campus: string;
   horario: string;
@@ -6,7 +8,7 @@ export interface SectorPreset {
 
 export const sectorPresets: Record<
   string,
-  { DIURNO?: SectorPreset; NOTURNO?: SectorPreset }
+  { DIURNO?: SectorPreset; NOTURNO?: SectorPreset; EXPEDIENTE?: SectorPreset }
 > = {
   // CAMPUS I
   "GUARITA PO-01": {
@@ -19,6 +21,11 @@ export const sectorPresets: Record<
       campus: "CAMPUS I - NOTURNO",
       horario: "18h às 06h15",
       refeicao: "22h20 às 23h35",
+    },
+    EXPEDIENTE: {
+      campus: "CAMPUS I - EXPEDIENTE",
+      horario: "07h às 17h", // Horario exemplo
+      refeicao: "12h às 13h",
     },
   },
   "BLOCO A (ALFA 01)": {
@@ -289,4 +296,71 @@ export const sectorPresets: Record<
       refeicao: "22h30 às 23h45",
     },
   },
+};
+
+export const generateDefaultPresets = (): DepartmentPreset[] => {
+  const result: DepartmentPreset[] = [];
+
+  Object.entries(sectorPresets).forEach(([key, config]) => {
+    // DIURNO
+    if (config.DIURNO) {
+      // Parse basic time (e.g. "06h" -> "06:00")
+      // config.DIURNO.horario is like "06h às 18h15"
+      const parts = config.DIURNO.horario.split(" ");
+      const start = parts[0]?.replace("h", ":") || "06:00";
+      const end = parts[2]?.replace("h", ":") || "18:00";
+
+      result.push({
+        id: `${key}-DIURNO`,
+        name: key, // Use sector name as Preset Name
+        campus: config.DIURNO.campus,
+        sector: key, // Use sector name as Sector too
+        type: "12x36_DIURNO",
+        timeStart: start.includes(":") ? start : `${start}:00`,
+        timeEnd: end.includes(":") ? end : `${end}:00`,
+        horario: config.DIURNO.horario,
+        refeicao: config.DIURNO.refeicao,
+      });
+    }
+
+    // EXPEDIENTE
+    if (config.EXPEDIENTE) {
+      const parts = config.EXPEDIENTE.horario.split(" ");
+      const start = parts[0]?.replace("h", ":") || "07:00";
+      const end = parts[2]?.replace("h", ":") || "17:00";
+
+      result.push({
+        id: `${key}-EXPEDIENTE`,
+        name: key,
+        campus: config.EXPEDIENTE.campus,
+        sector: key,
+        type: "5x2_EXPEDIENTE", // New Type
+        timeStart: start.includes(":") ? start : `${start}:00`,
+        timeEnd: end.includes(":") ? end : `${end}:00`,
+        horario: config.EXPEDIENTE.horario,
+        refeicao: config.EXPEDIENTE.refeicao,
+      });
+    }
+
+    // NOTURNO
+    if (config.NOTURNO) {
+      const parts = config.NOTURNO.horario.split(" ");
+      const start = parts[0]?.replace("h", ":") || "18:00";
+      const end = parts[2]?.replace("h", ":") || "06:00";
+
+      result.push({
+        id: `${key}-NOTURNO`,
+        name: key,
+        campus: config.NOTURNO.campus,
+        sector: key,
+        type: "12x36_NOTURNO",
+        timeStart: start.includes(":") ? start : `${start}:00`,
+        timeEnd: end.includes(":") ? end : `${end}:00`,
+        horario: config.NOTURNO.horario,
+        refeicao: config.NOTURNO.refeicao,
+      });
+    }
+  });
+
+  return result;
 };

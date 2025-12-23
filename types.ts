@@ -85,14 +85,14 @@ export interface AuditLog {
   timestamp: number;
   user: string; // Nome do supervisor que fez a ação
   action:
-  | "EDICAO"
-  | "COBERTURA"
-  | "IMPORTACAO"
-  | "RESET"
-  | "SISTEMA"
-  | "FOLGAS"
-  | "FERIAS"
-  | "SOLICITACAO";
+    | "EDICAO"
+    | "COBERTURA"
+    | "IMPORTACAO"
+    | "RESET"
+    | "SISTEMA"
+    | "FOLGAS"
+    | "FERIAS"
+    | "SOLICITACAO";
   details: string;
   targetName?: string; // Nome do vigilante afetado (opcional)
 }
@@ -118,4 +118,6 @@ export interface DepartmentPreset {
   mealStart?: string;
   mealEnd?: string;
   team?: Team; // Keeping for backward compatibility or direct assignment if needed
+  horario?: string;
+  refeicao?: string;
 }

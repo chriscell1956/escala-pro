@@ -3,8 +3,10 @@ import React from "react";
 
 // --- Icons (Professional Style - Lucide/Feather inspired) ---
 // Traços mais finos (strokeWidth="1.5") e cantos arredondados para visual moderno.
+// --- Icons (Professional Style - Lucide/Feather inspired) ---
+// Traços mais finos (strokeWidth="1.5") e cantos arredondados para visual moderno.
 export const Icons = {
-  Calendar: () => (
+  Calendar: ({ className = "" }: { className?: string }) => (
     <svg
       xmlns="http://www.w3.org/2000/svg"
       width="20"
@@ -15,6 +17,7 @@ export const Icons = {
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
+      className={className}
     >
       <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
       <line x1="16" x2="16" y1="2" y2="6" />
@@ -22,7 +25,7 @@ export const Icons = {
       <line x1="3" x2="21" y1="10" y2="10" />
     </svg>
   ),
-  Users: () => (
+  Users: ({ className = "" }: { className?: string }) => (
     <svg
       xmlns="http://www.w3.org/2000/svg"
       width="20"
@@ -33,6 +36,7 @@ export const Icons = {
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
+      className={className}
     >
       <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
       <circle cx="9" cy="7" r="4" />
@@ -40,7 +44,7 @@ export const Icons = {
       <path d="M16 3.13a4 4 0 0 1 0 7.75" />
     </svg>
   ),
-  Edit: () => (
+  Edit: ({ className = "" }: { className?: string }) => (
     <svg
       xmlns="http://www.w3.org/2000/svg"
       width="18"
@@ -51,12 +55,13 @@ export const Icons = {
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
+      className={className}
     >
       <path d="M12 20h9" />
       <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
     </svg>
   ),
-  Plane: () => (
+  Plane: ({ className = "" }: { className?: string }) => (
     <svg
       xmlns="http://www.w3.org/2000/svg"
       width="20"
@@ -67,12 +72,13 @@ export const Icons = {
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
+      className={className}
     >
       <path d="M2 22h20" />
       <path d="M20.498 15.248 16.72 2.27a.998.998 0 0 0-1.25-.72l-1.6.46a1 1 0 0 0-.71.95V6.75l-4.22 1.21-3.66-2.5a1 1 0 0 0-1.28.21l-.95.94a1 1 0 0 0 .1.63l2.92 5.56L2.3 13.9a1 1 0 0 0 .15 1.15l1.09 1.1a1 1 0 0 0 1.25.13l15.7-8.03" />
     </svg>
   ),
-  Search: () => (
+  Search: ({ className = "" }: { className?: string }) => (
     <svg
       xmlns="http://www.w3.org/2000/svg"
       width="18"
@@ -83,12 +89,13 @@ export const Icons = {
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
+      className={className}
     >
       <circle cx="11" cy="11" r="8" />
       <path d="m21 21-4.3-4.3" />
     </svg>
   ),
-  Plus: () => (
+  Plus: ({ className = "" }: { className?: string }) => (
     <svg
       xmlns="http://www.w3.org/2000/svg"
       width="18"
@@ -99,12 +106,13 @@ export const Icons = {
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
+      className={className}
     >
       <path d="M5 12h14" />
       <path d="M12 5v14" />
     </svg>
   ),
-  Save: () => (
+  Save: ({ className = "" }: { className?: string }) => (
     <svg
       xmlns="http://www.w3.org/2000/svg"
       width="20"
@@ -115,13 +123,14 @@ export const Icons = {
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
+      className={className}
     >
       <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
       <polyline points="17 21 17 13 7 13 7 21" />
       <polyline points="7 3 7 8 15 8" />
     </svg>
   ),
-  X: () => (
+  X: ({ className = "" }: { className?: string }) => (
     <svg
       xmlns="http://www.w3.org/2000/svg"
       width="20"
@@ -132,12 +141,13 @@ export const Icons = {
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
+      className={className}
     >
       <path d="M18 6 6 18" />
       <path d="m6 6 18 18" />
     </svg>
   ),
-  Menu: () => (
+  Menu: ({ className = "" }: { className?: string }) => (
     <svg
       xmlns="http://www.w3.org/2000/svg"
       width="24"
@@ -148,13 +158,14 @@ export const Icons = {
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
+      className={className}
     >
       <line x1="4" x2="20" y1="12" y2="12" />
       <line x1="4" x2="20" y1="6" y2="6" />
       <line x1="4" x2="20" y1="18" y2="18" />
     </svg>
   ),
-  Trash: () => (
+  Trash: ({ className = "" }: { className?: string }) => (
     <svg
       xmlns="http://www.w3.org/2000/svg"
       width="18"
@@ -165,13 +176,14 @@ export const Icons = {
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
+      className={className}
     >
       <path d="M3 6h18" />
       <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
       <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
     </svg>
   ),
-  Printer: () => (
+  Printer: ({ className = "" }: { className?: string }) => (
     <svg
       xmlns="http://www.w3.org/2000/svg"
       width="20"
@@ -182,13 +194,14 @@ export const Icons = {
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
+      className={className}
     >
       <polyline points="6 9 6 2 18 2 18 9" />
       <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
       <rect width="12" height="8" x="6" y="14" />
     </svg>
   ),
-  Download: () => (
+  Download: ({ className = "" }: { className?: string }) => (
     <svg
       xmlns="http://www.w3.org/2000/svg"
       width="20"
@@ -199,13 +212,14 @@ export const Icons = {
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
+      className={className}
     >
       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
       <polyline points="7 10 12 15 17 10" />
       <line x1="12" x2="12" y1="15" y2="3" />
     </svg>
   ),
-  Upload: () => (
+  Upload: ({ className = "" }: { className?: string }) => (
     <svg
       xmlns="http://www.w3.org/2000/svg"
       width="20"
@@ -216,13 +230,14 @@ export const Icons = {
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
+      className={className}
     >
       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
       <polyline points="17 8 12 3 7 8" />
       <line x1="12" x2="12" y1="3" y2="15" />
     </svg>
   ),
-  History: () => (
+  History: ({ className = "" }: { className?: string }) => (
     <svg
       xmlns="http://www.w3.org/2000/svg"
       width="20"
@@ -233,13 +248,14 @@ export const Icons = {
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
+      className={className}
     >
       <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
       <path d="M3 3v5h5" />
       <path d="M12 7v5l4 2" />
     </svg>
   ),
-  Clock: () => (
+  Clock: ({ className = "" }: { className?: string }) => (
     <svg
       xmlns="http://www.w3.org/2000/svg"
       width="18"
@@ -250,12 +266,13 @@ export const Icons = {
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
+      className={className}
     >
       <circle cx="12" cy="12" r="10" />
       <polyline points="12 6 12 12 16 14" />
     </svg>
   ),
-  Cloud: () => (
+  Cloud: ({ className = "" }: { className?: string }) => (
     <svg
       xmlns="http://www.w3.org/2000/svg"
       width="20"
@@ -266,12 +283,13 @@ export const Icons = {
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
+      className={className}
     >
       <path d="M17.5 19c0-3.037-2.463-5.5-5.5-5.5S6.5 15.963 6.5 19" />
       <path d="M20 16.5c0-3.59-2.686-6.5-6-6.5-.664 0-1.296.115-1.886.325a5.5 5.5 0 0 0-9.614 3.175C2.5 13.5 2.5 16.5 2.5 16.5" />
     </svg>
   ),
-  Flask: () => (
+  Flask: ({ className = "" }: { className?: string }) => (
     <svg
       xmlns="http://www.w3.org/2000/svg"
       width="20"
@@ -282,6 +300,7 @@ export const Icons = {
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
+      className={className}
     >
       <path d="M10 2v7.31" />
       <path d="M14 2v7.31" />
@@ -289,7 +308,7 @@ export const Icons = {
       <path d="M14 9.3a6.5 6.5 0 1 1-4 0" />
     </svg>
   ),
-  Check: () => (
+  Check: ({ className = "" }: { className?: string }) => (
     <svg
       xmlns="http://www.w3.org/2000/svg"
       width="20"
@@ -300,11 +319,12 @@ export const Icons = {
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
+      className={className}
     >
       <polyline points="20 6 9 17 4 12" />
     </svg>
   ),
-  Eye: () => (
+  Eye: ({ className = "" }: { className?: string }) => (
     <svg
       xmlns="http://www.w3.org/2000/svg"
       width="18"
@@ -315,12 +335,13 @@ export const Icons = {
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
+      className={className}
     >
       <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
       <circle cx="12" cy="12" r="3" />
     </svg>
   ),
-  EyeOff: () => (
+  EyeOff: ({ className = "" }: { className?: string }) => (
     <svg
       xmlns="http://www.w3.org/2000/svg"
       width="18"
@@ -331,6 +352,7 @@ export const Icons = {
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
+      className={className}
     >
       <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
       <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
@@ -338,7 +360,7 @@ export const Icons = {
       <line x1="2" x2="22" y1="2" y2="22" />
     </svg>
   ),
-  RefreshCw: () => (
+  RefreshCw: ({ className = "" }: { className?: string }) => (
     <svg
       xmlns="http://www.w3.org/2000/svg"
       width="18"
@@ -349,6 +371,7 @@ export const Icons = {
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
+      className={className}
     >
       <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
       <path d="M21 3v5h-5" />
@@ -356,7 +379,7 @@ export const Icons = {
       <path d="M8 16H3v5" />
     </svg>
   ),
-  LogOut: () => (
+  LogOut: ({ className = "" }: { className?: string }) => (
     <svg
       xmlns="http://www.w3.org/2000/svg"
       width="20"
@@ -367,13 +390,14 @@ export const Icons = {
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
+      className={className}
     >
       <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
       <polyline points="16 17 21 12 16 7" />
       <line x1="21" x2="9" y1="12" y2="12" />
     </svg>
   ),
-  Settings: () => (
+  Settings: ({ className = "" }: { className?: string }) => (
     <svg
       xmlns="http://www.w3.org/2000/svg"
       width="18"
@@ -384,9 +408,26 @@ export const Icons = {
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
+      className={className}
     >
       <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
       <circle cx="12" cy="12" r="3" />
+    </svg>
+  ),
+  ChevronDown: ({ className = "" }: { className?: string }) => (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <polyline points="6 9 12 15 18 9" />
     </svg>
   ),
 };
@@ -456,21 +497,44 @@ export const Select: React.FC<
   );
 };
 
-export const Badge: React.FC<{ team: string }> = ({ team }) => {
-  let color = "bg-gray-100 text-gray-800";
-  if (team === "A") color = "bg-red-100 text-red-800 border-red-200";
-  if (team === "B") color = "bg-blue-100 text-blue-800 border-blue-200";
-  if (team === "C") color = "bg-amber-100 text-amber-800 border-amber-200";
-  if (team === "D")
-    color = "bg-emerald-100 text-emerald-800 border-emerald-200"; // Green
-  if (team === "E1" || team === "E2")
-    color = "bg-purple-100 text-purple-800 border-purple-200";
+export const Badge: React.FC<{
+  team?: string;
+  variant?: "default" | "outline" | "destructive";
+  className?: string;
+  children?: React.ReactNode;
+}> = ({ team, variant = "default", className = "", children }) => {
+  // Mode 1: Team Badge (Legacy/Specific)
+  if (team) {
+    let color = "bg-gray-100 text-gray-800";
+    if (team === "A") color = "bg-red-100 text-red-800 border-red-200";
+    if (team === "B") color = "bg-blue-100 text-blue-800 border-blue-200";
+    if (team === "C") color = "bg-amber-100 text-amber-800 border-amber-200";
+    if (team === "D")
+      color = "bg-emerald-100 text-emerald-800 border-emerald-200"; // Green
+    if (team === "E1" || team === "E2")
+      color = "bg-purple-100 text-purple-800 border-purple-200";
+
+    return (
+      <span
+        className={`inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border ${color} min-w-[28px] tracking-wide shadow-sm ${className}`}
+      >
+        {team}
+      </span>
+    );
+  }
+
+  // Mode 2: Generic Badge
+  let variantStyles = "bg-slate-100 text-slate-800";
+  if (variant === "outline")
+    variantStyles = "bg-transparent border border-slate-600 text-slate-300";
+  if (variant === "destructive")
+    variantStyles = "bg-red-100 text-red-800 border border-red-200";
 
   return (
     <span
-      className={`inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border ${color} min-w-[28px] tracking-wide shadow-sm`}
+      className={`inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-[10px] font-bold ${variantStyles} ${className}`}
     >
-      {team}
+      {children}
     </span>
   );
 };
@@ -514,3 +578,5 @@ export const Modal: React.FC<{
     </div>
   );
 };
+
+export * from "./ui/SearchableSelect";

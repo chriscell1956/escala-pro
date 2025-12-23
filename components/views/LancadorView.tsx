@@ -539,97 +539,118 @@ const LancadorViewComponent: React.FC<LancadorViewProps> = (props) => {
               </thead>
               <tbody className="divide-y divide-slate-700">
                 {/* GROUP BY CAMPUS LOGIC */}
-                {Array.from(new Set(lancadorList.map((v) => v.campus)))
-                  .sort()
-                  .map((campus) => {
-                    const isCollapsed = !expandedSectors.has(campus);
-                    const groupMembers = lancadorList.filter(
-                      (v) => v.campus === campus,
-                    );
+                {/* GROUP BY CAMPUS LOGIC */}
+                {(() => {
+                  // Pre-process grouping to match EscalaView logic
+                  const groups: Record<string, Vigilante[]> = {};
+                  lancadorList.forEach((v) => {
+                    let groupKey = v.campus || "OUTROS";
+                    const c = (v.campus || "").toUpperCase();
+                    const s = (v.setor || "").toUpperCase();
 
-                    if (groupMembers.length === 0) return null;
+                    if (
+                      c.includes("DEFINIR") ||
+                      c === "SEM POSTO" ||
+                      s.includes("DEFINIR") ||
+                      s === "AGUARDANDO"
+                    ) {
+                      groupKey = "CAMPUS DO EXPEDIENTE";
+                    }
 
-                    return (
-                      <React.Fragment key={campus}>
-                        {/* Group Header */}
-                        <tr className="bg-slate-900/50 border-b border-slate-700">
-                          <td colSpan={4} className="p-0">
-                            <button
-                              onClick={() => toggleSectorExpansion(campus)}
-                              className="w-full flex items-center justify-between px-4 py-2 text-left hover:bg-slate-800 transition-colors"
-                            >
-                              <div className="flex items-center gap-2 font-black text-slate-300 uppercase tracking-widest text-[10px]">
-                                <span>{isCollapsed ? "➕" : "➖"}</span>
-                                {campus}
-                                <span className="bg-slate-800 px-1.5 py-0.5 rounded text-[9px] text-slate-500 ml-2">
-                                  {groupMembers.length}
-                                </span>
-                              </div>
-                              <div className="text-[9px] font-bold text-slate-600 uppercase">
-                                {isCollapsed ? "Expandir" : "Minimizar"}
-                              </div>
-                            </button>
-                          </td>
-                        </tr>
+                    if (!groups[groupKey]) groups[groupKey] = [];
+                    groups[groupKey].push(v);
+                  });
 
-                        {/* Group Rows (Hidden if collapsed) */}
-                        {!isCollapsed &&
-                          groupMembers.map((vig) => {
-                            // Alerta se não tiver dias escalados ou se tiver folgas pendentes
-                            const hasAlert =
-                              (vig.dias || []).length === 0 ||
-                              ((vig.folgasGeradas || []).length > 0 &&
-                                !vig.manualLock);
+                  return Object.keys(groups)
+                    .sort()
+                    .map((campus) => {
+                      const isCollapsed = !expandedSectors.has(campus);
+                      const groupMembers = groups[campus];
 
-                            return (
-                              <tr
-                                key={vig.mat}
-                                onClick={() => setEditingVig(vig)}
-                                className={`cursor-pointer transition-colors ${
-                                  editingVig?.mat === vig.mat
-                                    ? "bg-blue-900/30 border-l-4 border-l-blue-500"
-                                    : "hover:bg-slate-700 even:bg-slate-800/50"
-                                } ${
-                                  vig.manualLock
-                                    ? "text-slate-200"
-                                    : "bg-orange-900/20 text-orange-200"
-                                }`}
+                      if (groupMembers.length === 0) return null;
+
+                      return (
+                        <React.Fragment key={campus}>
+                          {/* Group Header */}
+                          <tr className="bg-slate-900/50 border-b border-slate-700">
+                            <td colSpan={4} className="p-0">
+                              <button
+                                onClick={() => toggleSectorExpansion(campus)}
+                                className="w-full flex items-center justify-between px-4 py-2 text-left hover:bg-slate-800 transition-colors"
                               >
-                                <td className="px-4 py-3 font-bold">
-                                  {vig.manualLock ? (
-                                    <span className="flex items-center gap-1 text-slate-400">
-                                      <span className="text-lg">👤</span> OK
-                                    </span>
-                                  ) : (
-                                    <span className="flex items-center gap-1 text-orange-500">
-                                      <span className="text-lg">⏳</span>{" "}
-                                      Pendente
-                                    </span>
-                                  )}
-                                </td>
-                                <td className="px-4 py-3 font-bold flex items-center gap-2">
-                                  {vig.nome}
-                                  {hasAlert && (
-                                    <span
-                                      className="text-lg animate-pulse"
-                                      title="Alerta: Sem escala ou folgas pendentes"
-                                    >
-                                      ⚠️
-                                    </span>
-                                  )}
-                                </td>
-                                <td className="px-4 py-3 text-center">
-                                  <Badge team={vig.eq} />
-                                </td>
-                                <td className="px-4 py-3 text-slate-400">
-                                  {vig.setor}
-                                </td>
-                              </tr>
-                            );
-                          })}
-                      </React.Fragment>
-                    );
-                  })}
+                                <div className="flex items-center gap-2 font-black text-slate-300 uppercase tracking-widest text-[10px]">
+                                  <span>{isCollapsed ? "➕" : "➖"}</span>
+                                  {campus}
+                                  <span className="bg-slate-800 px-1.5 py-0.5 rounded text-[9px] text-slate-500 ml-2">
+                                    {groupMembers.length}
+                                  </span>
+                                </div>
+                                <div className="text-[9px] font-bold text-slate-600 uppercase">
+                                  {isCollapsed ? "Expandir" : "Minimizar"}
+                                </div>
+                              </button>
+                            </td>
+                          </tr>
+
+                          {/* Group Rows (Hidden if collapsed) */}
+                          {!isCollapsed &&
+                            groupMembers.map((vig) => {
+                              // Alerta se não tiver dias escalados ou se tiver folgas pendentes
+                              const hasAlert =
+                                (vig.dias || []).length === 0 ||
+                                ((vig.folgasGeradas || []).length > 0 &&
+                                  !vig.manualLock);
+
+                              return (
+                                <tr
+                                  key={vig.mat}
+                                  onClick={() => setEditingVig(vig)}
+                                  className={`cursor-pointer transition-colors ${
+                                    editingVig?.mat === vig.mat
+                                      ? "bg-blue-900/30 border-l-4 border-l-blue-500"
+                                      : "hover:bg-slate-700 even:bg-slate-800/50"
+                                  } ${
+                                    vig.manualLock
+                                      ? "text-slate-200"
+                                      : "bg-orange-900/20 text-orange-200"
+                                  }`}
+                                >
+                                  <td className="px-4 py-3 font-bold">
+                                    {vig.manualLock ? (
+                                      <span className="flex items-center gap-1 text-slate-400">
+                                        <span className="text-lg">👤</span> OK
+                                      </span>
+                                    ) : (
+                                      <span className="flex items-center gap-1 text-orange-500">
+                                        <span className="text-lg">⏳</span>{" "}
+                                        Pendente
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="px-4 py-3 font-bold flex items-center gap-2">
+                                    {vig.nome}
+                                    {hasAlert && (
+                                      <span
+                                        className="text-lg animate-pulse"
+                                        title="Alerta: Sem escala ou folgas pendentes"
+                                      >
+                                        ⚠️
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="px-4 py-3 text-center">
+                                    <Badge team={vig.eq} />
+                                  </td>
+                                  <td className="px-4 py-3 text-slate-400">
+                                    {vig.setor}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                        </React.Fragment>
+                      );
+                    });
+                })()}
               </tbody>
             </table>
           </div>

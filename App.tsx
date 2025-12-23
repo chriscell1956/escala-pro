@@ -41,7 +41,7 @@ import {
   Select,
 } from "./components/ui";
 import { api } from "./services/api";
-import { sectorPresets } from "./presets";
+import { sectorPresets, generateDefaultPresets } from "./presets";
 
 // --- IMPORTS DE COMPONENTES REFATORADOS ---
 import { ErrorBoundary } from "./components/common/ErrorBoundary";
@@ -338,7 +338,7 @@ function AppContent() {
     const year = now.getFullYear();
     const month = now.getMonth(); // 0-11
 
-    const visibleMonths = [];
+    const visibleMonths: number[] = [];
     for (let i = 0; i < 3; i++) {
       const d = new Date(year, month + i, 1);
       const periodValue = d.getFullYear() * 100 + (d.getMonth() + 1);
@@ -438,10 +438,22 @@ function AppContent() {
     return v || null;
   }, [data, user, month]);
 
-  // Load Presets on Init (if Master)
+  // Load Presets on Init (if Master or Fiscal)
   useEffect(() => {
-    if (user?.role === "MASTER") {
-      api.loadPresets().then(setPresets);
+    if (
+      user?.role === "MASTER" ||
+      user?.role === "FISCAL" ||
+      user?.canSimulate
+    ) {
+      api.loadPresets().then((loaded) => {
+        if (loaded && loaded.length > 0) {
+          setPresets(loaded);
+        } else {
+          // Fallback: Generate from config
+          const defaults = generateDefaultPresets();
+          setPresets(defaults);
+        }
+      });
     }
   }, [user]);
 
@@ -1212,8 +1224,22 @@ function AppContent() {
         const status = getVigilanteStatus(v, dayNum, filterTime);
         processedVig.displayStatus = status;
       }
-      if (!groups[v.campus]) groups[v.campus] = [];
-      groups[v.campus].push(processedVig);
+      let groupKey = v.campus;
+      // Change: Move "A DEFINIR", "SEM POSTO", "AGUARDANDO" items to "CAMPUS DO EXPEDIENTE"
+      const c = (v.campus || "").toUpperCase();
+      const s = (v.setor || "").toUpperCase();
+
+      if (
+        c.includes("DEFINIR") ||
+        c === "SEM POSTO" ||
+        s.includes("DEFINIR") ||
+        s === "AGUARDANDO"
+      ) {
+        groupKey = "CAMPUS DO EXPEDIENTE";
+      }
+
+      if (!groups[groupKey]) groups[groupKey] = [];
+      groups[groupKey].push(processedVig);
     });
     return groups;
   }, [
@@ -3294,8 +3320,8 @@ function AppContent() {
             handleReturnFromAway={handleReturnFromAway}
             handleRemoveCoverage={handleRemoveCoverage}
             visibleTeams={visibleTeamsForFilter}
-            collapsedSectors={collapsedSectors}
-            toggleSectorCollapse={toggleSectorCollapse}
+            expandedSectors={expandedSectors}
+            toggleSectorCollapse={toggleSectorExpansion}
           />
         )}
 
@@ -3309,9 +3335,7 @@ function AppContent() {
             toggleSectorExpansion={toggleSectorExpansion}
             onUpdateVigilante={handleUpdateVigilante}
             lancadorVisibleTeams={getLancadorVisibleTeams(
-              user?.role === "FISCAL" && currentUserVig
-                ? currentUserVig.eq
-                : "A",
+              currentUserVig?.eq || "A",
               isMaster,
             )}
           />
