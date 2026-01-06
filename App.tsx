@@ -45,7 +45,7 @@ import { sectorPresets, generateDefaultPresets } from "./presets";
 
 // --- IMPORTS DE COMPONENTES REFATORADOS ---
 import { ErrorBoundary } from "./components/common/ErrorBoundary";
-import { LancadorView } from "./components/views/LancadorView";
+/* REMOVED: import { LancadorView } from "./components/views/LancadorView"; */
 import { AppHeader } from "./components/layout/AppHeader";
 import { EscalaView } from "./components/views/EscalaView";
 import { AlocacaoView } from "./components/views/AlocacaoView";
@@ -86,17 +86,20 @@ const getVisibleTeams = (fiscalTeam: string, isMaster: boolean) => {
 
 // HELPER NOVA: Visibilidade restrita para o LANÇADOR (Pedido do usuário)
 const getLancadorVisibleTeams = (fiscalTeam: string, isMaster: boolean) => {
-  if (isMaster) return ["A", "B", "C", "D", "ECO1", "ECO2"];
+  // Master sees EVERYONE, including ADM and SUPERVISORS
+  if (isMaster) return ["A", "B", "C", "D", "ECO1", "ECO2", "ECO 1", "ECO 2", "ADM", "SUPERVISOR", "AFASTADOS"];
 
   const t = cleanString(fiscalTeam);
+
   // Equipes Noturnas -> Própria + ECO2
-  if (t === "A") return ["A", "ECO2"];
-  if (t === "B") return ["B", "ECO2"];
+  if (t === "A") return ["A", "ECO2", "ECO 2"];
+  if (t === "B") return ["B", "ECO2", "ECO 2"];
 
   // Equipes Diurnas -> Própria + ECO1
-  if (t === "C") return ["C", "ECO1"];
-  if (t === "D") return ["D", "ECO1"];
+  if (t === "C") return ["C", "ECO1", "ECO 1"];
+  if (t === "D") return ["D", "ECO1", "ECO 1"];
 
+  // Default: sees own team
   return [t];
 };
 
@@ -148,7 +151,8 @@ function AppContent() {
       return { ...opt, label: `${names[m - 1]} ${String(y).slice(-2)}` };
     });
   });
-  const [view, setView] = useState<ViewMode>("escala");
+  /* REMOVIDO VIEW 'lancador' - SOMENTE 'alocacao' (NOVO LANCADOR) DISPONIVEL */
+  const [view, setView] = useState<ViewMode>("escala"); // Mantém 'escala' como padrão ou 'alocacao' se preferir
   const [data, setData] = useState<Vigilante[]>([]);
   const [, setIsLoading] = useState(false);
   const [viewingDraft, setViewingDraft] = useState(false); // Indicates if we are seeing a draft
@@ -325,6 +329,10 @@ function AppContent() {
             (s.id.includes("EXPEDIENTE") && !s.campus.includes("C.A.")), // Detected old Expediente naming
         );
 
+        // EXTRA CHECK FOR DUPLICATES (User reported "repetido bloco b alfa")
+        // REMOVED EXTRA CHECK FOR DUPLICATES to prevent overwriting valid multiple slots
+        // const isCorrupted = saved.some(...) 
+
         const missingCritical = defaults.filter(
           (def) =>
             !saved.some((s) => s.id === def.id) &&
@@ -332,41 +340,34 @@ function AppContent() {
               def.campus.includes("EXPEDIENTE")),
         );
 
-        if (isOutdated || missingCritical.length > 0) {
-          // Aggressive Strategy: If outdated, replace/merge to ensure integrity
-          // We filter out the OLD/BAD ones from saved, and append the NEW defaults
-          // Actually, simpler: If outdated components exist, we might as well RESET the ones that conflict
+        // Disable force update to respect user DB edits
+        const forceUpdate = false;
 
-          // Merging strategy:
-          // 1. Keep saved presets that are NOT in the "Bad List" (optional, but safe)
-          // 2. Or simplified: Just overwrite with defaults if it's broken, user custom presets might be lost?
-          // The user probably hasn't customized much yet. Let's do a smart overwrite of the system ones.
+        if (forceUpdate || isOutdated || missingCritical.length > 0) {
+          // AGGRESSIVE OVERWRITE: If usage is detected to be corrupted, we prefer defaults.
+          // Filter out existing ones that look suspicious or are causing dups
 
           const systemIds = defaults.map((d) => d.id);
-          // Keep user custom presets (ids not in system defaults)
-          // Aggressively cleanup ANY old system preset flavor to prevent duplicates
+          // Keep user custom presets ONLY if they don't look like our system generated ones
           const userCustom = saved.filter((s) => {
-            // If it's in the NEW default list, we ignore it here (it will be added from defaults)
             if (systemIds.includes(s.id)) return false;
-
-            // If it starts with our System Prefixes but is NOT in defaults, it's an OLD version -> Remove it
-            // This covers both numeric (CAMPUS-I-EXP-1) and named intermediate (CAMPUS-I-EXP-CFTV-1)
+            // Remove known old patterns
             if (s.id.startsWith("CAMPUS-I-EXP")) return false;
             if (s.id.startsWith("CAMPUS-II-EXP")) return false;
             if (s.id.startsWith("SUPERVISAO-ADM")) return false;
-
+            // Remove based on name if necessary (double safety)
+            if (s.name.includes("Bloco B / Alfa")) return false;
             return true;
           });
 
-          // Combine defaults + user custom
           const merged = [...defaults, ...userCustom];
 
           setPresets(merged);
           api.savePresets(merged);
-          console.log("Presets force-updated to latest version.");
+          console.log("Presets force-updated/cleaned to latest version.");
           showToast(
-            "Sistema atualizado: Presets restaurados para o padrão correto.",
-            "info",
+            "Sistema corrigido: Duplicidade de postos removida.",
+            "success",
           );
         } else {
           setPresets(saved);
@@ -378,6 +379,7 @@ function AppContent() {
     };
     loadPresets();
   }, []);
+
 
   // --- DERIVED PERMISSIONS & HELPERS ---
   const isMaster = user?.role === "MASTER";
@@ -1457,8 +1459,8 @@ function AppContent() {
       intervalCategory === "TODOS"
         ? rawList
         : rawList.filter(
-            (v) => getCategory(v.effectiveCampus) === intervalCategory,
-          );
+          (v) => getCategory(v.effectiveCampus) === intervalCategory,
+        );
 
     const grouped: Record<string, IntervalVigilante[]> = {};
     list.forEach((v) => {
@@ -2597,16 +2599,24 @@ function AppContent() {
   };
 
   const handleUpdateVigilante = (mat: string, changes: Partial<Vigilante>) => {
-    setData((prev) =>
-      prev.map((v) => {
-        if (v.mat === mat) {
-          const updated = { ...v, ...changes };
-          if (!updated.manualLock) updated.manualLock = true;
-          return updated;
-        }
-        return v;
-      }),
-    );
+    const newData = data.map((v) => {
+      if (v.mat === mat) {
+        const updated = { ...v, ...changes };
+        if (!updated.manualLock) updated.manualLock = true;
+        updated.status = "MANUAL_OK"; // Ensure status reflects manual edit
+        return updated;
+      }
+      return v;
+    });
+
+    setData(newData);
+    saveData(newData); // Persist immediately
+
+    // Log helpful context if it's a sector assignment
+    const targetVig = newData.find(v => v.mat === mat);
+    if (targetVig && changes.campus) {
+      registerLog("ALOCACAO", `Alocado em ${changes.campus} - ${changes.setor || ''}`, targetVig.nome);
+    }
   };
   const handleToggleDay = (vig: Vigilante, day: number) => {
     if (!isFiscal) return;
@@ -3259,21 +3269,21 @@ function AppContent() {
           </button>
           {isFiscal && (
             <>
-              <button
+              {/* <button
                 onClick={() => {
                   setView("lancador");
                 }}
                 className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all whitespace-nowrap ${view === "lancador" ? "bg-blue-600 text-white shadow-md" : "text-slate-400 hover:text-white"}`}
               >
                 LANÇADOR (CLÁSSICO)
-              </button>
+              </button> */}
               <button
                 onClick={() => {
                   setView("alocacao");
                 }}
                 className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all whitespace-nowrap ${view === "alocacao" ? "bg-purple-600 text-white shadow-md" : "text-slate-400 hover:text-white"}`}
               >
-                ✨ NOVO LANÇADOR
+                LANÇADOR
               </button>
             </>
           )}
@@ -3427,6 +3437,7 @@ function AppContent() {
               isMaster,
             )}
             isMaster={isMaster}
+            month={month}
           />
         )}
 
@@ -4421,10 +4432,10 @@ function AppContent() {
                   filterTime,
                 ).status !== "INTERVALO",
             ).length === 0 && (
-              <div className="p-4 text-center text-slate-400 text-xs">
-                Nenhum vigilante disponível encontrado.
-              </div>
-            )}
+                <div className="p-4 text-center text-slate-400 text-xs">
+                  Nenhum vigilante disponível encontrado.
+                </div>
+              )}
           </div>
         </div>
       </Modal>

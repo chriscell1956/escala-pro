@@ -262,7 +262,7 @@ const AppHeaderComponent: React.FC<AppHeaderProps> = (props) => {
                     onClick={() => setIsPresetManagerOpen(true)}
                     title="Gerenciar Postos"
                   >
-                    <span className="hidden md:inline">POSTOS</span>
+                    <span className="hidden md:inline">L. ESCALA</span>
                     <span className="md:hidden">
                       <Icons.Settings />
                     </span>

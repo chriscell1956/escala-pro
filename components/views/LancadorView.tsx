@@ -75,6 +75,9 @@ const LancadorViewComponent: React.FC<LancadorViewProps> = (props) => {
     onOpenPresetManager,
   } = props;
 
+  // --- STATES FOR VIEW CONFIGURATION ---
+
+
   // --- LÓGICA LOCAL DE EDIÇÃO (SEM SALVAR NO BANCO) ---
 
   const handleTeamChange = (newTeam: Team) => {
@@ -229,11 +232,10 @@ const LancadorViewComponent: React.FC<LancadorViewProps> = (props) => {
   return (
     <div className="flex flex-1 h-full overflow-hidden bg-slate-900 relative print:h-auto print:overflow-visible">
       <div
-        className={`w-full md:w-[380px] bg-slate-800 border-r border-slate-700 flex flex-col shadow-xl z-20 shrink-0 h-full absolute md:relative top-0 left-0 bottom-0 transition-transform duration-300 ease-in-out ${
-          showMobileEditor
-            ? "translate-x-0"
-            : "-translate-x-full md:translate-x-0"
-        } print:hidden`}
+        className={`w-full md:w-[380px] bg-slate-800 border-r border-slate-700 flex flex-col shadow-xl z-20 shrink-0 h-full absolute md:relative top-0 left-0 bottom-0 transition-transform duration-300 ease-in-out ${showMobileEditor
+          ? "translate-x-0"
+          : "-translate-x-full md:translate-x-0"
+          } print:hidden`}
       >
         <div className="bg-slate-950 text-white p-4 text-center border-b border-slate-700 relative shrink-0">
           <button
@@ -268,9 +270,13 @@ const LancadorViewComponent: React.FC<LancadorViewProps> = (props) => {
               ))}
             </Select>
           </div>
+
+          {/* New Filter: Turno (Only useful for EXPEDIENTE context usually, but good to have) */}
+
+
           <div>
             <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">
-              2. Buscar Nome:
+              3. Buscar Nome:
             </label>
             <Input
               placeholder="Digite para filtrar a lista..."
@@ -294,15 +300,15 @@ const LancadorViewComponent: React.FC<LancadorViewProps> = (props) => {
                 {(editingVig.folgasGeradas || []).filter(
                   (f: number) => !(editingVig.dias || []).includes(f),
                 ).length > 0 && (
-                  <div className="mt-2 text-xs font-bold text-red-600">
-                    Folgas Extras:{" "}
-                    {
-                      (editingVig.folgasGeradas || []).filter(
-                        (f: number) => !(editingVig.dias || []).includes(f),
-                      ).length
-                    }
-                  </div>
-                )}
+                    <div className="mt-2 text-xs font-bold text-red-600">
+                      Folgas Extras:{" "}
+                      {
+                        (editingVig.folgasGeradas || []).filter(
+                          (f: number) => !(editingVig.dias || []).includes(f),
+                        ).length
+                      }
+                    </div>
+                  )}
               </div>
               <div className="p-4 space-y-4">
                 <div>
@@ -409,41 +415,37 @@ const LancadorViewComponent: React.FC<LancadorViewProps> = (props) => {
                   <div className="flex bg-slate-900 rounded-lg p-1 gap-1">
                     <button
                       onClick={() => setEditorMode("days")}
-                      className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${
-                        editorMode === "days"
-                          ? "bg-slate-700 text-white shadow-sm"
-                          : "text-slate-500 hover:text-slate-300"
-                      }`}
+                      className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${editorMode === "days"
+                        ? "bg-slate-700 text-white shadow-sm"
+                        : "text-slate-500 hover:text-slate-300"
+                        }`}
                     >
                       📅 DIAS
                     </button>
                     <button
                       onClick={() => setEditorMode("vacation")}
-                      className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${
-                        editorMode === "vacation"
-                          ? "bg-amber-100 text-amber-800 shadow-sm"
-                          : "text-slate-500 hover:text-slate-700"
-                      }`}
+                      className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${editorMode === "vacation"
+                        ? "bg-amber-100 text-amber-800 shadow-sm"
+                        : "text-slate-500 hover:text-slate-700"
+                        }`}
                     >
                       🏖️ FÉRIAS
                     </button>
                     <button
                       onClick={() => setEditorMode("falta")}
-                      className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${
-                        editorMode === "falta"
-                          ? "bg-red-600 text-white shadow-sm"
-                          : "text-slate-500 hover:text-slate-300"
-                      }`}
+                      className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${editorMode === "falta"
+                        ? "bg-red-600 text-white shadow-sm"
+                        : "text-slate-500 hover:text-slate-300"
+                        }`}
                     >
                       ❌ FALTA
                     </button>
                     <button
                       onClick={() => setEditorMode("partial")}
-                      className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${
-                        editorMode === "partial"
-                          ? "bg-orange-500 text-white shadow-sm"
-                          : "text-slate-500 hover:text-slate-300"
-                      }`}
+                      className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${editorMode === "partial"
+                        ? "bg-orange-500 text-white shadow-sm"
+                        : "text-slate-500 hover:text-slate-300"
+                        }`}
                     >
                       ⚠️ PARCIAL
                     </button>
@@ -538,13 +540,44 @@ const LancadorViewComponent: React.FC<LancadorViewProps> = (props) => {
         </div>
         <div className="flex-1 overflow-y-auto p-4 bg-slate-900 min-h-0 print:overflow-visible print:h-auto print:bg-white">
           <div className="bg-slate-800 rounded-lg shadow-sm border border-slate-700 overflow-hidden print:border-none print:shadow-none">
+            <div className="flex items-center gap-4 bg-slate-800 p-2 rounded-lg border border-slate-700 mb-2 print:hidden backdrop-blur-sm">
+              <span className="text-xs font-bold text-slate-400 uppercase">
+                Visualizando Dia:
+              </span>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() =>
+                    setSelectedDay((prev) => (prev > 1 ? prev - 1 : prev))
+                  }
+                  className="p-1 hover:bg-slate-700 rounded text-slate-300"
+                >
+                  ◀
+                </button>
+                <div className="bg-slate-900 px-4 py-1 rounded border border-blue-500/30 text-blue-400 font-bold text-sm min-w-[3rem] text-center shadow-[0_0_10px_rgba(59,130,246,0.2)]">
+                  {selectedDay}
+                </div>
+                <button
+                  onClick={() =>
+                    setSelectedDay((prev) => (prev < 31 ? prev + 1 : prev))
+                  }
+                  className="p-1 hover:bg-slate-700 rounded text-slate-300"
+                >
+                  ▶
+                </button>
+              </div>
+              <span className="text-xs text-slate-500 hidden md:inline-block border-l border-slate-700 pl-4 ml-2">
+                Use este seletor para ver quem trabalha no dia e lançar folgas.
+              </span>
+            </div>
+
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-950 text-slate-400 font-bold border-b border-slate-700 sticky top-0 z-10 print:static print:bg-gray-200 print:text-black">
                 <tr>
-                  <th className="px-4 py-3 w-32">STATUS</th>
                   <th className="px-4 py-3">NOME</th>
                   <th className="px-4 py-3 w-16 text-center">EQ</th>
-                  <th className="px-4 py-3">SETOR</th>
+                  <th className="px-4 py-3 w-20">SETOR</th>
+                  <th className="px-4 py-3 w-32">CAMPUS</th>
+                  <th className="px-4 py-3 w-20 text-center">HORÁRIO</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-700">
@@ -553,7 +586,36 @@ const LancadorViewComponent: React.FC<LancadorViewProps> = (props) => {
                 {(() => {
                   // Pre-process grouping to match EscalaView logic
                   const groups: Record<string, Vigilante[]> = {};
-                  lancadorList.forEach((v) => {
+
+                  // Sort Logic if needed
+                  const sortedList = [...lancadorList].sort((a, b) => a.nome.localeCompare(b.nome));
+
+                  sortedList.forEach((v) => {
+                    // Filter Logic: Shift (Turno)
+                    if (expedienteShiftFilter !== "ALL") {
+                      // Heuristic: Check preset time if available or default
+                      // We used presets prop. Let's try to match v.setor to a preset
+                      const preset = presets.find(p => p.sector === v.setor && p.campus === v.campus);
+                      // If no preset, can't reliably filter by TIME, but maybe by manual convention?
+                      // User mentioned ECO 1 = 06:00, ECO 2 = 13:45
+                      // Let's assume strict filtering if we can find the time
+                      let startHour = 0;
+                      if (preset && preset.timeStart) {
+                        startHour = parseInt(preset.timeStart.split(':')[0], 10);
+                      } else {
+                        // Fallback: Try to guess from sector name or default
+                        // If user typed "06h" in a custom field, we might miss it.
+                        // But usually, presets drive this.
+                        // Let's rely on Team/Shift logic if applicable.
+                        // If Team is C/D (usually Night), E (Expediente).
+                        // If we can't determine, we show it to be safe.
+                        startHour = 6; // Default to morning
+                      }
+
+                      if (expedienteShiftFilter === "ECO1" && startHour >= 12) return; // Hide afternoon
+                      if (expedienteShiftFilter === "ECO2" && startHour < 12) return; // Hide morning
+                    }
+
                     let groupKey = v.campus || "OUTROS";
                     const c = (v.campus || "").toUpperCase();
                     const s = (v.setor || "").toUpperCase();
@@ -583,7 +645,7 @@ const LancadorViewComponent: React.FC<LancadorViewProps> = (props) => {
                         <React.Fragment key={campus}>
                           {/* Group Header */}
                           <tr className="bg-slate-900/50 border-b border-slate-700">
-                            <td colSpan={4} className="p-0">
+                            <td colSpan={5} className="p-0">
                               <button
                                 onClick={() => toggleSectorExpansion(campus)}
                                 className="w-full flex items-center justify-between px-4 py-2 text-left hover:bg-slate-800 transition-colors"
@@ -605,57 +667,38 @@ const LancadorViewComponent: React.FC<LancadorViewProps> = (props) => {
                           {/* Group Rows (Hidden if collapsed) */}
                           {!isCollapsed &&
                             groupMembers.map((vig) => {
-                              // Alerta se não tiver dias escalados ou se tiver folgas pendentes
-                              const hasAlert =
-                                (vig.dias || []).length === 0 ||
-                                ((vig.folgasGeradas || []).length > 0 &&
-                                  !vig.manualLock);
-
-                              return (
-                                <tr
-                                  key={vig.mat}
-                                  onClick={() => setEditingVig(vig)}
-                                  className={`cursor-pointer transition-colors ${
-                                    editingVig?.mat === vig.mat
-                                      ? "bg-blue-900/30 border-l-4 border-l-blue-500"
-                                      : "hover:bg-slate-700 even:bg-slate-800/50"
-                                  } ${
-                                    vig.manualLock
-                                      ? "text-slate-200"
-                                      : "bg-orange-900/20 text-orange-200"
-                                  }`}
-                                >
-                                  <td className="px-4 py-3 font-bold">
-                                    {vig.manualLock ? (
-                                      <span className="flex items-center gap-1 text-slate-400">
-                                        <span className="text-lg">👤</span> OK
-                                      </span>
-                                    ) : (
-                                      <span className="flex items-center gap-1 text-orange-500">
-                                        <span className="text-lg">⏳</span>{" "}
-                                        Pendente
-                                      </span>
-                                    )}
-                                  </td>
-                                  <td className="px-4 py-3 font-bold flex items-center gap-2">
-                                    {vig.nome}
-                                    {hasAlert && (
-                                      <span
-                                        className="text-lg animate-pulse"
-                                        title="Alerta: Sem escala ou folgas pendentes"
-                                      >
-                                        ⚠️
-                                      </span>
-                                    )}
-                                  </td>
-                                  <td className="px-4 py-3 text-center">
-                                    <Badge team={vig.eq} />
-                                  </td>
-                                  <td className="px-4 py-3 text-slate-400">
-                                    {vig.setor}
-                                  </td>
-                                </tr>
-                              );
+                              <tr
+                                key={vig.mat}
+                                className={`cursor-pointer transition-colors border-b border-slate-800/50 ${editingVig?.mat === vig.mat
+                                    ? "bg-blue-900/30 border-l-4 border-l-blue-500"
+                                    : "hover:bg-slate-800 even:bg-slate-800/30"
+                                  } ${vig.campus === "AFASTADOS" ? "opacity-60 bg-red-900/10" : ""}`}
+                                onClick={() => {
+                                  setEditingVig(vig);
+                                  if (window.innerWidth < 768) setShowMobileEditor(true);
+                                }}
+                              >
+                                <td className="px-4 py-3 font-bold">
+                                  <div className="flex flex-col">
+                                    <span>{vig.nome}</span>
+                                    <span className="text-[10px] text-slate-500 font-normal">
+                                      {vig.mat}
+                                    </span>
+                                  </div>
+                                </td>
+                                <td className="px-4 py-3 text-center">
+                                  <Badge team={vig.eq} />
+                                </td>
+                                <td className="px-4 py-3 text-slate-300 text-xs">
+                                  {vig.setor}
+                                </td>
+                                <td className="px-4 py-3 text-slate-400 text-[10px] uppercase">
+                                  {vig.campus}
+                                </td>
+                                <td className="px-4 py-3 text-slate-400 text-xs font-mono text-center">
+                                  {vig.horario}
+                                </td>
+                              </tr>
                             })}
                         </React.Fragment>
                       );

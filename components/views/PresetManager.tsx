@@ -208,25 +208,7 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
         {/* Header Actions */}
         <div className="flex flex-col gap-3 bg-slate-800 p-3 rounded-lg border border-slate-700">
           <div className="flex justify-between items-center">
-            <Button
-              variant="outline"
-              onClick={async () => {
-                if (
-                  confirm(
-                    "Isso RESTAURARÁ todos os postos para o padrão do sistema (incluindo as novas correções de Expediente). Continuar?",
-                  )
-                ) {
-                  const defaults = generateDefaultPresets();
-                  setPresets(defaults);
-                  await api.savePresets(defaults);
-                  alert("Padrões restaurados com sucesso!");
-                }
-              }}
-              className="text-red-400 hover:text-red-300 border-red-900/50 hover:bg-red-900/20 text-xs"
-            >
-              <Icons.RefreshCw className="w-3 h-3 mr-2" />
-              Restaurar Padrões
-            </Button>
+
 
             <Button
               variant="primary"

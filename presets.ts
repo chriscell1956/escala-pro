@@ -370,7 +370,7 @@ export const generateDefaultPresets = (): DepartmentPreset[] => {
     { name: "FISCAL OPERACIONAL", count: 5 },
   ];
 
-  supervisaoConfig.forEach((cfg, idx) => {
+  supervisaoConfig.forEach((cfg) => {
     for (let i = 0; i < cfg.count; i++) {
       presets.push({
         id: `SUPERVISAO-ADM-${cfg.name.replace(/\s+/g, "-")}-${i + 1}`,
@@ -394,8 +394,8 @@ export const generateDefaultPresets = (): DepartmentPreset[] => {
         campus: "CAMPUS I - EXPEDIENTE VIG",
         sector: cfg.name,
         type: "EXPEDIENTE",
-        horario: "07h às 17h",
-        refeicao: "12h - 13h",
+        horario: "07h às 17h00", // Updated to match user preference if needed, or default
+        refeicao: "11h - 12h", // Adjusted typical break
       });
     }
   });
@@ -415,7 +415,7 @@ export const generateDefaultPresets = (): DepartmentPreset[] => {
         campus: "CAMPUS I - EXPEDIENTE C.A.",
         sector: cfg.name,
         type: "EXPEDIENTE",
-        horario: "07h às 17h",
+        horario: "07h às 17h00",
         refeicao: "12h - 13h",
       });
     }
@@ -434,7 +434,7 @@ export const generateDefaultPresets = (): DepartmentPreset[] => {
         campus: "CAMPUS II - EXPEDIENTE VIG",
         sector: cfg.name,
         type: "EXPEDIENTE",
-        horario: "07h às 17h",
+        horario: "07h às 17h00",
         refeicao: "12h - 13h",
       });
     }
@@ -457,7 +457,7 @@ export const generateDefaultPresets = (): DepartmentPreset[] => {
         campus: "CAMPUS II - EXPEDIENTE C.A.",
         sector: cfg.name,
         type: "EXPEDIENTE",
-        horario: "07h às 17h",
+        horario: "07h às 17h00",
         refeicao: "12h - 13h",
       });
     }
@@ -477,7 +477,7 @@ export const generateDefaultPresets = (): DepartmentPreset[] => {
         campus: "LABORATÓRIO - EXPEDIENTE",
         sector: cfg.name,
         type: "EXPEDIENTE",
-        horario: "07h às 17h",
+        horario: "07h às 17h00",
         refeicao: "12h - 13h",
       });
     }
