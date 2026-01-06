@@ -136,7 +136,6 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
       const type = (p.type || "").toUpperCase();
       const campus = (p.campus || "").toUpperCase();
       const sector = (p.sector || "").toUpperCase();
-      const name = (p.name || "").toUpperCase();
 
       // 1. SUPERVISION RULE: Only Master sees Supervision/Admin presets
       if (campus.includes("SUPERVISÃO") && !isMaster) {
@@ -591,13 +590,18 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
                               <span className="font-bold text-sm text-slate-100 group-hover:text-blue-300 transition-colors">
                                 {preset.name}
                               </span>
-                              <div className="flex flex-col gap-0.5 mt-1">
-                                <span className="text-[10px] text-slate-400 font-mono bg-slate-800 px-1.5 py-0.5 rounded w-fit">
-                                  🕒 {preset.horario}
+                              <div className="flex flex-wrap gap-2 mt-2">
+                                <span className="text-xs text-slate-300 font-mono bg-slate-800/80 border border-slate-700 px-2 py-1 rounded flex items-center gap-1.5 shadow-sm">
+                                  <Icons.Clock
+                                    size={12}
+                                    className="text-blue-400"
+                                  />
+                                  {preset.horario}
                                 </span>
                                 {preset.refeicao && (
-                                  <span className="text-[9px] text-slate-500 font-mono px-1.5">
-                                    🍽️ {preset.refeicao}
+                                  <span className="text-xs text-slate-400 font-mono bg-slate-800/50 border border-slate-700/50 px-2 py-1 rounded flex items-center gap-1.5">
+                                    <span className="text-[10px]">🍽️</span>{" "}
+                                    {preset.refeicao}
                                   </span>
                                 )}
                               </div>
@@ -610,7 +614,7 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
                                   e.stopPropagation();
                                   setManagingPreset(preset);
                                 }}
-                                className="text-slate-600 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity p-1"
+                                className="text-slate-600 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity p-2 bg-slate-800 rounded-full hover:bg-slate-700"
                                 title="Editar detalhes do posto"
                               >
                                 <Icons.Edit className="w-3 h-3" />
@@ -628,21 +632,21 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
                                 return (
                                   <div
                                     key={occ.mat}
-                                    className={`flex flex-col border rounded p-2 shadow-sm animate-fade-in group ${
+                                    className={`flex flex-col border rounded-lg p-2.5 shadow-sm animate-fade-in group ${
                                       !isWorking
                                         ? "bg-red-900/10 border-red-900/30"
                                         : "bg-slate-800 border-slate-600"
                                     }`}
                                   >
-                                    <div className="flex items-center justify-between">
+                                    <div className="flex items-center justify-between mb-2">
                                       <div className="flex items-center gap-3">
                                         <Badge team={occ.eq} />
                                         <div>
                                           <div className="font-bold text-sm text-white flex items-center gap-2 group-hover:text-blue-300 transition-colors">
                                             {occ.nome}
                                             {!isWorking && (
-                                              <span className="text-[9px] bg-red-600 text-white px-1 rounded animate-pulse">
-                                                FOLGA
+                                              <span className="text-[9px] bg-red-600 text-white px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
+                                                FOLGA HOJE
                                               </span>
                                             )}
                                           </div>
@@ -656,7 +660,7 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
                                           onClick={() =>
                                             handleOpenSchedule(occ)
                                           }
-                                          className="flex items-center gap-1 bg-slate-700 hover:bg-blue-600 text-slate-200 hover:text-white px-2 py-1 rounded text-[10px] font-bold transition-all"
+                                          className="flex items-center gap-1 bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-md text-[10px] font-bold transition-all shadow-sm"
                                           title="Gerenciar Escala"
                                         >
                                           <Icons.Calendar className="w-3 h-3" />
@@ -666,7 +670,7 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
                                           onClick={() =>
                                             handleUnassign(occ.mat)
                                           }
-                                          className="p-1 text-slate-500 hover:text-red-400 hover:bg-red-900/20 rounded transition-colors"
+                                          className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-900/20 rounded transition-colors"
                                           title="Desalocar"
                                         >
                                           <Icons.X className="w-4 h-4" />
@@ -674,21 +678,49 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
                                       </div>
                                     </div>
 
-                                    {/* Mini Schedule Preview inline */}
-                                    <div className="mt-2 text-[10px] flex items-start gap-1 text-slate-500 border-t border-slate-700/50 pt-1">
-                                      <span className="uppercase font-bold tracking-wider text-[9px]">
-                                        DIAS:
-                                      </span>
-                                      <span className="font-mono text-slate-300">
-                                        {(occ.dias || [])
-                                          .sort((a, b) => a - b)
-                                          .filter((d) => d >= today)
-                                          .slice(0, 7)
-                                          .join(", ") || "Nenhum"}
-                                        {(occ.dias?.length || 0) > 7
-                                          ? "..."
-                                          : ""}
-                                      </span>
+                                    {/* SCHEDULE PREVIEW */}
+                                    <div className="text-[11px] flex flex-col gap-1.5 border-t border-slate-700/50 pt-2">
+                                      {/* Working Days */}
+                                      <div className="flex items-start gap-1">
+                                        <span className="text-slate-500 font-bold uppercase tracking-wider text-[10px] mt-0.5">
+                                          DIAS:
+                                        </span>
+                                        <span className="font-mono text-emerald-400/90 leading-snug break-words">
+                                          {(occ.dias || [])
+                                            .sort((a, b) => a - b)
+                                            .join(", ") || "Nenhum dia alocado"}
+                                        </span>
+                                      </div>
+
+                                      {/* Folgas Extras */}
+                                      {occ.folgasGeradas &&
+                                        occ.folgasGeradas.length > 0 && (
+                                          <div className="flex items-center gap-1">
+                                            <span className="text-red-400/80 font-bold uppercase tracking-wider text-[10px]">
+                                              FOLGAS EXTRAS:
+                                            </span>
+                                            <div className="flex flex-wrap gap-1">
+                                              {occ.folgasGeradas
+                                                .sort((a, b) => a - b)
+                                                .map((d) => (
+                                                  <span
+                                                    key={d}
+                                                    className="bg-red-500/20 text-red-300 px-1.5 rounded text-[10px] font-mono border border-red-500/30"
+                                                  >
+                                                    {d}
+                                                  </span>
+                                                ))}
+                                              <button
+                                                onClick={() =>
+                                                  handleOpenSchedule(occ)
+                                                }
+                                                className="text-[10px] text-slate-500 hover:text-slate-300 underline ml-1"
+                                              >
+                                                (Alterar)
+                                              </button>
+                                            </div>
+                                          </div>
+                                        )}
                                     </div>
                                   </div>
                                 );

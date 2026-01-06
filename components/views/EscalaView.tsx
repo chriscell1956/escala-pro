@@ -1,6 +1,6 @@
 import React from "react";
 import { Vigilante, User, Conflict } from "../../types";
-import { Button, Icons, Badge } from "../ui";
+import { Icons, Badge } from "../ui";
 
 interface EscalaViewProps {
   groupedData: Record<string, Vigilante[]>;
@@ -22,6 +22,7 @@ interface EscalaViewProps {
   visibleTeams: string[];
   expandedSectors: Set<string>;
   toggleSectorCollapse: (sector: string) => void;
+  month?: number;
 }
 
 const EscalaViewComponent: React.FC<EscalaViewProps> = (props) => {
@@ -38,7 +39,6 @@ const EscalaViewComponent: React.FC<EscalaViewProps> = (props) => {
     setSearchTerm,
     filterEq,
     setFilterEq,
-    filterDay,
     handleOpenCoverage,
     handleReturnFromAway,
     handleRemoveCoverage,
@@ -50,7 +50,7 @@ const EscalaViewComponent: React.FC<EscalaViewProps> = (props) => {
   return (
     <div className="h-full flex flex-col">
       {!isUser && (
-        <div className="p-2 bg-slate-900 border-b border-slate-700 flex gap-2 print:hidden items-center">
+        <div className="p-2 bg-slate-900 border-b border-slate-700 flex gap-2 print:hidden items-center sticky top-0 z-10">
           <div className="flex items-center bg-slate-800 rounded-lg border border-slate-700 px-3 py-1.5 w-fit shadow-sm focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 transition-all">
             <div className="text-slate-400 mr-2">
               <Icons.Search />
@@ -80,6 +80,7 @@ const EscalaViewComponent: React.FC<EscalaViewProps> = (props) => {
           </div>
         </div>
       )}
+
       <div className="flex-1 overflow-y-auto p-4 print:overflow-visible print:h-auto">
         {isUser && (
           <div className="mb-6 bg-slate-800 border-l-4 border-blue-500 shadow-sm rounded-r-xl p-4">
@@ -119,6 +120,7 @@ const EscalaViewComponent: React.FC<EscalaViewProps> = (props) => {
             </p>
           </div>
         )}
+
         {Object.keys(groupedData)
           .sort()
           .map((campus) => {
@@ -137,54 +139,62 @@ const EscalaViewComponent: React.FC<EscalaViewProps> = (props) => {
                 key={campus}
                 className={`mb-6 bg-slate-800 rounded-xl shadow-sm border border-slate-700 overflow-hidden break-inside-avoid print:shadow-none print:border-none print:mb-4 transition-all ${!isExpanded ? "opacity-75 hover:opacity-100" : ""}`}
               >
-                <button
+                <div
                   onClick={() => toggleSectorCollapse(campus)}
-                  className="w-full bg-slate-950 px-4 py-2 border-b border-slate-700 font-bold text-sm text-white flex items-center gap-2 print:bg-gray-100 print:border-gray-300 print:text-black hover:bg-slate-900 transition-colors"
+                  className="w-full bg-slate-950/80 px-4 py-3 border-b border-slate-700 flex items-center gap-3 sticky top-0 z-20 backdrop-blur-sm print:bg-white print:border-black cursor-pointer hover:bg-slate-900/80 transition-colors select-none"
                 >
-                  <div className="w-1.5 h-4 bg-blue-500 rounded-full print:bg-black"></div>{" "}
-                  {campus}
-                  <div
-                    className={`ml-auto transform transition-transform duration-200 ${
-                      !isExpanded ? "rotate-0" : "rotate-180"
-                    }`}
-                  >
-                    {/* SUBSTITUÍDO O ÍCONE POR TEXTO PARA TESTE */}
-                    <span className="text-lg">▼</span>
+                  <div className="w-1.5 h-6 bg-blue-500 rounded-full shadow-[0_0_10px_rgba(59,130,246,0.5)] print:bg-black"></div>
+                  <h3 className="font-bold text-lg text-white print:text-black tracking-tight">
+                    {campus}
+                  </h3>
+                  <div className="ml-auto p-1 rounded-full transition-colors">
+                    <div
+                      className={`transform transition-transform duration-200 ${
+                        !isExpanded ? "rotate-0" : "rotate-180"
+                      }`}
+                    >
+                      <span className="text-slate-400 text-xs">▼</span>
+                    </div>
                   </div>
-                </button>
+                </div>
+
                 {isExpanded && (
                   <>
+                    {/* CONFLICTS BANNER */}
                     {currentConflictsForCampus.length > 0 &&
                       (isFiscal || isMaster) && (
-                        <div className="bg-red-50 border-b border-red-200 p-3 print:hidden animate-fade-in">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="text-2xl">⚠️</span>
-                            <span className="font-bold text-xs text-red-800 uppercase tracking-wider">
+                        <div className="bg-red-50/5 border-b border-red-500/20 p-4 print:hidden animate-fade-in relative overflow-hidden">
+                          <div className="absolute top-0 left-0 w-1 h-full bg-red-500"></div>
+                          <div className="flex items-center gap-2 mb-3">
+                            <span className="text-lg bg-red-500/20 w-8 h-8 flex items-center justify-center rounded-full text-red-500">
+                              ⚠️
+                            </span>
+                            <span className="font-bold text-sm text-red-400 uppercase tracking-widest">
                               Alerta de Efetivo Baixo (Regra 50%)
                             </span>
                           </div>
-                          <div className="flex flex-wrap gap-2">
+                          <div className="flex flex-wrap gap-2 pl-10">
                             {currentConflictsForCampus.map((c, idx) => (
                               <div
                                 key={idx}
-                                className="bg-white border border-red-200 rounded-lg p-2 flex items-center gap-3 shadow-sm"
+                                className="bg-red-950/40 border border-red-500/30 rounded px-3 py-2 flex items-center gap-3 shadow-sm hover:bg-red-900/50 transition-colors"
                               >
-                                <div className="flex flex-col items-center leading-none border-r border-red-100 pr-3">
-                                  <span className="text-[10px] text-red-400 font-bold uppercase">
+                                <div className="flex flex-col items-center leading-none border-r border-red-500/30 pr-3">
+                                  <span className="text-[9px] text-red-400 font-bold uppercase tracking-wider">
                                     Dia
                                   </span>
-                                  <span className="text-lg font-black text-red-700">
+                                  <span className="text-xl font-black text-red-500">
                                     {c.dia}
                                   </span>
                                 </div>
                                 <div className="flex flex-col">
-                                  <div className="flex items-center gap-1">
-                                    <span className="text-xs text-red-800 font-bold">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-xs text-red-300 font-bold">
                                       Equipe
                                     </span>
                                     <Badge team={c.equipe} />
                                   </div>
-                                  <span className="text-[9px] text-red-500">
+                                  <span className="text-[10px] text-red-400 mt-0.5">
                                     {c.msg}
                                   </span>
                                 </div>
@@ -196,26 +206,31 @@ const EscalaViewComponent: React.FC<EscalaViewProps> = (props) => {
                                       c.equipe,
                                     )
                                   }
-                                  className="ml-1 bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold px-3 py-1.5 rounded shadow-sm transition-all active:scale-95"
+                                  className="ml-2 bg-red-600 hover:bg-red-500 text-white text-[10px] font-bold px-3 py-1.5 rounded uppercase tracking-wide shadow-sm transition-all active:scale-95"
                                 >
-                                  RESOLVER
+                                  Resolver
                                 </button>
                               </div>
                             ))}
                           </div>
                         </div>
                       )}
+
+                    {/* LIST VIEW */}
                     <div className="overflow-x-auto print:block print:overflow-visible">
-                      <table className="w-full text-left text-sm min-w-[600px] md:min-w-0">
-                        <thead className="bg-slate-950 text-slate-400 font-bold border-b border-slate-700 print:bg-gray-200 print:text-black">
+                      <table className="w-full text-left text-sm min-w-[800px] md:min-w-0">
+                        <thead className="bg-slate-900 text-slate-400 font-bold text-xs uppercase tracking-wider border-b border-slate-700 print:bg-gray-200 print:text-black">
                           <tr>
-                            <th className="px-4 py-3 w-32">STATUS</th>
-                            <th className="px-4 py-3">NOME</th>
-                            <th className="px-4 py-3 w-16 text-center">EQ</th>
-                            <th className="px-4 py-3">SETOR</th>
+                            <th className="px-6 py-4">NOME</th>
+                            <th className="px-6 py-4 w-20 text-center">EQ</th>
+                            <th className="px-6 py-4 w-24">MAT</th>
+                            <th className="px-6 py-4 w-[40%]">
+                              STATUS / ESCALA
+                            </th>
+                            <th className="px-6 py-4 text-right">HORÁRIO</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-700">
+                        <tbody className="divide-y divide-slate-700/50">
                           {(
                             groupedData[campus] as (Vigilante & {
                               displayStatus?: {
@@ -229,31 +244,135 @@ const EscalaViewComponent: React.FC<EscalaViewProps> = (props) => {
                             return (
                               <tr
                                 key={vig.mat}
-                                className={`${isAfastado ? "bg-amber-900/20 border-l-4 border-amber-500" : "even:bg-slate-800 odd:bg-slate-700/50 hover:bg-slate-600"} border-b border-slate-700 text-sm print:bg-white print:border-black transition-colors`}
+                                className={`${isAfastado ? "bg-amber-900/10 hover:bg-amber-900/20" : "even:bg-slate-800/30 odd:bg-transparent hover:bg-slate-700/30"} border-b border-slate-700/50 text-sm print:bg-white print:border-black transition-colors group`}
                               >
-                                <td className="px-4 py-4 font-bold">
-                                  {vig.manualLock ? (
-                                    <span className="flex items-center gap-1 text-slate-400">
-                                      <span className="text-lg">👤</span> OK
+                                <td className="px-6 py-4 align-top">
+                                  <div className="flex flex-col">
+                                    <span className="font-bold text-slate-200 text-base group-hover:text-white transition-colors">
+                                      {vig.nome}
                                     </span>
-                                  ) : (
-                                    <span className="flex items-center gap-1 text-orange-500">
-                                      <span className="text-lg">⏳</span>{" "}
-                                      Pendente
+                                    <span className="text-xs text-slate-500 uppercase tracking-wide font-medium mt-1 group-hover:text-slate-400">
+                                      {vig.setor}
                                     </span>
-                                  )}
-                                </td>
-                                <td className="px-4 py-4">
-                                  <div className="font-bold text-slate-200 text-base">
-                                    {vig.nome}
                                   </div>
-                                  {/* Optional: Show alert if necessary, similar to LancadorView */}
                                 </td>
-                                <td className="px-4 py-4 text-center">
+
+                                <td className="px-6 py-4 text-center align-top pt-5">
                                   <Badge team={vig.eq} />
                                 </td>
-                                <td className="px-4 py-4 text-slate-400">
-                                  {vig.setor}
+
+                                <td className="px-6 py-4 text-slate-500 font-mono text-xs align-top pt-5">
+                                  {vig.mat}
+                                </td>
+
+                                <td className="px-6 py-4 align-top">
+                                  <div className="flex flex-col gap-2">
+                                    {/* STATUS BADGE */}
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      {vig.manualLock ? (
+                                        <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">
+                                          NO POSTO
+                                        </span>
+                                      ) : isAfastado ? (
+                                        <span className="bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">
+                                          AFASTADO
+                                        </span>
+                                      ) : (
+                                        <span className="bg-orange-500/10 text-orange-400 border border-orange-500/20 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
+                                          <span className="animate-pulse">
+                                            ●
+                                          </span>{" "}
+                                          PENDENTE
+                                        </span>
+                                      )}
+
+                                      {/* ACTION BUTTONS */}
+                                      {isAfastado && (
+                                        <button
+                                          onClick={() =>
+                                            handleReturnFromAway(vig)
+                                          }
+                                          className="flex items-center gap-1 bg-slate-700 hover:bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded transition-all shadow-sm"
+                                        >
+                                          <Icons.History size={10} /> Retornar
+                                        </button>
+                                      )}
+                                    </div>
+
+                                    {/* LIST OF WORKING DAYS */}
+                                    {!isAfastado && (
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <span className="text-[10px] text-slate-500 font-bold uppercase">
+                                          DIAS:
+                                        </span>
+                                        <span className="text-slate-300 text-xs leading-relaxed font-mono">
+                                          {vig.dias
+                                            .sort((a, b) => a - b)
+                                            .join(", ")}
+                                        </span>
+                                      </div>
+                                    )}
+
+                                    {/* FOLGAS */}
+                                    {!isAfastado &&
+                                      vig.folgasGeradas &&
+                                      vig.folgasGeradas.length > 0 && (
+                                        <div className="flex items-center gap-2 mt-1">
+                                          <span className="bg-red-500/20 text-red-400 border border-red-500/30 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">
+                                            FOLGAS:{" "}
+                                            {vig.folgasGeradas.join(", ")}
+                                          </span>
+                                        </div>
+                                      )}
+
+                                    {/* COBERTURAS (Coverages) */}
+                                    {!isAfastado &&
+                                      vig.coberturas &&
+                                      vig.coberturas.length > 0 && (
+                                        <div className="flex flex-col gap-1 mt-1">
+                                          {vig.coberturas.map((cob, idx) => (
+                                            <div
+                                              key={idx}
+                                              className="flex items-center gap-2"
+                                            >
+                                              <span className="bg-orange-500/20 text-orange-300 border border-orange-500/30 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
+                                                COB. {cob.dia}{" "}
+                                                <span className="text-orange-500">
+                                                  ➜
+                                                </span>{" "}
+                                                {cob.local}
+                                                <button
+                                                  onClick={() =>
+                                                    handleRemoveCoverage(
+                                                      vig,
+                                                      cob.dia,
+                                                    )
+                                                  }
+                                                  className="ml-1 hover:text-white transition-colors"
+                                                  title="Remover Cobertura"
+                                                >
+                                                  <Icons.Delete size={10} />
+                                                </button>
+                                              </span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                  </div>
+                                </td>
+
+                                <td className="px-6 py-4 text-right align-top">
+                                  <div className="flex flex-col items-end gap-1">
+                                    <span className="text-slate-200 font-bold text-sm bg-slate-800/50 px-2 py-1 rounded border border-slate-700/50">
+                                      {vig.horario}
+                                    </span>
+                                    {vig.refeicao &&
+                                      vig.refeicao !== "Sem Ref." && (
+                                        <span className="text-slate-400 text-xs font-mono">
+                                          Ref: {vig.refeicao}
+                                        </span>
+                                      )}
+                                  </div>
                                 </td>
                               </tr>
                             );

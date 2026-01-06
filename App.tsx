@@ -45,7 +45,7 @@ import { sectorPresets, generateDefaultPresets } from "./presets";
 
 // --- IMPORTS DE COMPONENTES REFATORADOS ---
 import { ErrorBoundary } from "./components/common/ErrorBoundary";
-/* REMOVED: import { LancadorView } from "./components/views/LancadorView"; */
+import { LancadorView } from "./components/views/LancadorView";
 import { AppHeader } from "./components/layout/AppHeader";
 import { EscalaView } from "./components/views/EscalaView";
 import { AlocacaoView } from "./components/views/AlocacaoView";
@@ -87,7 +87,20 @@ const getVisibleTeams = (fiscalTeam: string, isMaster: boolean) => {
 // HELPER NOVA: Visibilidade restrita para o LANÇADOR (Pedido do usuário)
 const getLancadorVisibleTeams = (fiscalTeam: string, isMaster: boolean) => {
   // Master sees EVERYONE, including ADM and SUPERVISORS
-  if (isMaster) return ["A", "B", "C", "D", "ECO1", "ECO2", "ECO 1", "ECO 2", "ADM", "SUPERVISOR", "AFASTADOS"];
+  if (isMaster)
+    return [
+      "A",
+      "B",
+      "C",
+      "D",
+      "ECO1",
+      "ECO2",
+      "ECO 1",
+      "ECO 2",
+      "ADM",
+      "SUPERVISOR",
+      "AFASTADOS",
+    ];
 
   const t = cleanString(fiscalTeam);
 
@@ -335,7 +348,7 @@ function AppContent() {
 
         // EXTRA CHECK FOR DUPLICATES (User reported "repetido bloco b alfa")
         // REMOVED EXTRA CHECK FOR DUPLICATES to prevent overwriting valid multiple slots
-        // const isCorrupted = saved.some(...) 
+        // const isCorrupted = saved.some(...)
 
         const missingCritical = defaults.filter(
           (def) =>
@@ -356,7 +369,7 @@ function AppContent() {
           (p) =>
             !p.name.includes("Bloco B / Alfa 06 / Alfa 07") && // Known garbage
             p.timeStart !== "undefined" &&
-            !p.horario?.includes("undefined")
+            !p.horario?.includes("undefined"),
         );
 
         // Deduplicate Alfa 07
@@ -383,9 +396,7 @@ function AppContent() {
           hasChanges = true;
         }
 
-
-
-        const repairedPresets = saved.map(p => {
+        const repairedPresets = saved.map((p) => {
           let updated = { ...p };
           let changed = false;
 
@@ -393,7 +404,10 @@ function AppContent() {
           if (updated.name.includes("(ECO 2)")) {
             updated.name = updated.name.replace("(ECO 2)", "(C.A.)");
             if (updated.campus.includes("EXPEDIENTE")) {
-              updated.campus = updated.campus.replace("EXPEDIENTE", "EXPEDIENTE C.A.");
+              updated.campus = updated.campus.replace(
+                "EXPEDIENTE",
+                "EXPEDIENTE C.A.",
+              );
             }
             changed = true;
             migrationLog.push(`Renomeado: ${p.name} -> ${updated.name}`);
@@ -405,9 +419,14 @@ function AppContent() {
 
           // 2. Fix Missing Data (Intervals) using Defaults
           // Find matching default by Name (or new name)
-          const def = defaults.find(d => d.name === updated.name || d.name === p.name);
+          const def = defaults.find(
+            (d) => d.name === updated.name || d.name === p.name,
+          );
           if (def) {
-            if ((!updated.refeicao || updated.refeicao === "") && def.refeicao) {
+            if (
+              (!updated.refeicao || updated.refeicao === "") &&
+              def.refeicao
+            ) {
               updated.refeicao = def.refeicao;
               updated.mealStart = def.mealStart;
               updated.mealEnd = def.mealEnd;
@@ -429,7 +448,10 @@ function AppContent() {
         });
 
         if (hasChanges) {
-          console.log("Sistema: Efetuando reparo automático nos presets...", migrationLog);
+          console.log(
+            "Sistema: Efetuando reparo automático nos presets...",
+            migrationLog,
+          );
           setPresets(repairedPresets);
           api.savePresets(repairedPresets);
 
@@ -444,7 +466,8 @@ function AppContent() {
           });
 
           if (oldNamesMap.size > 0) {
-            const newData = dataRef.current.map(v => { // Use Ref to get latest data inside effect match? 
+            const newData = dataRef.current.map((v) => {
+              // Use Ref to get latest data inside effect match?
               // Actually 'data' from closure is potentially stale?
               // We will update 'data' state safely.
               if (oldNamesMap.has(v.setor)) {
@@ -454,12 +477,14 @@ function AppContent() {
             });
             setData(newData);
             saveData(newData);
-            showToast(`Sistema atualizado: ${migrationLog.length} correções aplicadas.`, "success");
+            showToast(
+              `Sistema atualizado: ${migrationLog.length} correções aplicadas.`,
+              "success",
+            );
           }
         } else {
           setPresets(saved);
         }
-
       } catch (error) {
         console.error("Error loading presets:", error);
         setPresets(generateDefaultPresets());
@@ -583,7 +608,6 @@ function AppContent() {
       }
     }
   }, [presets, data]);
-
 
   // --- DERIVED PERMISSIONS & HELPERS ---
   const isMaster = user?.role === "MASTER";
@@ -1663,8 +1687,8 @@ function AppContent() {
       intervalCategory === "TODOS"
         ? rawList
         : rawList.filter(
-          (v) => getCategory(v.effectiveCampus) === intervalCategory,
-        );
+            (v) => getCategory(v.effectiveCampus) === intervalCategory,
+          );
 
     const grouped: Record<string, IntervalVigilante[]> = {};
     list.forEach((v) => {
@@ -2817,7 +2841,11 @@ function AppContent() {
     saveData(newData); // Persist immediately
 
     if (targetVig && changes.campus) {
-      registerLog("ALOCACAO", `Alocado em ${changes.campus} - ${changes.setor || ''}`, targetVig.nome);
+      registerLog(
+        "ALOCACAO",
+        `Alocado em ${changes.campus} - ${changes.setor || ""}`,
+        targetVig.nome,
+      );
     }
   };
 
@@ -3698,6 +3726,7 @@ function AppContent() {
             visibleTeams={visibleTeamsForFilter}
             expandedSectors={expandedSectors}
             toggleSectorCollapse={toggleSectorExpansion}
+            month={month}
           />
         )}
 
@@ -4711,10 +4740,10 @@ function AppContent() {
                   filterTime,
                 ).status !== "INTERVALO",
             ).length === 0 && (
-                <div className="p-4 text-center text-slate-400 text-xs">
-                  Nenhum vigilante disponível encontrado.
-                </div>
-              )}
+              <div className="p-4 text-center text-slate-400 text-xs">
+                Nenhum vigilante disponível encontrado.
+              </div>
+            )}
           </div>
         </div>
       </Modal>
