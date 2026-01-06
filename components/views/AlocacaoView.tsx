@@ -14,6 +14,7 @@ interface AlocacaoViewProps {
   lancadorVisibleTeams: string[];
   isMaster: boolean;
   month: number;
+  onUpdatePreset?: (presetId: string, updates: Partial<DepartmentPreset>) => void;
 }
 
 // Helper to determine compatible teams based on preset type
@@ -46,6 +47,7 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
   lancadorVisibleTeams,
   isMaster,
   month,
+  onUpdatePreset,
 }) => {
   // --- STATE ---
   const [filterTeam, setFilterTeam] = useState<string>("TODAS"); // TODAS | ECO1 | ECO2 | specific team
@@ -53,6 +55,19 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
   // Modal State
   const [managingVig, setManagingVig] = useState<Vigilante | null>(null);
   const [editorMode, setEditorMode] = useState<"days" | "vacation" | "falta" | "partial">("days");
+
+  // Edit Preset State
+  const [managingPreset, setManagingPreset] = useState<DepartmentPreset | null>(null);
+
+  const handleSavePreset = () => {
+    if (!managingPreset || !onUpdatePreset) return;
+    onUpdatePreset(managingPreset.id, {
+      name: managingPreset.name,
+      horario: managingPreset.horario,
+      refeicao: managingPreset.refeicao,
+    });
+    setManagingPreset(null);
+  };
 
   // Internal "Today" for list status purposes (implicit)
   const today = new Date().getDate();
@@ -535,15 +550,36 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
                           className="p-3 hover:bg-slate-700/30 transition-colors flex items-center gap-4 group"
                         >
                           {/* Info (Left) */}
-                          <div className="w-1/3 min-w-[200px]">
-                            <div className="flex flex-col">
+                          <div className="w-1/3 min-w-[200px] flex items-start gap-2">
+                            <div className="flex flex-col flex-1">
                               <span className="font-bold text-sm text-slate-100 group-hover:text-blue-300 transition-colors">
                                 {preset.name}
                               </span>
-                              <span className="text-xs text-slate-500 italic">
-                                {preset.sector}
-                              </span>
+                              <div className="flex flex-col gap-0.5 mt-1">
+                                <span className="text-[10px] text-slate-400 font-mono bg-slate-800 px-1.5 py-0.5 rounded w-fit">
+                                  🕒 {preset.horario}
+                                </span>
+                                {preset.refeicao && (
+                                  <span className="text-[9px] text-slate-500 font-mono px-1.5">
+                                    🍽️ {preset.refeicao}
+                                  </span>
+                                )}
+                              </div>
                             </div>
+
+                            {/* Edit Button */}
+                            {isMaster && onUpdatePreset && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setManagingPreset(preset);
+                                }}
+                                className="text-slate-600 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity p-1"
+                                title="Editar detalhes do posto"
+                              >
+                                <Icons.Edit className="w-3 h-3" />
+                              </button>
+                            )}
                           </div>
 
                           {/* Allocation (Right) */}
@@ -555,8 +591,8 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
                                   <div
                                     key={occ.mat}
                                     className={`flex items-center justify-between border rounded p-2 shadow-sm animate-fade-in ${!isWorking
-                                        ? "bg-red-900/20 border-red-800"
-                                        : "bg-slate-800 border-slate-600"
+                                      ? "bg-red-900/20 border-red-800"
+                                      : "bg-slate-800 border-slate-600"
                                       }`}
                                   >
                                     <div className="flex items-center gap-3">
@@ -695,6 +731,50 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
           )}
         </div>
       </Modal>
+
+      {/* MODAL: Edit Preset Details */}
+      {managingPreset && (
+        <Modal
+          isOpen={true}
+          onClose={() => setManagingPreset(null)}
+          title="Editar Detalhes do Posto"
+          className="max-w-md"
+        >
+          <div className="flex flex-col gap-4">
+            <div>
+              <label className="text-xs font-bold text-slate-400 uppercase">Nome do Posto</label>
+              <input
+                className="w-full bg-slate-900 border border-slate-700 text-white rounded p-2 text-sm mt-1 focus:border-purple-500 outline-none"
+                value={managingPreset.name}
+                onChange={e => setManagingPreset({ ...managingPreset, name: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-400 uppercase">Horário</label>
+              <input
+                className="w-full bg-slate-900 border border-slate-700 text-white rounded p-2 text-sm mt-1 focus:border-purple-500 outline-none"
+                value={managingPreset.horario}
+                onChange={e => setManagingPreset({ ...managingPreset, horario: e.target.value })}
+                placeholder="Ex: 06h às 18h15"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-400 uppercase">Intervalo / Refeição</label>
+              <input
+                className="w-full bg-slate-900 border border-slate-700 text-white rounded p-2 text-sm mt-1 focus:border-purple-500 outline-none"
+                value={managingPreset.refeicao}
+                onChange={e => setManagingPreset({ ...managingPreset, refeicao: e.target.value })}
+                placeholder="Ex: 12h às 13h"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-slate-700">
+              <Button variant="ghost" onClick={() => setManagingPreset(null)}>Cancelar</Button>
+              <Button onClick={handleSavePreset} className="bg-purple-600 hover:bg-purple-500 text-white">Salvar</Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 };

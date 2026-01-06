@@ -10,6 +10,7 @@ interface PresetManagerProps {
   onClose: () => void;
   presets: DepartmentPreset[];
   setPresets: (presets: DepartmentPreset[]) => void;
+  onUpdatePreset?: (id: string, updates: Partial<DepartmentPreset>) => void;
 }
 
 export const PresetManager: React.FC<PresetManagerProps> = ({
@@ -17,6 +18,7 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
   onClose,
   presets,
   setPresets,
+  onUpdatePreset,
 }) => {
   const [editingPreset, setEditingPreset] = useState<DepartmentPreset | null>(
     null,
@@ -68,10 +70,6 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
 
   const parseTime = (str: string): string => {
     if (!str) return "";
-    // Removes "h" and splits by " às "
-    // Example: "06h às 18h15" -> ["06", "18h15"] or ["06h", "18h15"]
-    // We need to parse individual segments like "06h" -> "06:00", "18h15" -> "18:15"
-
     const clean = (s: string) => {
       s = s.trim().toLowerCase().replace("h", ":");
       if (s.endsWith(":")) s += "00"; // "06:" -> "06:00"
@@ -82,60 +80,39 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
   };
 
   const handleImportSystemPresets = async () => {
-    if (
-      !confirm(
-        "Isso importará e REESCREVERÁ os padrões do sistema. Deseja continuar?",
-      )
-    )
-      return;
-
+    // ... import logic remains same ...
+    if (!confirm("Isso importará e REESCREVERÁ os padrões do sistema. Deseja continuar?")) return;
+    // (Simulating existing logic for brevity, user didn't ask to change this)
+    // Actually, I need to keep the existing logic so I don't break import
+    // COPYING EXISTING IMPORT LOGIC FROM PREVIOUS FILE TO ENSURE NO LOSS
     const newPresets: DepartmentPreset[] = [];
-
     Object.entries(sectorPresets).forEach(([sectorName, shifts]) => {
-      const processShift = (shiftData: any, type: string) => {
+      const processShift = (shiftData: any, type: string) => { // Type 'any' used to match existing
         const rawParts = shiftData.horario.split(" às ");
-        const mealParts = shiftData.refeicao
-          ? shiftData.refeicao.split(" às ")
-          : ["", ""];
-
+        const mealParts = shiftData.refeicao ? shiftData.refeicao.split(" às ") : ["", ""];
         let mappedType: ShiftType = "12x36_DIURNO";
         if (type === "Noturno") mappedType = "12x36_NOTURNO";
-
-        // If the preset came from "presets.ts", we don't have enough info to distinguish EXP_1 vs EXP_2
-        // The user will manually update them.
-
         return {
           id: crypto.randomUUID(),
           name: `${sectorName} - ${type}`,
           campus: shiftData.campus,
           sector: sectorName,
           type: mappedType,
-          team: undefined, // Clear legacy team
+          team: undefined,
           timeStart: parseTime(rawParts[0]),
           timeEnd: parseTime(rawParts[1]),
           mealStart: parseTime(mealParts[0]),
           mealEnd: parseTime(mealParts[1]),
         };
       };
-
       if (shifts.DIURNO) newPresets.push(processShift(shifts.DIURNO, "Diurno"));
-      if (shifts.NOTURNO)
-        newPresets.push(processShift(shifts.NOTURNO, "Noturno"));
+      if (shifts.NOTURNO) newPresets.push(processShift(shifts.NOTURNO, "Noturno"));
     });
 
-    // OVERWRITE Logic: Filter out old "System Defaults" to replace them, but keep custom ones?
-    // For simplicity and fixing the user's corrupt data, we will just merge by checking names again but correctly this time.
-    // Actually, user likely has broken data now. Let's just Replace All or carefully Update.
-
     let finalPresets = [...presets];
-
-    // Remove existing ones that match the new names to ensure we fix the bad data
     const newNames = new Set(newPresets.map((p) => p.name));
     finalPresets = finalPresets.filter((p) => !newNames.has(p.name));
-
-    // Add the new corrected ones
     finalPresets = [...finalPresets, ...newPresets];
-
     setPresets(finalPresets);
     await api.savePresets(finalPresets);
     alert(`Importados/Corrigidos ${newPresets.length} padrões com sucesso!`);
@@ -147,6 +124,28 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
       return;
     }
 
+    // UPDATE LOGIC: Use onUpdatePreset if editing
+    if (editingPreset && onUpdatePreset) {
+      const updates: Partial<DepartmentPreset> = {
+        name,
+        campus,
+        sector,
+        type: shiftType,
+        timeStart: hStart,
+        timeEnd: hEnd,
+        mealStart: rStart,
+        mealEnd: rEnd,
+        // Composite fields for compatibility
+        horario: `${hStart} às ${hEnd}`,
+        refeicao: (rStart && rEnd) ? `${rStart} às ${rEnd}` : "",
+      };
+      onUpdatePreset(editingPreset.id, updates);
+      setIsFormOpen(false);
+      resetForm();
+      return;
+    }
+
+    // CREATE LOGIC (Fallback or New)
     const newPreset: DepartmentPreset = {
       id: editingPreset ? editingPreset.id : crypto.randomUUID(),
       name,
@@ -158,6 +157,8 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
       timeEnd: hEnd,
       mealStart: rStart,
       mealEnd: rEnd,
+      horario: `${hStart} às ${hEnd}`,
+      refeicao: (rStart && rEnd) ? `${rStart} às ${rEnd}` : "",
     };
 
     let updatedPresets = [...presets];
@@ -252,11 +253,7 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
                   <span className="font-bold text-slate-200">
                     {preset.name}
                   </span>
-                  <Badge>
-                    {preset.type && SHIFT_TYPES[preset.type as ShiftType]
-                      ? SHIFT_TYPES[preset.type as ShiftType].label
-                      : preset.team || "N/A"}
-                  </Badge>
+                  {/* Badge removed as requested by user to clean up UI (was showing N/A) */}
                 </div>
                 <div className="text-xs text-slate-400 grid grid-cols-2 gap-x-4 gap-y-1">
                   <span>📍 {preset.campus}</span>
@@ -295,7 +292,7 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
 
         {/* Form Modal (Nested) */}
         {isFormOpen && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
             <div className="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
               <div className="p-4 border-b border-slate-800 bg-slate-950 flex justify-between items-center">
                 <h3 className="font-bold text-lg text-slate-100">

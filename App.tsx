@@ -154,6 +154,10 @@ function AppContent() {
   /* REMOVIDO VIEW 'lancador' - SOMENTE 'alocacao' (NOVO LANCADOR) DISPONIVEL */
   const [view, setView] = useState<ViewMode>("escala"); // Mantém 'escala' como padrão ou 'alocacao' se preferir
   const [data, setData] = useState<Vigilante[]>([]);
+  const dataRef = useRef(data);
+  useEffect(() => {
+    dataRef.current = data;
+  }, [data]);
   const [, setIsLoading] = useState(false);
   const [viewingDraft, setViewingDraft] = useState(false); // Indicates if we are seeing a draft
 
@@ -340,38 +344,122 @@ function AppContent() {
               def.campus.includes("EXPEDIENTE")),
         );
 
-        // Disable force update to respect user DB edits
-        const forceUpdate = false;
+        // SMART REPAIR & MIGRATION LOGIC
+        // This block fixes data inconsistencies (missing meals, old naming) automatically on load.
 
-        if (forceUpdate || isOutdated || missingCritical.length > 0) {
-          // AGGRESSIVE OVERWRITE: If usage is detected to be corrupted, we prefer defaults.
-          // Filter out existing ones that look suspicious or are causing dups
+        let hasChanges = false;
+        let migrationLog: string[] = [];
 
-          const systemIds = defaults.map((d) => d.id);
-          // Keep user custom presets ONLY if they don't look like our system generated ones
-          const userCustom = saved.filter((s) => {
-            if (systemIds.includes(s.id)) return false;
-            // Remove known old patterns
-            if (s.id.startsWith("CAMPUS-I-EXP")) return false;
-            if (s.id.startsWith("CAMPUS-II-EXP")) return false;
-            if (s.id.startsWith("SUPERVISAO-ADM")) return false;
-            // Remove based on name if necessary (double safety)
-            if (s.name.includes("Bloco B / Alfa")) return false;
-            return true;
+        // 0. AGGRESSIVE PRE-CLEANUP
+        // Filter out garbage presets before processing
+        let cleanSaved = saved.filter(
+          (p) =>
+            !p.name.includes("Bloco B / Alfa 06 / Alfa 07") && // Known garbage
+            p.timeStart !== "undefined" &&
+            !p.horario?.includes("undefined")
+        );
+
+        // Deduplicate Alfa 07
+        const alfa07 = cleanSaved.filter((p) => p.name === "Alfa 07 (C.A.)");
+        if (alfa07.length > 1) {
+          cleanSaved = cleanSaved.filter((p) => p.name !== "Alfa 07 (C.A.)");
+          // Keep the best one (Expediente > 12x36)
+          const best = alfa07.find((p) => p.type === "EXPEDIENTE") || alfa07[0];
+          best.type = "EXPEDIENTE"; // Force correct type
+          best.horario = "09h45-20h00";
+          best.refeicao = "13h00-14h15";
+          best.mealStart = "13:00";
+          best.mealEnd = "14:15";
+          best.timeStart = "09:45";
+          best.timeEnd = "20:00";
+          cleanSaved.push(best);
+          hasChanges = true; // Signal reset
+          console.log("Sistema: Deduped Alfa 07 during load.");
+        }
+
+        // If we cleaned something, use the cleaned list
+        if (cleanSaved.length !== saved.length) {
+          saved = cleanSaved;
+          hasChanges = true;
+        }
+
+
+
+        const repairedPresets = saved.map(p => {
+          let updated = { ...p };
+          let changed = false;
+
+          // 1. Fix Naming Migration (ECO 2 -> C.A.)
+          if (updated.name.includes("(ECO 2)")) {
+            updated.name = updated.name.replace("(ECO 2)", "(C.A.)");
+            if (updated.campus.includes("EXPEDIENTE")) {
+              updated.campus = updated.campus.replace("EXPEDIENTE", "EXPEDIENTE C.A.");
+            }
+            changed = true;
+            migrationLog.push(`Renomeado: ${p.name} -> ${updated.name}`);
+          }
+          if (updated.name.includes("Controle de Acesso")) {
+            updated.name = updated.name.replace("Controle de Acesso", "C.A.");
+            changed = true;
+          }
+
+          // 2. Fix Missing Data (Intervals) using Defaults
+          // Find matching default by Name (or new name)
+          const def = defaults.find(d => d.name === updated.name || d.name === p.name);
+          if (def) {
+            if ((!updated.refeicao || updated.refeicao === "") && def.refeicao) {
+              updated.refeicao = def.refeicao;
+              updated.mealStart = def.mealStart;
+              updated.mealEnd = def.mealEnd;
+              changed = true;
+              migrationLog.push(`Corrigido Intervalo de ${updated.name}`);
+            }
+            // Enforce shift type consistency
+            if (updated.type !== def.type && def.type) {
+              updated.type = def.type;
+              changed = true;
+            }
+          }
+
+          if (changed) {
+            hasChanges = true;
+            return updated;
+          }
+          return p;
+        });
+
+        if (hasChanges) {
+          console.log("Sistema: Efetuando reparo automático nos presets...", migrationLog);
+          setPresets(repairedPresets);
+          api.savePresets(repairedPresets);
+
+          // CASCADE UPDATES TO VIGILANTES
+          // If we renamed sectors, we must update vigilantes assigned to the old names
+          const oldNamesMap = new Map();
+          saved.forEach((old, idx) => {
+            const newP = repairedPresets[idx];
+            if (old.name !== newP.name) {
+              oldNamesMap.set(old.name, newP.name);
+            }
           });
 
-          const merged = [...defaults, ...userCustom];
-
-          setPresets(merged);
-          api.savePresets(merged);
-          console.log("Presets force-updated/cleaned to latest version.");
-          showToast(
-            "Sistema corrigido: Duplicidade de postos removida.",
-            "success",
-          );
+          if (oldNamesMap.size > 0) {
+            const newData = dataRef.current.map(v => { // Use Ref to get latest data inside effect match? 
+              // Actually 'data' from closure is potentially stale?
+              // We will update 'data' state safely.
+              if (oldNamesMap.has(v.setor)) {
+                return { ...v, setor: oldNamesMap.get(v.setor) };
+              }
+              return v;
+            });
+            setData(newData);
+            saveData(newData);
+            showToast(`Sistema atualizado: ${migrationLog.length} correções aplicadas.`, "success");
+          }
         } else {
           setPresets(saved);
         }
+
       } catch (error) {
         console.error("Error loading presets:", error);
         setPresets(generateDefaultPresets());
@@ -379,6 +467,122 @@ function AppContent() {
     };
     loadPresets();
   }, []);
+
+  // FORCE REPAIR EFFECT: Specifically targets broken presets reported by user
+  useEffect(() => {
+    if (presets.length === 0) return;
+
+    let hasChanges = false;
+    let newPresets = [...presets];
+
+    // 1. GARBAGE COLLECTION & DEDUPLICATION
+    // Remove entries with "undefined" times or known bad legacy names
+    const cleanedPresets = newPresets.filter((p) => {
+      const isGarbage =
+        p.horario?.includes("undefined") ||
+        p.timeStart === "undefined" ||
+        p.name === "Bloco B / Alfa 06 / Alfa 07"; // Legacy trash reported by user
+      return !isGarbage;
+    });
+
+    if (cleanedPresets.length !== newPresets.length) {
+      console.log(
+        `Sistema: Removidos ${newPresets.length - cleanedPresets.length} presets lixo.`,
+      );
+      newPresets = cleanedPresets;
+      hasChanges = true;
+    }
+
+    // Deduplicate "Alfa 07 (C.A.)" - Keep only the valid one matches EXPEDIENTE
+    const alfa07Count = newPresets.filter(
+      (p) => p.name === "Alfa 07 (C.A.)",
+    ).length;
+    if (alfa07Count > 1) {
+      console.log("Sistema: Deduping Alfa 07...");
+      const keepIdx = newPresets.findIndex(
+        (p) =>
+          p.name === "Alfa 07 (C.A.)" &&
+          p.type === "EXPEDIENTE" &&
+          !p.horario?.includes("undefined"),
+      );
+      if (keepIdx > -1) {
+        newPresets = newPresets.filter(
+          (p, i) => i === keepIdx || p.name !== "Alfa 07 (C.A.)",
+        );
+        hasChanges = true;
+      }
+    }
+
+    // 2. Target Problematic Preset (Fix existing if needed)
+    const targetName = "Alfa 07 (C.A.)";
+    const brokenPresetIndex = newPresets.findIndex(
+      (p) => p.name === targetName || p.name.includes("Alfa 07"),
+    );
+
+    if (brokenPresetIndex > -1) {
+      const brokenPreset = newPresets[brokenPresetIndex];
+      // Check validation conditions
+      const isWrongType = brokenPreset.type !== "EXPEDIENTE";
+      const isWrongTime = brokenPreset.timeStart !== "09:45";
+      const isWrongMeal = brokenPreset.mealStart !== "13:00";
+
+      if (isWrongType || isWrongTime || isWrongMeal) {
+        console.log("Sistema: Reparo FORÇADO do Alfa 07 iniciado.");
+        const fixedPreset = {
+          ...brokenPreset,
+          name: "Alfa 07 (C.A.)",
+          campus: "CAMPUS I - EXPEDIENTE C.A.",
+          type: "EXPEDIENTE",
+          horario: "09h45 às 20h00", // Standardized display format
+          refeicao: "13h00 às 14h15",
+          mealStart: "13:00",
+          mealEnd: "14:15",
+          timeStart: "09:45",
+          timeEnd: "20:00",
+        };
+        newPresets[brokenPresetIndex] = fixedPreset;
+        setPresets(newPresets);
+        api.savePresets(newPresets);
+        hasChanges = true;
+
+        // 2. Cascade to Vigilantes IMMEDIATELY
+        // We use the dataRef to ensure we have the latest data even inside this effect
+        // (Assuming dataRef usage is pattern here, or we use 'data' from closure if 'data' is in dependency array - adding it now)
+        const currentData = data; // Using state from closure, ensure dependency
+        const updatedData = currentData.map((v) => {
+          if (v.setor === targetName || v.setor.includes("Alfa 07")) {
+            // Verify if vig needs update
+            if (
+              v.horario !== fixedPreset.horario ||
+              v.refeicao !== fixedPreset.refeicao
+            ) {
+              return {
+                ...v,
+                setor: fixedPreset.name,
+                campus: fixedPreset.campus,
+                horario: fixedPreset.horario,
+                refeicao: fixedPreset.refeicao,
+                manualLock: true,
+                status: "MANUAL_OK",
+              };
+            }
+          }
+          return v;
+        });
+
+        if (JSON.stringify(updatedData) !== JSON.stringify(currentData)) {
+          setData(updatedData);
+          api.saveData(updatedData); // Direct API save to ensure persistence
+          showToast(
+            "Sincronização Forçada: Alfa 07 (Posto + Vigilantes) atualizados.",
+            "success",
+          );
+        } else {
+          showToast("Posto 'Alfa 07' corrigido.", "success");
+        }
+      }
+    }
+  }, [presets, data]);
 
 
   // --- DERIVED PERMISSIONS & HELPERS ---
@@ -2612,12 +2816,86 @@ function AppContent() {
     setData(newData);
     saveData(newData); // Persist immediately
 
-    // Log helpful context if it's a sector assignment
-    const targetVig = newData.find(v => v.mat === mat);
     if (targetVig && changes.campus) {
       registerLog("ALOCACAO", `Alocado em ${changes.campus} - ${changes.setor || ''}`, targetVig.nome);
     }
   };
+
+  const handleUpdatePreset = async (
+    presetId: string,
+    updates: Partial<DepartmentPreset>,
+  ) => {
+    const target = presets.find((p) => p.id === presetId);
+    if (!target) return;
+
+    const oldName = target.name;
+    const oldCampus = target.campus;
+    const newName = updates.name || oldName;
+    const newCampus = updates.campus || oldCampus;
+
+    // Check what changed
+    const nameChanged = updates.name && updates.name !== oldName;
+    const campusChanged = updates.campus && updates.campus !== oldCampus;
+    const timeChanged = updates.horario && updates.horario !== target.horario;
+    const mealChanged =
+      updates.refeicao !== undefined && updates.refeicao !== target.refeicao;
+
+    const shouldCascade =
+      nameChanged || campusChanged || timeChanged || mealChanged;
+
+    const newPresets = presets.map((p) => {
+      if (p.id === presetId) {
+        return { ...p, ...updates };
+      }
+      return p;
+    });
+    setPresets(newPresets);
+    await api.savePresets(newPresets);
+
+    // Cascade update to vigilantes if ANY detail changed
+    if (shouldCascade) {
+      const newVigilantes = data.map((v) => {
+        // Match Campus AND Sector (Name) using the OLD values
+        if (v.campus === oldCampus && v.setor === oldName) {
+          return {
+            ...v,
+            setor: newName,
+            campus: newCampus,
+            horario: updates.horario || v.horario, // Enforce preset time
+            refeicao:
+              updates.refeicao !== undefined ? updates.refeicao : v.refeicao, // Enforce preset meal
+            status: "MANUAL_OK",
+            manualLock: true,
+          };
+        }
+        return v;
+      });
+
+      // Only save if changes occurred
+      const changedCount = newVigilantes.filter((v, i) => v !== data[i]).length;
+
+      if (changedCount > 0) {
+        setData(newVigilantes);
+        saveData(newVigilantes);
+
+        const changesLog = [];
+        if (nameChanged) changesLog.push(`Nome: ${oldName}->${newName}`);
+        if (campusChanged)
+          changesLog.push(`Campus: ${oldCampus}->${newCampus}`);
+        if (timeChanged) changesLog.push(`Horario: ${updates.horario}`);
+        if (mealChanged) changesLog.push(`Refeicao: ${updates.refeicao}`);
+
+        registerLog(
+          "SISTEMA",
+          `Atualizou posto e cascateou para ${changedCount} vigilantes.`,
+        );
+      }
+    }
+
+    showToast("Posto atualizado e sincronizado!", "success");
+    registerLog("EDICAO", `Posto ${presetId} atualizado.`, "SISTEMA");
+  };
+
   const handleToggleDay = (vig: Vigilante, day: number) => {
     if (!isFiscal) return;
     const newData = [...data];
@@ -3438,6 +3716,7 @@ function AppContent() {
             )}
             isMaster={isMaster}
             month={month}
+            onUpdatePreset={handleUpdatePreset}
           />
         )}
 
@@ -4682,6 +4961,7 @@ function AppContent() {
         onClose={() => setIsPresetManagerOpen(false)}
         presets={presets}
         setPresets={setPresets}
+        onUpdatePreset={handleUpdatePreset}
       />
 
       {/* Vacation Manager Modal (Master Only) */}
@@ -4989,6 +5269,7 @@ function AppContent() {
         onClose={() => setIsPresetManagerOpen(false)}
         presets={presets}
         setPresets={setPresets}
+        onUpdatePreset={handleUpdatePreset}
       />
 
       {/* Toast Container */}
