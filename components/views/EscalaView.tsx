@@ -239,144 +239,159 @@ const EscalaViewComponent: React.FC<EscalaViewProps> = (props) => {
                                 variant: string;
                               };
                             })[]
-                          ).map((vig) => {
-                            const isAfastado = vig.campus === "AFASTADOS";
-                            return (
-                              <tr
-                                key={vig.mat}
-                                className={`${isAfastado ? "bg-amber-900/10 hover:bg-amber-900/20" : "even:bg-slate-800/30 odd:bg-transparent hover:bg-slate-700/30"} border-b border-slate-700/50 text-sm print:bg-white print:border-black transition-colors group`}
-                              >
-                                <td className="px-6 py-4 align-top">
-                                  <div className="flex flex-col">
-                                    <span className="font-bold text-slate-200 text-base group-hover:text-white transition-colors">
-                                      {vig.nome}
-                                    </span>
-                                    <span className="text-xs text-slate-500 uppercase tracking-wide font-medium mt-1 group-hover:text-slate-400">
-                                      {vig.setor}
-                                    </span>
-                                  </div>
-                                </td>
+                          )
+                            .sort((a, b) => {
+                              // 1. Sort by Sector (Name of Post)
+                              const sA = (a.setor || "").toUpperCase();
+                              const sB = (b.setor || "").toUpperCase();
+                              if (sA !== sB) return sA.localeCompare(sB);
 
-                                <td className="px-6 py-4 text-center align-top pt-5">
-                                  <Badge team={vig.eq} />
-                                </td>
+                              // 2. Sort by Horario (Time)
+                              const hA = (a.horario || "").replace("h", ":");
+                              const hB = (b.horario || "").replace("h", ":");
+                              if (hA !== hB) return hA.localeCompare(hB);
 
-                                <td className="px-6 py-4 text-slate-500 font-mono text-xs align-top pt-5">
-                                  {vig.mat}
-                                </td>
-
-                                <td className="px-6 py-4 align-top">
-                                  <div className="flex flex-col gap-2">
-                                    {/* STATUS BADGE */}
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                      {vig.manualLock ? (
-                                        <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">
-                                          NO POSTO
-                                        </span>
-                                      ) : isAfastado ? (
-                                        <span className="bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">
-                                          AFASTADO
-                                        </span>
-                                      ) : (
-                                        <span className="bg-orange-500/10 text-orange-400 border border-orange-500/20 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
-                                          <span className="animate-pulse">
-                                            ●
-                                          </span>{" "}
-                                          PENDENTE
-                                        </span>
-                                      )}
-
-                                      {/* ACTION BUTTONS */}
-                                      {isAfastado && (
-                                        <button
-                                          onClick={() =>
-                                            handleReturnFromAway(vig)
-                                          }
-                                          className="flex items-center gap-1 bg-slate-700 hover:bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded transition-all shadow-sm"
-                                        >
-                                          <Icons.History size={10} /> Retornar
-                                        </button>
-                                      )}
+                              // 3. Sort by Name (Tie-breaker)
+                              return (a.nome || "").localeCompare(b.nome || "");
+                            })
+                            .map((vig) => {
+                              const isAfastado = vig.campus === "AFASTADOS";
+                              return (
+                                <tr
+                                  key={vig.mat}
+                                  className={`${isAfastado ? "bg-amber-900/10 hover:bg-amber-900/20" : "even:bg-slate-800/30 odd:bg-transparent hover:bg-slate-700/30"} border-b border-slate-700/50 text-sm print:bg-white print:border-black transition-colors group`}
+                                >
+                                  <td className="px-6 py-4 align-top">
+                                    <div className="flex flex-col">
+                                      <span className="font-bold text-slate-200 text-base group-hover:text-white transition-colors">
+                                        {vig.nome}
+                                      </span>
+                                      <span className="text-xs text-slate-500 uppercase tracking-wide font-medium mt-1 group-hover:text-slate-400">
+                                        {vig.setor}
+                                      </span>
                                     </div>
+                                  </td>
 
-                                    {/* LIST OF WORKING DAYS */}
-                                    {!isAfastado && (
-                                      <div className="flex flex-wrap items-center gap-2">
-                                        <span className="text-[10px] text-slate-500 font-bold uppercase">
-                                          DIAS:
-                                        </span>
-                                        <span className="text-slate-300 text-xs leading-relaxed font-mono">
-                                          {vig.dias
-                                            .sort((a, b) => a - b)
-                                            .join(", ")}
-                                        </span>
+                                  <td className="px-6 py-4 text-center align-top pt-5">
+                                    <Badge team={vig.eq} />
+                                  </td>
+
+                                  <td className="px-6 py-4 text-slate-500 font-mono text-xs align-top pt-5">
+                                    {vig.mat}
+                                  </td>
+
+                                  <td className="px-6 py-4 align-top">
+                                    <div className="flex flex-col gap-2">
+                                      {/* STATUS BADGE */}
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        {vig.manualLock ? (
+                                          <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">
+                                            NO POSTO
+                                          </span>
+                                        ) : isAfastado ? (
+                                          <span className="bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">
+                                            AFASTADO
+                                          </span>
+                                        ) : (
+                                          <span className="bg-orange-500/10 text-orange-400 border border-orange-500/20 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
+                                            <span className="animate-pulse">
+                                              ●
+                                            </span>{" "}
+                                            PENDENTE
+                                          </span>
+                                        )}
+
+                                        {/* ACTION BUTTONS */}
+                                        {isAfastado && (
+                                          <button
+                                            onClick={() =>
+                                              handleReturnFromAway(vig)
+                                            }
+                                            className="flex items-center gap-1 bg-slate-700 hover:bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded transition-all shadow-sm"
+                                          >
+                                            <Icons.History size={10} /> Retornar
+                                          </button>
+                                        )}
                                       </div>
-                                    )}
 
-                                    {/* FOLGAS */}
-                                    {!isAfastado &&
-                                      vig.folgasGeradas &&
-                                      vig.folgasGeradas.length > 0 && (
-                                        <div className="flex items-center gap-2 mt-1">
-                                          <span className="bg-red-500/20 text-red-400 border border-red-500/30 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">
-                                            FOLGAS:{" "}
-                                            {vig.folgasGeradas.join(", ")}
+                                      {/* LIST OF WORKING DAYS */}
+                                      {!isAfastado && (
+                                        <div className="flex flex-wrap items-center gap-2">
+                                          <span className="text-[10px] text-slate-500 font-bold uppercase">
+                                            DIAS:
+                                          </span>
+                                          <span className="text-slate-300 text-xs leading-relaxed font-mono">
+                                            {vig.dias
+                                              .sort((a, b) => a - b)
+                                              .join(", ")}
                                           </span>
                                         </div>
                                       )}
 
-                                    {/* COBERTURAS (Coverages) */}
-                                    {!isAfastado &&
-                                      vig.coberturas &&
-                                      vig.coberturas.length > 0 && (
-                                        <div className="flex flex-col gap-1 mt-1">
-                                          {vig.coberturas.map((cob, idx) => (
-                                            <div
-                                              key={idx}
-                                              className="flex items-center gap-2"
-                                            >
-                                              <span className="bg-orange-500/20 text-orange-300 border border-orange-500/30 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
-                                                COB. {cob.dia}{" "}
-                                                <span className="text-orange-500">
-                                                  ➜
-                                                </span>{" "}
-                                                {cob.local}
-                                                <button
-                                                  onClick={() =>
-                                                    handleRemoveCoverage(
-                                                      vig,
-                                                      cob.dia,
-                                                    )
-                                                  }
-                                                  className="ml-1 hover:text-white transition-colors"
-                                                  title="Remover Cobertura"
-                                                >
-                                                  <Icons.Delete size={10} />
-                                                </button>
-                                              </span>
-                                            </div>
-                                          ))}
-                                        </div>
-                                      )}
-                                  </div>
-                                </td>
+                                      {/* FOLGAS */}
+                                      {!isAfastado &&
+                                        vig.folgasGeradas &&
+                                        vig.folgasGeradas.length > 0 && (
+                                          <div className="flex items-center gap-2 mt-1">
+                                            <span className="bg-red-500/20 text-red-400 border border-red-500/30 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">
+                                              FOLGAS:{" "}
+                                              {vig.folgasGeradas.join(", ")}
+                                            </span>
+                                          </div>
+                                        )}
 
-                                <td className="px-6 py-4 text-right align-top">
-                                  <div className="flex flex-col items-end gap-1">
-                                    <span className="text-slate-200 font-bold text-sm bg-slate-800/50 px-2 py-1 rounded border border-slate-700/50">
-                                      {vig.horario}
-                                    </span>
-                                    {vig.refeicao &&
-                                      vig.refeicao !== "Sem Ref." && (
-                                        <span className="text-slate-400 text-xs font-mono">
-                                          Ref: {vig.refeicao}
-                                        </span>
-                                      )}
-                                  </div>
-                                </td>
-                              </tr>
-                            );
-                          })}
+                                      {/* COBERTURAS (Coverages) */}
+                                      {!isAfastado &&
+                                        vig.coberturas &&
+                                        vig.coberturas.length > 0 && (
+                                          <div className="flex flex-col gap-1 mt-1">
+                                            {vig.coberturas.map((cob, idx) => (
+                                              <div
+                                                key={idx}
+                                                className="flex items-center gap-2"
+                                              >
+                                                <span className="bg-orange-500/20 text-orange-300 border border-orange-500/30 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
+                                                  COB. {cob.dia}{" "}
+                                                  <span className="text-orange-500">
+                                                    ➜
+                                                  </span>{" "}
+                                                  {cob.local}
+                                                  <button
+                                                    onClick={() =>
+                                                      handleRemoveCoverage(
+                                                        vig,
+                                                        cob.dia,
+                                                      )
+                                                    }
+                                                    className="ml-1 hover:text-white transition-colors"
+                                                    title="Remover Cobertura"
+                                                  >
+                                                    <Icons.Delete size={10} />
+                                                  </button>
+                                                </span>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        )}
+                                    </div>
+                                  </td>
+
+                                  <td className="px-6 py-4 text-right align-top">
+                                    <div className="flex flex-col items-end gap-1">
+                                      <span className="text-slate-200 font-bold text-sm bg-slate-800/50 px-2 py-1 rounded border border-slate-700/50">
+                                        {vig.horario}
+                                      </span>
+                                      {vig.refeicao &&
+                                        vig.refeicao !== "Sem Ref." && (
+                                          <span className="text-slate-400 text-xs font-mono">
+                                            Ref: {vig.refeicao}
+                                          </span>
+                                        )}
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
                         </tbody>
                       </table>
                     </div>

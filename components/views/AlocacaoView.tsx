@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { Vigilante, DepartmentPreset } from "../../types";
-import { cleanString } from "../../utils";
+import { cleanString, calculateDaysForTeam } from "../../utils";
 import { Icons, Badge, SearchableSelect, Button, Select, Modal } from "../ui";
 import { CalendarGrid } from "../common/CalendarGrid";
 
@@ -231,13 +231,33 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
 
   const localToggleDay = (_: Vigilante, day: number) => {
     if (!managingVig) return;
+
+    // PATTERN GUARD: Check if the day is valid for this team
+    const validDays = calculateDaysForTeam(managingVig.eq, month);
+    const isStandardDay = validDays.includes(day);
+    const isCurrentlyWorking = managingVig.dias.includes(day);
+
+    // Rule:
+    // 1. If currently working, allow toggling off (becomes Folga Extra or just removed)
+    // 2. If NOT working, only allow toggling ON if it matches the standard pattern
+    //    (Prevents accidentally clicking an even day for an odd-day team)
+    // Exception: If user really wants to force an extra day, they should probably use "Cobertura" or we might need a bypass.
+    // user instruction: "inconsistência não pode deixar... tem que conseguir clicar somente no dia que ele trabalha"
+
+    if (!isCurrentlyWorking && !isStandardDay) {
+      alert("⚠️ Bloqueado: Este dia está fora do padrão da equipe.");
+      return;
+    }
+
     const target = { ...managingVig };
     target.dias = target.dias || [];
     target.folgasGeradas = target.folgasGeradas || [];
 
     if (target.dias.includes(day)) {
       target.dias = target.dias.filter((d) => d !== day);
-      if (!target.folgasGeradas.includes(day)) target.folgasGeradas.push(day);
+      if (!target.folgasGeradas.includes(day) && validDays.includes(day)) {
+        target.folgasGeradas.push(day);
+      }
     } else {
       target.dias.push(day);
       target.dias.sort((a, b) => a - b);
