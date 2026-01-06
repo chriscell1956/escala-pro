@@ -628,43 +628,67 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
                                 return (
                                   <div
                                     key={occ.mat}
-                                    className={`flex items-center justify-between border rounded p-2 shadow-sm animate-fade-in ${
+                                    className={`flex flex-col border rounded p-2 shadow-sm animate-fade-in group ${
                                       !isWorking
-                                        ? "bg-red-900/20 border-red-800"
+                                        ? "bg-red-900/10 border-red-900/30"
                                         : "bg-slate-800 border-slate-600"
                                     }`}
                                   >
-                                    <div className="flex items-center gap-3">
-                                      <Badge team={occ.eq} />
-                                      <div>
-                                        <div className="font-bold text-sm text-white flex items-center gap-2">
-                                          {occ.nome}
-                                          {!isWorking && (
-                                            <span className="text-[9px] bg-red-600 text-white px-1 rounded animate-pulse">
-                                              FOLGA (Hoje)
-                                            </span>
-                                          )}
-                                        </div>
-                                        <div className="text-[10px] text-slate-400 font-mono">
-                                          {occ.mat}
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center gap-3">
+                                        <Badge team={occ.eq} />
+                                        <div>
+                                          <div className="font-bold text-sm text-white flex items-center gap-2 group-hover:text-blue-300 transition-colors">
+                                            {occ.nome}
+                                            {!isWorking && (
+                                              <span className="text-[9px] bg-red-600 text-white px-1 rounded animate-pulse">
+                                                FOLGA
+                                              </span>
+                                            )}
+                                          </div>
+                                          <div className="text-[10px] text-slate-400 font-mono">
+                                            {occ.mat}
+                                          </div>
                                         </div>
                                       </div>
+                                      <div className="flex items-center gap-1">
+                                        <button
+                                          onClick={() =>
+                                            handleOpenSchedule(occ)
+                                          }
+                                          className="flex items-center gap-1 bg-slate-700 hover:bg-blue-600 text-slate-200 hover:text-white px-2 py-1 rounded text-[10px] font-bold transition-all"
+                                          title="Gerenciar Escala"
+                                        >
+                                          <Icons.Calendar className="w-3 h-3" />
+                                          ESCALA
+                                        </button>
+                                        <button
+                                          onClick={() =>
+                                            handleUnassign(occ.mat)
+                                          }
+                                          className="p-1 text-slate-500 hover:text-red-400 hover:bg-red-900/20 rounded transition-colors"
+                                          title="Desalocar"
+                                        >
+                                          <Icons.X className="w-4 h-4" />
+                                        </button>
+                                      </div>
                                     </div>
-                                    <div className="flex items-center gap-1">
-                                      <button
-                                        onClick={() => handleOpenSchedule(occ)}
-                                        className="text-slate-400 hover:text-white p-1.5 rounded hover:bg-slate-700 transition-colors"
-                                        title="Gerenciar Escala"
-                                      >
-                                        <Icons.Calendar className="w-4 h-4" />
-                                      </button>
-                                      <button
-                                        onClick={() => handleUnassign(occ.mat)}
-                                        className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-900/20 rounded transition-colors"
-                                        title="Desalocar"
-                                      >
-                                        <Icons.X className="w-4 h-4" />
-                                      </button>
+
+                                    {/* Mini Schedule Preview inline */}
+                                    <div className="mt-2 text-[10px] flex items-start gap-1 text-slate-500 border-t border-slate-700/50 pt-1">
+                                      <span className="uppercase font-bold tracking-wider text-[9px]">
+                                        DIAS:
+                                      </span>
+                                      <span className="font-mono text-slate-300">
+                                        {(occ.dias || [])
+                                          .sort((a, b) => a - b)
+                                          .filter((d) => d >= today)
+                                          .slice(0, 7)
+                                          .join(", ") || "Nenhum"}
+                                        {(occ.dias?.length || 0) > 7
+                                          ? "..."
+                                          : ""}
+                                      </span>
                                     </div>
                                   </div>
                                 );
