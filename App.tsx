@@ -73,16 +73,17 @@ const CORINGA_MATS = ["76154", "72911"]; // João Galvão e Marcio Pivaro
 
 // Helper para definir visibilidade cruzada de equipes
 // Helper para definir visibilidade cruzada de equipes
+// Helper para definir visibilidade cruzada de equipes
 const getVisibleTeams = (fiscalTeam: string, isMaster: boolean) => {
   if (isMaster) return ["A", "B", "C", "D", "ECO1", "ECO2", "ADM"];
 
   const t = cleanString(fiscalTeam);
   // ADM included for everyone so Fiscals can see/schedule ADM staff
-  // ECO 1 / ECO 2 visibility expanded for ALL Fiscals (User request: "famoso ecouny")
-  if (t === "A") return ["A", "ECO1", "ECO 1", "ECO2", "ECO 2", "ADM"];
-  if (t === "B") return ["B", "ECO1", "ECO 1", "ECO2", "ECO 2", "ADM"];
-  if (t === "C") return ["C", "ECO1", "ECO 1", "ECO2", "ECO 2", "ADM"];
-  if (t === "D") return ["D", "ECO1", "ECO 1", "ECO2", "ECO 2", "ADM"];
+  // STRICT SEPARATION: Noturno sees ECO 2, Diurno sees ECO 1
+  if (t === "A") return ["A", "ECO2", "ECO 2", "ADM"];
+  if (t === "B") return ["B", "ECO2", "ECO 2", "ADM"];
+  if (t === "C") return ["C", "ECO1", "ECO 1", "ADM"];
+  if (t === "D") return ["D", "ECO1", "ECO 1", "ADM"];
 
   return [t, "ADM"];
 };
@@ -107,13 +108,13 @@ const getLancadorVisibleTeams = (fiscalTeam: string, isMaster: boolean) => {
 
   const t = cleanString(fiscalTeam);
 
-  // Equipes Noturnas -> Própria + ECO2 + ECO1 + ADM
-  if (t === "A") return ["A", "ECO1", "ECO 1", "ECO2", "ECO 2", "ADM"];
-  if (t === "B") return ["B", "ECO1", "ECO 1", "ECO2", "ECO 2", "ADM"];
+  // Equipes Noturnas -> Própria + ECO2 + ADM
+  if (t === "A") return ["A", "ECO2", "ECO 2", "ADM"];
+  if (t === "B") return ["B", "ECO2", "ECO 2", "ADM"];
 
-  // Equipes Diurnas -> Própria + ECO1 + ECO2 + ADM (Expanded for safety)
-  if (t === "C") return ["C", "ECO1", "ECO 1", "ECO2", "ECO 2", "ADM"];
-  if (t === "D") return ["D", "ECO1", "ECO 1", "ECO2", "ECO 2", "ADM"];
+  // Equipes Diurnas -> Própria + ECO1 + ADM
+  if (t === "C") return ["C", "ECO1", "ECO 1", "ADM"];
+  if (t === "D") return ["D", "ECO1", "ECO 1", "ADM"];
 
   // Default: sees own team + ADM
   return [t, "ADM"];
