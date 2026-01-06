@@ -858,37 +858,135 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
                 }
               />
             </div>
-            <div>
-              <label className="text-xs font-bold text-slate-400 uppercase">
-                Horário
+
+            {/* SAFE TIME INPUTS */}
+            <div className="p-3 bg-slate-800 rounded-lg border border-slate-700">
+              <label className="text-xs font-bold text-blue-400 uppercase mb-2 block">
+                Horário de Trabalho
               </label>
-              <input
-                className="w-full bg-slate-900 border border-slate-700 text-white rounded p-2 text-sm mt-1 focus:border-purple-500 outline-none"
-                value={managingPreset.horario}
-                onChange={(e) =>
-                  setManagingPreset({
-                    ...managingPreset,
-                    horario: e.target.value,
-                  })
-                }
-                placeholder="Ex: 06h às 18h15"
-              />
+              <div className="flex items-center gap-2">
+                <div className="flex-1">
+                  <span className="text-[10px] text-slate-500 uppercase font-bold">
+                    Início
+                  </span>
+                  <input
+                    className="w-full bg-slate-900 border border-slate-600 text-white rounded p-2 text-sm focus:border-blue-500 outline-none text-center font-mono"
+                    value={
+                      managingPreset.timeStart ||
+                      managingPreset.horario.split(" às ")[0]?.trim() ||
+                      ""
+                    }
+                    onChange={(e) => {
+                      const newVal = e.target.value;
+                      const currentEnd =
+                        managingPreset.timeEnd ||
+                        managingPreset.horario.split(" às ")[1]?.trim() ||
+                        "";
+                      setManagingPreset({
+                        ...managingPreset,
+                        timeStart: newVal,
+                        horario: `${newVal} às ${currentEnd}`,
+                      });
+                    }}
+                    placeholder="06:00"
+                  />
+                </div>
+                <span className="text-slate-500 mt-4">às</span>
+                <div className="flex-1">
+                  <span className="text-[10px] text-slate-500 uppercase font-bold">
+                    Fim
+                  </span>
+                  <input
+                    className="w-full bg-slate-900 border border-slate-600 text-white rounded p-2 text-sm focus:border-blue-500 outline-none text-center font-mono"
+                    value={
+                      managingPreset.timeEnd ||
+                      managingPreset.horario.split(" às ")[1]?.trim() ||
+                      ""
+                    }
+                    onChange={(e) => {
+                      const newVal = e.target.value;
+                      const currentStart =
+                        managingPreset.timeStart ||
+                        managingPreset.horario.split(" às ")[0]?.trim() ||
+                        "";
+                      setManagingPreset({
+                        ...managingPreset,
+                        timeEnd: newVal,
+                        horario: `${currentStart} às ${newVal}`,
+                      });
+                    }}
+                    placeholder="18:00"
+                  />
+                </div>
+              </div>
+              <p className="text-[10px] text-slate-500 mt-1 italic">
+                Formato sugerido: 06:00, 18:00, 07:30
+              </p>
             </div>
-            <div>
-              <label className="text-xs font-bold text-slate-400 uppercase">
+
+            <div className="p-3 bg-slate-800 rounded-lg border border-slate-700">
+              <label className="text-xs font-bold text-orange-400 uppercase mb-2 block">
                 Intervalo / Refeição
               </label>
-              <input
-                className="w-full bg-slate-900 border border-slate-700 text-white rounded p-2 text-sm mt-1 focus:border-purple-500 outline-none"
-                value={managingPreset.refeicao}
-                onChange={(e) =>
-                  setManagingPreset({
-                    ...managingPreset,
-                    refeicao: e.target.value,
-                  })
-                }
-                placeholder="Ex: 12h às 13h"
-              />
+              <div className="flex items-center gap-2">
+                <div className="flex-1">
+                  <span className="text-[10px] text-slate-500 uppercase font-bold">
+                    Início
+                  </span>
+                  <input
+                    className="w-full bg-slate-900 border border-slate-600 text-white rounded p-2 text-sm focus:border-orange-500 outline-none text-center font-mono"
+                    value={
+                      managingPreset.mealStart ||
+                      (managingPreset.refeicao
+                        ? managingPreset.refeicao.split(" às ")[0]?.trim()
+                        : "")
+                    }
+                    onChange={(e) => {
+                      const newVal = e.target.value;
+                      const currentEnd =
+                        managingPreset.mealEnd ||
+                        (managingPreset.refeicao
+                          ? managingPreset.refeicao.split(" às ")[1]?.trim()
+                          : "");
+                      setManagingPreset({
+                        ...managingPreset,
+                        mealStart: newVal,
+                        refeicao: `${newVal} às ${currentEnd}`,
+                      });
+                    }}
+                    placeholder="12:00"
+                  />
+                </div>
+                <span className="text-slate-500 mt-4">às</span>
+                <div className="flex-1">
+                  <span className="text-[10px] text-slate-500 uppercase font-bold">
+                    Fim
+                  </span>
+                  <input
+                    className="w-full bg-slate-900 border border-slate-600 text-white rounded p-2 text-sm focus:border-orange-500 outline-none text-center font-mono"
+                    value={
+                      managingPreset.mealEnd ||
+                      (managingPreset.refeicao
+                        ? managingPreset.refeicao.split(" às ")[1]?.trim()
+                        : "")
+                    }
+                    onChange={(e) => {
+                      const newVal = e.target.value;
+                      const currentStart =
+                        managingPreset.mealStart ||
+                        (managingPreset.refeicao
+                          ? managingPreset.refeicao.split(" às ")[0]?.trim()
+                          : "");
+                      setManagingPreset({
+                        ...managingPreset,
+                        mealEnd: newVal,
+                        refeicao: `${currentStart} às ${newVal}`,
+                      });
+                    }}
+                    placeholder="13:00"
+                  />
+                </div>
+              </div>
             </div>
 
             <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-slate-700">
