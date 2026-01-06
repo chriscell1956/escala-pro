@@ -14,7 +14,10 @@ interface AlocacaoViewProps {
   lancadorVisibleTeams: string[];
   isMaster: boolean;
   month: number;
-  onUpdatePreset?: (presetId: string, updates: Partial<DepartmentPreset>) => void;
+  onUpdatePreset?: (
+    presetId: string,
+    updates: Partial<DepartmentPreset>,
+  ) => void;
 }
 
 // Helper to determine compatible teams based on preset type
@@ -54,10 +57,14 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
 
   // Modal State
   const [managingVig, setManagingVig] = useState<Vigilante | null>(null);
-  const [editorMode, setEditorMode] = useState<"days" | "vacation" | "falta" | "partial">("days");
+  const [editorMode, setEditorMode] = useState<
+    "days" | "vacation" | "falta" | "partial"
+  >("days");
 
   // Edit Preset State
-  const [managingPreset, setManagingPreset] = useState<DepartmentPreset | null>(null);
+  const [managingPreset, setManagingPreset] = useState<DepartmentPreset | null>(
+    null,
+  );
 
   const handleSavePreset = () => {
     if (!managingPreset || !onUpdatePreset) return;
@@ -100,82 +107,104 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
   const groupedPresets = useMemo(() => {
     const groups: Record<string, DepartmentPreset[]> = {};
 
-    const normVisible = lancadorVisibleTeams.map(cleanString);
+    const normVisible = lancadorVisibleTeams.map((t) =>
+      cleanString(t).replace(/\s+/g, ""),
+    );
+    // Explicit Team Detection
     const hasDiurno = normVisible.some((t) =>
       ["C", "D", "ADM", "ECO1", "E1"].includes(t),
     );
     const hasNoturno = normVisible.some((t) =>
       ["A", "B", "ECO2", "E2"].includes(t),
     );
-    const isMasterOrFull = hasDiurno && hasNoturno;
+
+    // Determine if we should enforcing Strict View (Not Master)
+    // If user has access to BOTH (Master), we show everything.
+    // If user has access to ONLY one side, we strictly hide the other.
+    const isStrictDiurno = hasDiurno && !hasNoturno;
+    const isStrictNoturno = hasNoturno && !hasDiurno;
 
     presets.forEach((p) => {
       const type = (p.type || "").toUpperCase();
       const campus = (p.campus || "").toUpperCase();
       const sector = (p.sector || "").toUpperCase();
-      const id = (p.id || "").toUpperCase();
       const name = (p.name || "").toUpperCase();
 
-      // NEW RULE: Supervision only for MASTER
+      // 1. SUPERVISION RULE: Only Master sees Supervision/Admin presets
       if (campus.includes("SUPERVISÃO") && !isMaster) {
         return;
       }
 
-      if (!isMasterOrFull) {
-        const isDiurnoPreset =
-          type.includes("DIURNO") ||
-          campus.includes("DIURNO") ||
-          id.includes("DIURNO") ||
-          name.includes("DIURNO") ||
-          sector.includes("DIURNO");
+      // 2. STRICT TYPE FILTERING (Cross Rule / Regra Cruzada)
+      // If the preset is explicitly typed, enforce visibility immediately.
+      if (p.type === "12x36_DIURNO" && isStrictNoturno) return;
+      if (p.type === "12x36_NOTURNO" && isStrictDiurno) return;
 
-        const isNoturnoPreset =
-          type.includes("NOTURNO") ||
-          campus.includes("NOTURNO") ||
-          id.includes("NOTURNO") ||
-          name.includes("NOTURNO") ||
-          sector.includes("NOTURNO");
+      // 3. Fallback / Heuristic Filtering (if type is not explicit or for legacy data)
+      // Identify Preset content characteristics
+      const isDiurnoContent =
+        type.includes("DIURNO") ||
+        idIncludes(p, "DIURNO") ||
+        strIncludes(p, "DIURNO");
 
-        const isExpedientePreset =
-          type.includes("EXPEDIENTE") ||
-          campus.includes("EXPEDIENTE") ||
-          sector.includes("EXPEDIENTE") ||
-          name.includes("EXPEDIENTE") ||
-          id.includes("EXPEDIENTE");
+      const isNoturnoContent =
+        type.includes("NOTURNO") ||
+        idIncludes(p, "NOTURNO") ||
+        strIncludes(p, "NOTURNO");
 
-        const isADefinir =
-          campus.includes("DEFINIR") || sector.includes("DEFINIR");
+      // Apply Strict Filtering based on Content tags if Type wasn't caught
+      if (isDiurnoContent && isStrictNoturno) return;
+      if (isNoturnoContent && isStrictDiurno) return;
 
-        // ECO/APOIO Logic
-        const isEco1 =
-          sector.includes("ECO 1") ||
-          sector.includes("ECO1") ||
-          campus.includes("ECO 1") ||
-          campus.includes("ECO1") ||
-          (sector.includes("APOIO") && isDiurnoPreset);
-        const isEco2 =
-          sector.includes("ECO 2") ||
-          sector.includes("ECO2") ||
-          campus.includes("ECO 2") ||
-          campus.includes("ECO2") ||
-          (sector.includes("APOIO") && isNoturnoPreset);
+      // 4. General "Should Show" Logic for non-strict cases or shared teams
+      const isExpediente =
+        type.includes("EXPEDIENTE") ||
+        campus.includes("EXPEDIENTE") ||
+        strIncludes(p, "EXPEDIENTE");
 
-        if (!isADefinir) {
-          let shouldShow = false;
+      const isEco1 =
+        sector.includes("ECO 1") ||
+        sector.includes("ECO1") ||
+        campus.includes("ECO 1");
+      const isEco2 =
+        sector.includes("ECO 2") ||
+        sector.includes("ECO2") ||
+        campus.includes("ECO 2");
 
-          if (isExpedientePreset) shouldShow = true;
-          if (hasDiurno && (isDiurnoPreset || isEco1)) shouldShow = true;
-          if (hasNoturno && (isNoturnoPreset || isEco2)) shouldShow = true;
+      let shouldShow = false;
 
-          if (!shouldShow) return;
-        }
+      // Master sees all
+      if (isMaster) shouldShow = true;
+      // Expediente is visible to all (usually) or check permissions? Assume visible for now.
+      else if (isExpediente) shouldShow = true;
+      else {
+        // Teams Logic
+        if (hasDiurno && (isDiurnoContent || isEco1 || !isNoturnoContent))
+          shouldShow = true;
+        if (hasNoturno && (isNoturnoContent || isEco2 || !isDiurnoContent))
+          shouldShow = true;
+
+        // Handle "A Definir" or generic presets
+        if (campus.includes("DEFINIR") || sector.includes("DEFINIR"))
+          shouldShow = true;
       }
 
-      if (!groups[p.campus]) groups[p.campus] = [];
-      groups[p.campus].push(p);
+      if (shouldShow) {
+        if (!groups[p.campus]) groups[p.campus] = [];
+        groups[p.campus].push(p);
+      }
     });
+
     return groups;
   }, [presets, lancadorVisibleTeams, isMaster]);
+
+  // Helpers for string matching
+  const idIncludes = (p: DepartmentPreset, s: string) =>
+    (p.id || "").toUpperCase().includes(s);
+  const strIncludes = (p: DepartmentPreset, s: string) =>
+    (p.name || "").toUpperCase().includes(s) ||
+    (p.sector || "").toUpperCase().includes(s) ||
+    (p.campus || "").toUpperCase().includes(s);
 
   const campusList = useMemo(
     () => Object.keys(groupedPresets).sort(),
@@ -196,7 +225,7 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
       folgasGeradas: managingVig.folgasGeradas,
       faltas: managingVig.faltas,
       vacation: managingVig.vacation,
-      saidasAntecipadas: managingVig.saidasAntecipadas
+      saidasAntecipadas: managingVig.saidasAntecipadas,
     });
     setManagingVig(null);
   };
@@ -406,11 +435,17 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
                         <div className="flex items-center gap-2 text-[10px] mt-0.5">
                           <span className="text-slate-500">{v.mat}</span>
                           {isFalta ? (
-                            <span className="text-red-400 font-bold">FALTA (Hoje)</span>
+                            <span className="text-red-400 font-bold">
+                              FALTA (Hoje)
+                            </span>
                           ) : isVacationToday ? (
-                            <span className="text-amber-400 font-bold">FÉRIAS (Hoje)</span>
+                            <span className="text-amber-400 font-bold">
+                              FÉRIAS (Hoje)
+                            </span>
                           ) : isWorkingToday ? (
-                            <span className="text-emerald-400 font-bold">TRABALHANDO</span>
+                            <span className="text-emerald-400 font-bold">
+                              TRABALHANDO
+                            </span>
                           ) : (
                             <span className="text-slate-500">FOLGA (Hoje)</span>
                           )}
@@ -432,10 +467,10 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
                   v.campus === "SEM POSTO" ||
                   v.campus.includes("DEFINIR"),
               ).length === 0 && (
-                  <div className="col-span-full text-center text-xs text-slate-500 py-4">
-                    Nenhum vigilante pendente. Todos estão alocados em postos.
-                  </div>
-                )}
+                <div className="col-span-full text-center text-xs text-slate-500 py-4">
+                  Nenhum vigilante pendente. Todos estão alocados em postos.
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -449,8 +484,9 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
           return (
             <div
               key={campus}
-              className={`bg-slate-800 rounded-xl shadow-sm border border-slate-700 overflow-hidden transition-all ${!isExpanded ? "opacity-75 hover:opacity-100" : ""
-                }`}
+              className={`bg-slate-800 rounded-xl shadow-sm border border-slate-700 overflow-hidden transition-all ${
+                !isExpanded ? "opacity-75 hover:opacity-100" : ""
+              }`}
             >
               {/* Header do Campus */}
               <div
@@ -586,14 +622,17 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
                           <div className="flex-1 flex flex-col gap-2">
                             {isOccupied ? (
                               occupants.map((occ) => {
-                                const isWorking = (occ.dias || []).includes(today);
+                                const isWorking = (occ.dias || []).includes(
+                                  today,
+                                );
                                 return (
                                   <div
                                     key={occ.mat}
-                                    className={`flex items-center justify-between border rounded p-2 shadow-sm animate-fade-in ${!isWorking
-                                      ? "bg-red-900/20 border-red-800"
-                                      : "bg-slate-800 border-slate-600"
-                                      }`}
+                                    className={`flex items-center justify-between border rounded p-2 shadow-sm animate-fade-in ${
+                                      !isWorking
+                                        ? "bg-red-900/20 border-red-800"
+                                        : "bg-slate-800 border-slate-600"
+                                    }`}
                                   >
                                     <div className="flex items-center gap-3">
                                       <Badge team={occ.eq} />
@@ -671,37 +710,41 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
               <div className="flex bg-slate-900 rounded-lg p-1 gap-1">
                 <button
                   onClick={() => setEditorMode("days")}
-                  className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${editorMode === "days"
-                    ? "bg-slate-700 text-white shadow-sm"
-                    : "text-slate-500 hover:text-slate-300"
-                    }`}
+                  className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${
+                    editorMode === "days"
+                      ? "bg-slate-700 text-white shadow-sm"
+                      : "text-slate-500 hover:text-slate-300"
+                  }`}
                 >
                   📅 DIAS
                 </button>
                 <button
                   onClick={() => setEditorMode("vacation")}
-                  className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${editorMode === "vacation"
-                    ? "bg-amber-100 text-amber-800 shadow-sm"
-                    : "text-slate-500 hover:text-slate-700"
-                    }`}
+                  className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${
+                    editorMode === "vacation"
+                      ? "bg-amber-100 text-amber-800 shadow-sm"
+                      : "text-slate-500 hover:text-slate-700"
+                  }`}
                 >
                   🏖️ FÉRIAS
                 </button>
                 <button
                   onClick={() => setEditorMode("falta")}
-                  className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${editorMode === "falta"
-                    ? "bg-red-600 text-white shadow-sm"
-                    : "text-slate-500 hover:text-slate-300"
-                    }`}
+                  className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${
+                    editorMode === "falta"
+                      ? "bg-red-600 text-white shadow-sm"
+                      : "text-slate-500 hover:text-slate-300"
+                  }`}
                 >
                   ❌ FALTA
                 </button>
                 <button
                   onClick={() => setEditorMode("partial")}
-                  className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${editorMode === "partial"
-                    ? "bg-orange-500 text-white shadow-sm"
-                    : "text-slate-500 hover:text-slate-300"
-                    }`}
+                  className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${
+                    editorMode === "partial"
+                      ? "bg-orange-500 text-white shadow-sm"
+                      : "text-slate-500 hover:text-slate-300"
+                  }`}
                 >
                   ⚠️ PARCIAL
                 </button>
@@ -720,10 +763,16 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
               </div>
 
               <div className="flex gap-2 justify-end pt-2">
-                <Button variant="secondary" onClick={() => setManagingVig(null)}>
+                <Button
+                  variant="secondary"
+                  onClick={() => setManagingVig(null)}
+                >
                   Cancelar
                 </Button>
-                <Button onClick={handleSaveSchedule} className="bg-emerald-600 hover:bg-emerald-700">
+                <Button
+                  onClick={handleSaveSchedule}
+                  className="bg-emerald-600 hover:bg-emerald-700"
+                >
                   <Icons.Save className="w-4 h-4" /> SALVAR ALTERAÇÕES
                 </Button>
               </div>
@@ -742,35 +791,60 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
         >
           <div className="flex flex-col gap-4">
             <div>
-              <label className="text-xs font-bold text-slate-400 uppercase">Nome do Posto</label>
+              <label className="text-xs font-bold text-slate-400 uppercase">
+                Nome do Posto
+              </label>
               <input
                 className="w-full bg-slate-900 border border-slate-700 text-white rounded p-2 text-sm mt-1 focus:border-purple-500 outline-none"
                 value={managingPreset.name}
-                onChange={e => setManagingPreset({ ...managingPreset, name: e.target.value })}
+                onChange={(e) =>
+                  setManagingPreset({ ...managingPreset, name: e.target.value })
+                }
               />
             </div>
             <div>
-              <label className="text-xs font-bold text-slate-400 uppercase">Horário</label>
+              <label className="text-xs font-bold text-slate-400 uppercase">
+                Horário
+              </label>
               <input
                 className="w-full bg-slate-900 border border-slate-700 text-white rounded p-2 text-sm mt-1 focus:border-purple-500 outline-none"
                 value={managingPreset.horario}
-                onChange={e => setManagingPreset({ ...managingPreset, horario: e.target.value })}
+                onChange={(e) =>
+                  setManagingPreset({
+                    ...managingPreset,
+                    horario: e.target.value,
+                  })
+                }
                 placeholder="Ex: 06h às 18h15"
               />
             </div>
             <div>
-              <label className="text-xs font-bold text-slate-400 uppercase">Intervalo / Refeição</label>
+              <label className="text-xs font-bold text-slate-400 uppercase">
+                Intervalo / Refeição
+              </label>
               <input
                 className="w-full bg-slate-900 border border-slate-700 text-white rounded p-2 text-sm mt-1 focus:border-purple-500 outline-none"
                 value={managingPreset.refeicao}
-                onChange={e => setManagingPreset({ ...managingPreset, refeicao: e.target.value })}
+                onChange={(e) =>
+                  setManagingPreset({
+                    ...managingPreset,
+                    refeicao: e.target.value,
+                  })
+                }
                 placeholder="Ex: 12h às 13h"
               />
             </div>
 
             <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-slate-700">
-              <Button variant="ghost" onClick={() => setManagingPreset(null)}>Cancelar</Button>
-              <Button onClick={handleSavePreset} className="bg-purple-600 hover:bg-purple-500 text-white">Salvar</Button>
+              <Button variant="ghost" onClick={() => setManagingPreset(null)}>
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleSavePreset}
+                className="bg-purple-600 hover:bg-purple-500 text-white"
+              >
+                Salvar
+              </Button>
             </div>
           </div>
         </Modal>
