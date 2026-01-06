@@ -2021,8 +2021,46 @@ function AppContent() {
   const handleCreateVigilante = async () => {
     if (!newVigForm.nome || !newVigForm.mat)
       return alert("Preencha Nome e Matrícula.");
-    if (data.some((v) => v.mat === newVigForm.mat))
-      return alert("Matrícula já existe na escala atual.");
+
+    // CHECK FOR DUPLICATES & RECOVERY
+    const existingVig = data.find((v) => v.mat === newVigForm.mat);
+    if (existingVig) {
+      if (
+        confirm(
+          `⚠️ Matrícula ${newVigForm.mat} já existe (${existingVig.nome})!\n\nEle pode estar oculto em outro setor.\nDeseja RECUPERAR este vigilante movendo-o para 'SEM POSTO' para que você possa editá-lo?`,
+        )
+      ) {
+        // RECOVERY LOGIC
+        const updatedData = data.map((v) => {
+          if (v.mat === newVigForm.mat) {
+            return {
+              ...v,
+              campus: "SEM POSTO",
+              setor: "AGUARDANDO",
+              eq: newVigForm.eq as Team, // Update to the team user is trying to set
+              status: "MANUAL_OK",
+            };
+          }
+          return v;
+        });
+        await saveData(updatedData);
+
+        // Open Editor for the recovered vigilante
+        const recoveredVig = updatedData.find((v) => v.mat === newVigForm.mat);
+        if (recoveredVig) {
+          setEditingVig(recoveredVig);
+          if (window.innerWidth < 768) setShowMobileEditor(true);
+        }
+
+        registerLog("EDICAO", "Recuperou vigilante oculto", existingVig.nome);
+        showToast("Vigilante recuperado para 'Não Alocados'!", "success");
+
+        // Reset Form
+        setIsNewVigModalOpen(false);
+        setNewVigForm({ nome: "", mat: "", eq: "A" });
+      }
+      return;
+    }
 
     // --- LÓGICA DE ESPELHAMENTO (BUDDY SYSTEM) ---
     // Tenta encontrar um "padrinho" na mesma equipe para copiar a escala
@@ -2118,18 +2156,20 @@ function AppContent() {
     if (window.innerWidth < 768) setShowMobileEditor(true);
   };
 
-  const handleDeleteVigilante = async () => {
-    if (!editingVig) return;
+  const handleDeleteVigilante = async (targetVig?: Vigilante) => {
+    const vigToDelete = targetVig || editingVig;
+    if (!vigToDelete) return;
+
     if (
       !confirm(
-        `⚠️ PERIGO: Tem certeza que deseja EXCLUIR DEFINITIVAMENTE o vigilante ${editingVig.nome}?\n\nIsso removerá ele desta escala. Se for um erro de cadastro, prossiga.`,
+        `⚠️ PERIGO: Tem certeza que deseja EXCLUIR DEFINITIVAMENTE o vigilante ${vigToDelete.nome}?\n\nIsso removerá ele desta escala. Se for um erro de cadastro, prossiga.`,
       )
     )
       return;
 
-    const newData = data.filter((v) => v.mat !== editingVig.mat);
+    const newData = data.filter((v) => v.mat !== vigToDelete.mat);
     await saveData(newData);
-    registerLog("EDICAO", "Excluiu vigilante da escala", editingVig.nome);
+    registerLog("EDICAO", "Excluiu vigilante da escala", vigToDelete.nome);
 
     // --- CORREÇÃO: Propagar exclusão para os próximos 3 meses ---
     try {
@@ -2151,12 +2191,12 @@ function AppContent() {
         if (futureData && futureData.length > 0) {
           // Verifica se o vigilante existe lá e remove
           const updatedFutureData = futureData.filter(
-            (v) => v.mat !== editingVig.mat,
+            (v) => v.mat !== vigToDelete.mat,
           );
 
           if (updatedFutureData.length !== futureData.length) {
             await api.saveData(currentM, updatedFutureData);
-            console.log(`Excluído do mês ${currentM}: ${editingVig.nome}`);
+            console.log(`Excluído do mês ${currentM}: ${vigToDelete.nome}`);
           }
         }
       }
@@ -2168,8 +2208,10 @@ function AppContent() {
       console.error("Erro ao propagar exclusão para meses seguintes", e);
     }
 
-    setEditingVig(null);
-    setShowMobileEditor(false);
+    if (editingVig && editingVig.mat === vigToDelete.mat) {
+      setEditingVig(null);
+      setShowMobileEditor(false);
+    }
   };
 
   const handleLaunchFutureMonth = async () => {
@@ -3746,6 +3788,8 @@ function AppContent() {
             isMaster={isMaster}
             month={month}
             onUpdatePreset={handleUpdatePreset}
+            onCreateVigilante={() => setIsNewVigModalOpen(true)}
+            onDeleteVigilante={handleDeleteVigilante}
           />
         )}
 

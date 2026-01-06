@@ -18,6 +18,8 @@ interface AlocacaoViewProps {
     presetId: string,
     updates: Partial<DepartmentPreset>,
   ) => void;
+  onCreateVigilante?: () => void;
+  onDeleteVigilante?: (vig: Vigilante) => void;
 }
 
 // Helper to determine compatible teams based on preset type
@@ -51,6 +53,8 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
   isMaster,
   month,
   onUpdatePreset,
+  onCreateVigilante,
+  onDeleteVigilante,
 }) => {
   // --- STATE ---
   const [filterTeam, setFilterTeam] = useState<string>("TODAS"); // TODAS | ECO1 | ECO2 | specific team
@@ -363,6 +367,16 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
 
         {/* CONTROLS */}
         <div className="flex flex-wrap items-center gap-3">
+          {isMaster && onCreateVigilante && (
+            <Button
+              onClick={onCreateVigilante}
+              className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs py-1.5 h-8 gap-2"
+            >
+              <Icons.Plus className="w-3 h-3" />
+              Novo Vigilante
+            </Button>
+          )}
+
           {/* Team Filter */}
           <div className="flex items-center gap-2">
             <span className="text-[10px] font-bold uppercase text-slate-500">
@@ -852,6 +866,22 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
                   <Icons.Save className="w-4 h-4" /> SALVAR ALTERAÇÕES
                 </Button>
               </div>
+              {onDeleteVigilante && (
+                <div className="mt-4 pt-2 border-t border-slate-700 flex justify-start">
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      if (managingVig) {
+                        onDeleteVigilante(managingVig);
+                        setManagingVig(null); // Close modal locally
+                      }
+                    }}
+                    className="text-red-500 hover:text-red-400 hover:bg-red-950/30 text-xs px-2"
+                  >
+                    🗑️ Excluir Vigilante
+                  </Button>
+                </div>
+              )}
             </>
           )}
         </div>
