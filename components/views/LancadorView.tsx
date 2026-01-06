@@ -41,6 +41,7 @@ interface LancadorViewProps {
   expandedSectors: Set<string>;
   toggleSectorExpansion: (sector: string) => void;
   presets: DepartmentPreset[];
+  onOpenPresetManager: () => void;
 }
 
 const LancadorViewComponent: React.FC<LancadorViewProps> = (props) => {
@@ -71,6 +72,7 @@ const LancadorViewComponent: React.FC<LancadorViewProps> = (props) => {
     expandedSectors,
     toggleSectorExpansion,
     presets,
+    onOpenPresetManager,
   } = props;
 
   // --- LÓGICA LOCAL DE EDIÇÃO (SEM SALVAR NO BANCO) ---
@@ -195,12 +197,12 @@ const LancadorViewComponent: React.FC<LancadorViewProps> = (props) => {
     let allowedShiftTypes: ShiftType[] = [];
 
     if (userTeam === "A" || userTeam === "B") {
-      allowedShiftTypes = ["12x36_NOTURNO"];
+      allowedShiftTypes = ["12x36_NOTURNO", "5x2_EXPEDIENTE"];
     } else if (userTeam === "C" || userTeam === "D") {
-      allowedShiftTypes = ["12x36_DIURNO"];
+      allowedShiftTypes = ["12x36_DIURNO", "5x2_EXPEDIENTE"];
     } else {
       // For E1, E2, Adm, etc.
-      allowedShiftTypes = ["EXP_1", "EXP_2", "EXP_ADM"];
+      allowedShiftTypes = ["EXP_1", "EXP_2", "EXP_ADM", "5x2_EXPEDIENTE"];
     }
 
     // Use the 'presets' prop which contains the loaded DepartmentPreset objects (with 'type', 'name', etc.)
@@ -525,6 +527,14 @@ const LancadorViewComponent: React.FC<LancadorViewProps> = (props) => {
           >
             ⚡ Sugerir
           </Button>
+          <Button
+            onClick={onOpenPresetManager}
+            variant="ghost"
+            className="text-slate-400 hover:text-white"
+            title="Gerenciador de Postos/Presets"
+          >
+            <Icons.Settings className="w-5 h-5" />
+          </Button>
         </div>
         <div className="flex-1 overflow-y-auto p-4 bg-slate-900 min-h-0 print:overflow-visible print:h-auto print:bg-white">
           <div className="bg-slate-800 rounded-lg shadow-sm border border-slate-700 overflow-hidden print:border-none print:shadow-none">
@@ -554,7 +564,7 @@ const LancadorViewComponent: React.FC<LancadorViewProps> = (props) => {
                       s.includes("DEFINIR") ||
                       s === "AGUARDANDO"
                     ) {
-                      groupKey = "CAMPUS DO EXPEDIENTE";
+                      groupKey = "A DEFINIR / PENDENTES";
                     }
 
                     if (!groups[groupKey]) groups[groupKey] = [];

@@ -1,8 +1,8 @@
 ﻿import React, { useState, useEffect } from "react";
 import { DepartmentPreset, Team } from "../../types";
-import { Button, Input, Select, Card, Modal, Badge } from "../ui";
+import { Button, Input, Select, Card, Modal, Badge, Icons } from "../ui";
 import { api } from "../../services/api";
-import { sectorPresets } from "../../presets";
+import { sectorPresets, generateDefaultPresets } from "../../presets";
 import { SHIFT_TYPES, ShiftType } from "../../constants";
 
 interface PresetManagerProps {
@@ -175,25 +175,59 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
     resetForm();
   };
 
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const filteredPresets = presets
+    .filter((p) => {
+      if (!searchTerm) return true;
+      const lower = searchTerm.toLowerCase();
+      return (
+        (p.name || "").toLowerCase().includes(lower) ||
+        (p.sector || "").toLowerCase().includes(lower) ||
+        (p.campus || "").toLowerCase().includes(lower)
+      );
+    })
+    .sort((a, b) => {
+      // Sort by Campus -> Sector -> Name (Safe check)
+      const cA = a.campus || "";
+      const cB = b.campus || "";
+      if (cA !== cB) return cA.localeCompare(cB);
+
+      const sA = a.sector || "";
+      const sB = b.sector || "";
+      if (sA !== sB) return sA.localeCompare(sB);
+
+      const nA = a.name || "";
+      const nB = b.name || "";
+      return nA.localeCompare(nB);
+    });
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Gerenciador de Postos">
       <div className="space-y-4 max-h-[70vh] overflow-y-auto p-1">
         {/* Header Actions */}
-        <div className="flex justify-between items-center bg-slate-800 p-3 rounded-lg border border-slate-700">
-          <div>
-            <h3 className="text-sm font-bold text-slate-300">Seus Postos</h3>
-            <p className="text-xs text-slate-500">
-              {presets.length} postos cadastrados
-            </p>
-          </div>
-          <div className="flex gap-2">
+        <div className="flex flex-col gap-3 bg-slate-800 p-3 rounded-lg border border-slate-700">
+          <div className="flex justify-between items-center">
             <Button
-              variant="secondary"
-              onClick={handleImportSystemPresets}
-              className="text-xs"
+              variant="outline"
+              onClick={async () => {
+                if (
+                  confirm(
+                    "Isso RESTAURARÁ todos os postos para o padrão do sistema (incluindo as novas correções de Expediente). Continuar?",
+                  )
+                ) {
+                  const defaults = generateDefaultPresets();
+                  setPresets(defaults);
+                  await api.savePresets(defaults);
+                  alert("Padrões restaurados com sucesso!");
+                }
+              }}
+              className="text-red-400 hover:text-red-300 border-red-900/50 hover:bg-red-900/20 text-xs"
             >
-              📥 Importar Padrões
+              <Icons.RefreshCw className="w-3 h-3 mr-2" />
+              Restaurar Padrões
             </Button>
+
             <Button
               variant="primary"
               onClick={() => {
@@ -204,17 +238,29 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
               + Novo Posto
             </Button>
           </div>
+
+          <div className="relative">
+            <Icons.Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Input
+              placeholder="Buscar por nome, setor ou campus..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9"
+            />
+          </div>
         </div>
 
         {/* List */}
         <div className="space-y-2">
-          {presets.length === 0 && (
+          {filteredPresets.length === 0 && (
             <div className="text-center py-8 text-slate-500 bg-slate-800/50 rounded-lg border border-dashed border-slate-700">
-              Nenhum posto cadastrado.
+              {presets.length === 0
+                ? "Nenhum posto cadastrado."
+                : "Nenhum posto encontrado para a busca."}
             </div>
           )}
 
-          {presets.map((preset) => (
+          {filteredPresets.map((preset) => (
             <div
               key={preset.id}
               className="flex items-center justify-between bg-slate-800 p-3 rounded-lg border border-slate-700 hover:border-slate-500 transition-colors"

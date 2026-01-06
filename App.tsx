@@ -311,6 +311,74 @@ function AppContent() {
     });
   };
 
+  // Load Presets on Init
+  useEffect(() => {
+    const loadPresets = async () => {
+      try {
+        const saved = await api.loadPresets();
+        const defaults = generateDefaultPresets();
+
+        // LOGIC: Force update if saved presets are outdated or missing critical sections
+        const isOutdated = saved.some(
+          (s) =>
+            s.campus === "CHÁCARA DA DONA ANA" || // Detected old naming
+            (s.id.includes("EXPEDIENTE") && !s.campus.includes("C.A.")), // Detected old Expediente naming
+        );
+
+        const missingCritical = defaults.filter(
+          (def) =>
+            !saved.some((s) => s.id === def.id) &&
+            (def.campus.includes("SUPERVISÃO") ||
+              def.campus.includes("EXPEDIENTE")),
+        );
+
+        if (isOutdated || missingCritical.length > 0) {
+          // Aggressive Strategy: If outdated, replace/merge to ensure integrity
+          // We filter out the OLD/BAD ones from saved, and append the NEW defaults
+          // Actually, simpler: If outdated components exist, we might as well RESET the ones that conflict
+
+          // Merging strategy:
+          // 1. Keep saved presets that are NOT in the "Bad List" (optional, but safe)
+          // 2. Or simplified: Just overwrite with defaults if it's broken, user custom presets might be lost?
+          // The user probably hasn't customized much yet. Let's do a smart overwrite of the system ones.
+
+          const systemIds = defaults.map((d) => d.id);
+          // Keep user custom presets (ids not in system defaults)
+          // Aggressively cleanup ANY old system preset flavor to prevent duplicates
+          const userCustom = saved.filter((s) => {
+            // If it's in the NEW default list, we ignore it here (it will be added from defaults)
+            if (systemIds.includes(s.id)) return false;
+
+            // If it starts with our System Prefixes but is NOT in defaults, it's an OLD version -> Remove it
+            // This covers both numeric (CAMPUS-I-EXP-1) and named intermediate (CAMPUS-I-EXP-CFTV-1)
+            if (s.id.startsWith("CAMPUS-I-EXP")) return false;
+            if (s.id.startsWith("CAMPUS-II-EXP")) return false;
+            if (s.id.startsWith("SUPERVISAO-ADM")) return false;
+
+            return true;
+          });
+
+          // Combine defaults + user custom
+          const merged = [...defaults, ...userCustom];
+
+          setPresets(merged);
+          api.savePresets(merged);
+          console.log("Presets force-updated to latest version.");
+          showToast(
+            "Sistema atualizado: Presets restaurados para o padrão correto.",
+            "info",
+          );
+        } else {
+          setPresets(saved);
+        }
+      } catch (error) {
+        console.error("Error loading presets:", error);
+        setPresets(generateDefaultPresets());
+      }
+    };
+    loadPresets();
+  }, []);
+
   // --- DERIVED PERMISSIONS & HELPERS ---
   const isMaster = user?.role === "MASTER";
   const isFiscal = user?.role === "FISCAL" || isMaster || user?.canSimulate; // "isFiscal" here implies "Has Fiscal Capabilities or higher"
@@ -447,7 +515,27 @@ function AppContent() {
     ) {
       api.loadPresets().then((loaded) => {
         if (loaded && loaded.length > 0) {
-          setPresets(loaded);
+          // CHECK: Does it have the new Expedition structure? (e.g. Laboratório or specific Counts)
+          const hasNewStructure = loaded.some(
+            (s) => s.campus.includes("LABORATÓRIO") && s.type === "EXPEDIENTE",
+          );
+          // ALSO CHECK: Specific Campus I Expedition Count (Block B should be 4, but let's check for existence of one of the new keys)
+          // Actually, just checking for LAB EXPEDIENTE is a strong enough signal that it's the new version.
+
+          if (!hasNewStructure) {
+            console.log(
+              "Old presets detected. Overwriting with new defaults...",
+            );
+            const defaults = generateDefaultPresets();
+            setPresets(defaults);
+            api.savePresets(defaults);
+            showToast(
+              "Presets atualizados para a nova estrutura de Expediente.",
+              "info",
+            );
+          } else {
+            setPresets(loaded);
+          }
         } else {
           // Fallback: Generate from config
           const defaults = generateDefaultPresets();
@@ -1235,7 +1323,7 @@ function AppContent() {
         s.includes("DEFINIR") ||
         s === "AGUARDANDO"
       ) {
-        groupKey = "CAMPUS DO EXPEDIENTE";
+        groupKey = "A DEFINIR / PENDENTES";
       }
 
       if (!groups[groupKey]) groups[groupKey] = [];
@@ -3338,6 +3426,7 @@ function AppContent() {
               currentUserVig?.eq || "A",
               isMaster,
             )}
+            isMaster={isMaster}
           />
         )}
 
@@ -3378,6 +3467,7 @@ function AppContent() {
             expandedSectors={expandedSectors}
             toggleSectorExpansion={toggleSectorExpansion}
             presets={presets}
+            onOpenPresetManager={() => setIsPresetManagerOpen(true)}
           />
         )}
 
@@ -4574,6 +4664,14 @@ function AppContent() {
           </p>
         </div>
       </Modal>
+
+      {/* Preset Manager Modal */}
+      <PresetManager
+        isOpen={isPresetManagerOpen}
+        onClose={() => setIsPresetManagerOpen(false)}
+        presets={presets}
+        setPresets={setPresets}
+      />
 
       {/* Vacation Manager Modal (Master Only) */}
       <Modal

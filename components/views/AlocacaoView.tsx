@@ -11,6 +11,7 @@ interface AlocacaoViewProps {
   toggleSectorExpansion: (sector: string) => void;
   onUpdateVigilante: (mat: string, changes: Partial<Vigilante>) => void;
   lancadorVisibleTeams: string[];
+  isMaster: boolean;
 }
 
 // Helper to determine compatible teams based on preset type
@@ -18,10 +19,13 @@ const getCompatibleTeams = (presetType?: string): string[] => {
   if (!presetType)
     return ["A", "B", "C", "D", "ECO1", "ECO2", "ECO 1", "ECO 2", "ADM"];
   const type = presetType.toUpperCase();
+
+  // EXPEDIENTE: Visible/Assignable by ALL teams (A, B, C, D, etc)
+  if (type.includes("EXPEDIENTE"))
+    return ["A", "B", "C", "D", "ECO1", "ECO2", "ECO 1", "ECO 2", "ADM"];
+
   // Diurno: C, D, ECO1, ECO2 (Apoio), ADM
-  // Note: Added ECO1/ECO2 explicitly to match vigilante data
-  // Also added "ECO 1", "ECO 2" with spaces for safety
-  if (type.includes("DIURNO") || type.includes("EXPEDIENTE"))
+  if (type.includes("DIURNO"))
     return ["C", "D", "ECO1", "ECO2", "ECO 1", "ECO 2", "ADM"];
   // Noturno: A, B, ECO1, ECO2
   if (type.includes("NOTURNO"))
@@ -38,13 +42,11 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
   toggleSectorExpansion,
   onUpdateVigilante,
   lancadorVisibleTeams,
+  isMaster,
 }) => {
-  // 3. Organizar Presets por Campus (Ordem Alfabética)
-  // 3. Organizar Presets por Campus (Ordem Alfabética)
   const groupedPresets = useMemo(() => {
     const groups: Record<string, DepartmentPreset[]> = {};
 
-    // Helper para identificar perfil do usuário (Diurno vs Noturno) basico
     const normVisible = lancadorVisibleTeams.map(cleanString);
     const hasDiurno = normVisible.some((t) =>
       ["C", "D", "ADM", "ECO1", "E1"].includes(t),
@@ -55,29 +57,25 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
     const isMasterOrFull = hasDiurno && hasNoturno;
 
     presets.forEach((p) => {
-      // FILTER: Check Authorization
-      // Se não for master/full, aplica filtro estrito
+      const type = (p.type || "").toUpperCase();
+      const campus = (p.campus || "").toUpperCase();
+      const sector = (p.sector || "").toUpperCase();
+      const id = (p.id || "").toUpperCase();
+      const name = (p.name || "").toUpperCase();
+
+      // NEW RULE: Supervision only for MASTER
+      if (campus.includes("SUPERVISÃO") && !isMaster) {
+        return;
+      }
+
       if (!isMasterOrFull) {
-        const type = (p.type || "").toUpperCase();
-        const campus = (p.campus || "").toUpperCase();
-        const sector = (p.sector || "").toUpperCase();
-
-        const id = (p.id || "").toUpperCase();
-        const name = (p.name || "").toUpperCase();
-
-        // Check Type OR Campus OR ID OR Name String (Fallback)
-        // Ensure robust check across all properties
         const isDiurnoPreset =
           type.includes("DIURNO") ||
           campus.includes("DIURNO") ||
           id.includes("DIURNO") ||
           name.includes("DIURNO") ||
-          sector.includes("DIURNO") ||
-          type.includes("EXPEDIENTE") ||
-          campus.includes("EXPEDIENTE") ||
-          sector.includes("EXPEDIENTE") ||
-          name.includes("EXPEDIENTE") ||
-          id.includes("EXPEDIENTE");
+          sector.includes("DIURNO");
+
         const isNoturnoPreset =
           type.includes("NOTURNO") ||
           campus.includes("NOTURNO") ||
@@ -85,13 +83,17 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
           name.includes("NOTURNO") ||
           sector.includes("NOTURNO");
 
-        // EXCEPTION: "A DEFINIR" should be visible to everyone
+        const isExpedientePreset =
+          type.includes("EXPEDIENTE") ||
+          campus.includes("EXPEDIENTE") ||
+          sector.includes("EXPEDIENTE") ||
+          name.includes("EXPEDIENTE") ||
+          id.includes("EXPEDIENTE");
+
         const isADefinir =
           campus.includes("DEFINIR") || sector.includes("DEFINIR");
 
         // ECO/APOIO Logic
-        // If it sends "ECO 1" or "APOIO DIURNO", it should be visible to Diurno
-        // If it sends "ECO 2" or "APOIO NOTURNO", it should be visible to Noturno
         const isEco1 =
           sector.includes("ECO 1") ||
           sector.includes("ECO1") ||
@@ -108,12 +110,10 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
         if (!isADefinir) {
           let shouldShow = false;
 
-          // Rule: Diurno sees Diurno + ECO1
+          if (isExpedientePreset) shouldShow = true;
           if (hasDiurno && (isDiurnoPreset || isEco1)) shouldShow = true;
-          // Rule: Noturno sees Noturno + ECO2
           if (hasNoturno && (isNoturnoPreset || isEco2)) shouldShow = true;
 
-          // If not explicitly allowed, return (hide)
           if (!shouldShow) return;
         }
       }
@@ -122,7 +122,7 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
       groups[p.campus].push(p);
     });
     return groups;
-  }, [presets, lancadorVisibleTeams]);
+  }, [presets, lancadorVisibleTeams, isMaster]);
 
   const campusList = useMemo(
     () => Object.keys(groupedPresets).sort(),
