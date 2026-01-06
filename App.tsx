@@ -1690,8 +1690,22 @@ function AppContent() {
     const getCategory = (c: string) => {
       const u = c.toUpperCase();
       if (u.includes("CAMPUS III") || u.includes("CAMPUS 3")) return "CAMPUS 3";
+
+      // FIX: Prioritize EXPEDIENTE checks before general Campus checks
+      if (
+        (u.includes("CAMPUS II") || u.includes("CAMPUS 2")) &&
+        u.includes("EXPEDIENTE")
+      )
+        return "CAMPUS 2 - EXPEDIENTE";
       if (u.includes("CAMPUS II") || u.includes("CAMPUS 2")) return "CAMPUS 2";
+
+      if (
+        (u.includes("CAMPUS I") || u.includes("CAMPUS 1")) &&
+        u.includes("EXPEDIENTE")
+      )
+        return "CAMPUS 1 - EXPEDIENTE";
       if (u.includes("CAMPUS I") || u.includes("CAMPUS 1")) return "CAMPUS 1";
+
       if (u.includes("LABORATÓRIO") || u.includes("LIMA")) return "LABORATÓRIO";
       if (u.includes("CHÁCARA")) return "CHÁCARA";
       if (u.includes("COLETA")) return "COLETA";

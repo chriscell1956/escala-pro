@@ -81,15 +81,23 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
 
   const handleImportSystemPresets = async () => {
     // ... import logic remains same ...
-    if (!confirm("Isso importará e REESCREVERÁ os padrões do sistema. Deseja continuar?")) return;
+    if (
+      !confirm(
+        "Isso importará e REESCREVERÁ os padrões do sistema. Deseja continuar?",
+      )
+    )
+      return;
     // (Simulating existing logic for brevity, user didn't ask to change this)
     // Actually, I need to keep the existing logic so I don't break import
     // COPYING EXISTING IMPORT LOGIC FROM PREVIOUS FILE TO ENSURE NO LOSS
     const newPresets: DepartmentPreset[] = [];
     Object.entries(sectorPresets).forEach(([sectorName, shifts]) => {
-      const processShift = (shiftData: any, type: string) => { // Type 'any' used to match existing
+      const processShift = (shiftData: any, type: string) => {
+        // Type 'any' used to match existing
         const rawParts = shiftData.horario.split(" às ");
-        const mealParts = shiftData.refeicao ? shiftData.refeicao.split(" às ") : ["", ""];
+        const mealParts = shiftData.refeicao
+          ? shiftData.refeicao.split(" às ")
+          : ["", ""];
         let mappedType: ShiftType = "12x36_DIURNO";
         if (type === "Noturno") mappedType = "12x36_NOTURNO";
         return {
@@ -106,7 +114,8 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
         };
       };
       if (shifts.DIURNO) newPresets.push(processShift(shifts.DIURNO, "Diurno"));
-      if (shifts.NOTURNO) newPresets.push(processShift(shifts.NOTURNO, "Noturno"));
+      if (shifts.NOTURNO)
+        newPresets.push(processShift(shifts.NOTURNO, "Noturno"));
     });
 
     let finalPresets = [...presets];
@@ -137,7 +146,7 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
         mealEnd: rEnd,
         // Composite fields for compatibility
         horario: `${hStart} às ${hEnd}`,
-        refeicao: (rStart && rEnd) ? `${rStart} às ${rEnd}` : "",
+        refeicao: rStart && rEnd ? `${rStart} às ${rEnd}` : "",
       };
       onUpdatePreset(editingPreset.id, updates);
       setIsFormOpen(false);
@@ -158,7 +167,7 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
       mealStart: rStart,
       mealEnd: rEnd,
       horario: `${hStart} às ${hEnd}`,
-      refeicao: (rStart && rEnd) ? `${rStart} às ${rEnd}` : "",
+      refeicao: rStart && rEnd ? `${rStart} às ${rEnd}` : "",
     };
 
     let updatedPresets = [...presets];
@@ -209,8 +218,6 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
         {/* Header Actions */}
         <div className="flex flex-col gap-3 bg-slate-800 p-3 rounded-lg border border-slate-700">
           <div className="flex justify-between items-center">
-
-
             <Button
               variant="primary"
               onClick={() => {
@@ -331,11 +338,18 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
                     >
                       {[
                         "CAMPUS I",
+                        "CAMPUS I - EXPEDIENTE C.A.",
+                        "CAMPUS I - EXPEDIENTE VIG",
                         "CAMPUS II",
+                        "CAMPUS II - EXPEDIENTE C.A.",
+                        "CAMPUS II - EXPEDIENTE VIG",
                         "HU",
                         "HR",
                         "AME",
+                        "LABORATÓRIO",
+                        "LABORATÓRIO - EXPEDIENTE",
                         "OUTROS",
+                        "SUPERVISÃO E ADMINISTRAÇÃO",
                       ].map((c) => (
                         <option key={c} value={c}>
                           {c}
