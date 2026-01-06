@@ -72,16 +72,19 @@ const EXCLUDED_ADM_MATS = ["100497", "60931"];
 const CORINGA_MATS = ["76154", "72911"]; // João Galvão e Marcio Pivaro
 
 // Helper para definir visibilidade cruzada de equipes
+// Helper para definir visibilidade cruzada de equipes
 const getVisibleTeams = (fiscalTeam: string, isMaster: boolean) => {
-  if (isMaster) return ["A", "B", "C", "D", "ECO1", "ECO2"];
+  if (isMaster) return ["A", "B", "C", "D", "ECO1", "ECO2", "ADM"];
 
   const t = cleanString(fiscalTeam);
-  if (t === "A") return ["A", "ECO1", "ECO2"];
-  if (t === "B") return ["B", "ECO2"];
-  if (t === "C") return ["C", "ECO1", "ECO2"];
-  if (t === "D") return ["D", "ECO1", "ECO2"];
+  // ADM included for everyone so Fiscals can see/schedule ADM staff
+  // ECO 1 / ECO 2 visibility expanded for ALL Fiscals (User request: "famoso ecouny")
+  if (t === "A") return ["A", "ECO1", "ECO 1", "ECO2", "ECO 2", "ADM"];
+  if (t === "B") return ["B", "ECO1", "ECO 1", "ECO2", "ECO 2", "ADM"];
+  if (t === "C") return ["C", "ECO1", "ECO 1", "ECO2", "ECO 2", "ADM"];
+  if (t === "D") return ["D", "ECO1", "ECO 1", "ECO2", "ECO 2", "ADM"];
 
-  return [t];
+  return [t, "ADM"];
 };
 
 // HELPER NOVA: Visibilidade restrita para o LANÇADOR (Pedido do usuário)
@@ -104,16 +107,16 @@ const getLancadorVisibleTeams = (fiscalTeam: string, isMaster: boolean) => {
 
   const t = cleanString(fiscalTeam);
 
-  // Equipes Noturnas -> Própria + ECO2
-  if (t === "A") return ["A", "ECO2", "ECO 2"];
-  if (t === "B") return ["B", "ECO2", "ECO 2"];
+  // Equipes Noturnas -> Própria + ECO2 + ECO1 + ADM
+  if (t === "A") return ["A", "ECO1", "ECO 1", "ECO2", "ECO 2", "ADM"];
+  if (t === "B") return ["B", "ECO1", "ECO 1", "ECO2", "ECO 2", "ADM"];
 
-  // Equipes Diurnas -> Própria + ECO1
-  if (t === "C") return ["C", "ECO1", "ECO 1"];
-  if (t === "D") return ["D", "ECO1", "ECO 1"];
+  // Equipes Diurnas -> Própria + ECO1 + ECO2 + ADM (Expanded for safety)
+  if (t === "C") return ["C", "ECO1", "ECO 1", "ECO2", "ECO 2", "ADM"];
+  if (t === "D") return ["D", "ECO1", "ECO 1", "ECO2", "ECO 2", "ADM"];
 
-  // Default: sees own team
-  return [t];
+  // Default: sees own team + ADM
+  return [t, "ADM"];
 };
 
 function AppContent() {
@@ -934,6 +937,19 @@ function AppContent() {
       setUserSearch("");
     }
   }, [isUserMgmtModalOpen]);
+
+  // AUTO-REFRESH (POLLING) - 10s
+  useEffect(() => {
+    // Only poll if online and not viewing a draft history (implicit check via month/viewingDraft would be good)
+    // We simply re-fetch current month data silently to keep sync
+    const intervalId = setInterval(() => {
+      if (!viewingDraft && !isSimulationMode && dbStatus.online) {
+        loadDataForMonth(month, true);
+      }
+    }, 10000); // 10 seconds
+
+    return () => clearInterval(intervalId);
+  }, [month, viewingDraft, isSimulationMode, dbStatus.online]);
 
   const loadUsers = async () => {
     const users = await api.getUsers();
