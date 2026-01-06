@@ -103,6 +103,14 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
     });
   }, [vigilantes, lancadorVisibleTeams, filterTeam]);
 
+  // Helpers for string matching
+  const idIncludes = (p: DepartmentPreset, s: string) =>
+    (p.id || "").toUpperCase().includes(s);
+  const strIncludes = (p: DepartmentPreset, s: string) =>
+    (p.name || "").toUpperCase().includes(s) ||
+    (p.sector || "").toUpperCase().includes(s) ||
+    (p.campus || "").toUpperCase().includes(s);
+
   // --- PRESET GROUPING ---
   const groupedPresets = useMemo(() => {
     const groups: Record<string, DepartmentPreset[]> = {};
@@ -197,14 +205,6 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
 
     return groups;
   }, [presets, lancadorVisibleTeams, isMaster]);
-
-  // Helpers for string matching
-  const idIncludes = (p: DepartmentPreset, s: string) =>
-    (p.id || "").toUpperCase().includes(s);
-  const strIncludes = (p: DepartmentPreset, s: string) =>
-    (p.name || "").toUpperCase().includes(s) ||
-    (p.sector || "").toUpperCase().includes(s) ||
-    (p.campus || "").toUpperCase().includes(s);
 
   const campusList = useMemo(
     () => Object.keys(groupedPresets).sort(),
