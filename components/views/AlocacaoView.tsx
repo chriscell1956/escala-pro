@@ -484,7 +484,7 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
           return (
             <div
               key={campus}
-              className={`bg-slate-800 rounded-xl shadow-sm border border-slate-700 overflow-hidden transition-all ${
+              className={`bg-slate-800 rounded-xl shadow-sm border border-slate-700 transition-all ${
                 !isExpanded ? "opacity-75 hover:opacity-100" : ""
               }`}
             >
