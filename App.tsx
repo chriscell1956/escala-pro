@@ -1418,17 +1418,38 @@ function AppContent() {
           // 2. Strict Sector Visibility (Expediente Logic)
           // If the sector implies a hidden team (e.g. EXP_2 -> ECO 2), hide it.
           const p = presets.find((pre) => pre.sector === v.setor);
+
+          // HEURISTIC: Check Start Time
+          // If starts >= 09:00, it's likely Afternoon/Night (ECO 2)
+          // If starts < 09:00, it's Morning (ECO 1)
+          let startHour = 0;
+          if (p && p.timeStart) {
+            startHour = parseInt(p.timeStart.split(":")[0], 10);
+          } else if (v.horario) {
+            // Try to extract from string like "09h45" or "09:45"
+            const match = v.horario.match(/(\d{1,2})[h:]/i);
+            if (match) startHour = parseInt(match[1], 10);
+          } else if (p && p.horario) {
+            const match = p.horario.match(/(\d{1,2})[h:]/i);
+            if (match) startHour = parseInt(match[1], 10);
+          }
+
+          const isLateStart = startHour >= 9; // 09:00 or later implies ECO 2
+
           if (p) {
             const isExp2 =
               p.type === "EXP_2" ||
               (p.name && p.name.toUpperCase().includes("EXPEDIENTE 2")) ||
-              (p.name && p.name.includes("Expediente 2")); // Safety check
+              (p.name && p.name.includes("Expediente 2")) ||
+              isLateStart; // Apply heuristic
+
             const isExp1 =
               p.type === "EXP_1" ||
-              (p.name && p.name.toUpperCase().includes("EXPEDIENTE 1"));
+              (p.name && p.name.toUpperCase().includes("EXPEDIENTE 1")) ||
+              (!isLateStart && startHour > 0); // If early start (and not 0), implies ECO 1
 
             if (isExp2) {
-              // EXP_2 requires ECO2 visibility
+              // EXP_2 or Late Start requires ECO2 visibility
               if (
                 !visibleTeams.includes("ECO2") &&
                 !visibleTeams.includes("ECO 2")
@@ -1436,14 +1457,23 @@ function AppContent() {
                 return false;
             }
             if (isExp1) {
-              // EXP_1 requires ECO1 visibility
+              // EXP_1 or Early Start requires ECO1 visibility
               if (
                 !visibleTeams.includes("ECO1") &&
-                !visibleTeams.includes("ECO 1")
+                !visibleTeams.includes("ECO 1") &&
+                !isLateStart // Don't hide if it was caught by isLateStart logic (double safety)
               )
                 return false;
             }
+          } else if (isLateStart) {
+            // Even without preset, if vigilante has late schedule, hide from Early Team
+            if (
+              !visibleTeams.includes("ECO2") &&
+              !visibleTeams.includes("ECO 2")
+            )
+              return false;
           }
+
           return true;
         });
       } else {
