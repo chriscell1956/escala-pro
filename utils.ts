@@ -14,6 +14,8 @@ export const getDaysInMonth = (period: number) => {
 export const cleanString = (str: any) => {
   if (!str) return "";
   return String(str)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // Remove accents
     .replace(/[\u200B-\u200D\uFEFF\u00A0]/g, "")
     .trim()
     .toUpperCase();
