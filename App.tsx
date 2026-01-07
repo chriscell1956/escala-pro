@@ -1489,11 +1489,38 @@ function AppContent() {
         const isStrictlyDayFiscal = seesEco1 && !seesEco2;
 
         // 1. Get the preset associated with this vigilante's sector
-        const relevantPreset = presets.find(
+        // 1. Get the preset(s) associated with this sector
+        // IMPROVED: Handle duplicate names (e.g. Same name for Morning/Night)
+        const candidates = presets.filter(
           (p) =>
             p.name === v.setor ||
             (p.sector === v.setor && p.campus === v.campus),
         );
+
+        let relevantPreset = candidates[0];
+
+        // Disambiguate if multiple presets exist (e.g. "Charlie 12" Day vs Night)
+        if (candidates.length > 1 && foundTime) {
+          const isSlotLate = startHour >= 9; // 09:00+ is likely ECO 2/Night
+
+          // Try to find a candidate that matches the time block
+          const bestMatch = candidates.find((c) => {
+            let cStart = -1;
+            if (c.timeStart) {
+              cStart = parseInt(c.timeStart.split(":")[0], 10);
+            } else if (c.horario) {
+              const m = c.horario.match(/(\d{1,2})[h:]/i);
+              if (m) cStart = parseInt(m[1], 10);
+            }
+
+            if (cStart === -1) return false; // Can't judge
+
+            const isCandidateLate = cStart >= 9;
+            return isCandidateLate === isSlotLate;
+          });
+
+          if (bestMatch) relevantPreset = bestMatch;
+        }
 
         // 2. Determine Shift Type
         let shiftType = relevantPreset?.type || "12x36_DIURNO";
