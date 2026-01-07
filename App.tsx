@@ -1423,13 +1423,21 @@ function AppContent() {
           // If starts >= 09:00, it's likely Afternoon/Night (ECO 2)
           // If starts < 09:00, it's Morning (ECO 1)
           let startHour = 0;
-          if (p && p.timeStart) {
+
+          // FIX: Check v.horario FIRST (Instance time is source of truth)
+          let foundTime = false;
+          if (v.horario) {
+            const match = v.horario.match(/(\d{1,2})[h:]/i); // Matches "09h" or "09:"
+            if (match) {
+              startHour = parseInt(match[1], 10);
+              foundTime = true;
+            }
+          }
+
+          if (!foundTime && p && p.timeStart) {
             startHour = parseInt(p.timeStart.split(":")[0], 10);
-          } else if (v.horario) {
-            // Try to extract from string like "09h45" or "09:45"
-            const match = v.horario.match(/(\d{1,2})[h:]/i);
-            if (match) startHour = parseInt(match[1], 10);
-          } else if (p && p.horario) {
+            foundTime = true;
+          } else if (!foundTime && p && p.horario) {
             const match = p.horario.match(/(\d{1,2})[h:]/i);
             if (match) startHour = parseInt(match[1], 10);
           }
