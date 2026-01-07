@@ -394,9 +394,17 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
                     </label>
                     <Input
                       value={hStart}
-                      onChange={(e) => setHStart(e.target.value)}
-                      type="time"
-                      className="w-full"
+                      onChange={(e) => {
+                        let v = e.target.value.replace(/\D/g, "");
+                        if (v.length > 4) v = v.slice(0, 4);
+                        if (v.length >= 3) {
+                          v = `${v.slice(0, 2)}:${v.slice(2)}`;
+                        }
+                        setHStart(v);
+                      }}
+                      placeholder="00:00"
+                      maxLength={5}
+                      className="w-full text-center tracking-widest"
                     />
                   </div>
                   <div>
@@ -405,9 +413,17 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
                     </label>
                     <Input
                       value={hEnd}
-                      onChange={(e) => setHEnd(e.target.value)}
-                      type="time"
-                      className="w-full"
+                      onChange={(e) => {
+                        let v = e.target.value.replace(/\D/g, "");
+                        if (v.length > 4) v = v.slice(0, 4);
+                        if (v.length >= 3) {
+                          v = `${v.slice(0, 2)}:${v.slice(2)}`;
+                        }
+                        setHEnd(v);
+                      }}
+                      placeholder="00:00"
+                      maxLength={5}
+                      className="w-full text-center tracking-widest"
                     />
                   </div>
                 </div>
@@ -419,9 +435,17 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
                     </label>
                     <Input
                       value={rStart}
-                      onChange={(e) => setRStart(e.target.value)}
-                      type="time"
-                      className="w-full"
+                      onChange={(e) => {
+                        let v = e.target.value.replace(/\D/g, "");
+                        if (v.length > 4) v = v.slice(0, 4);
+                        if (v.length >= 3) {
+                          v = `${v.slice(0, 2)}:${v.slice(2)}`;
+                        }
+                        setRStart(v);
+                      }}
+                      placeholder="00:00"
+                      maxLength={5}
+                      className="w-full text-center tracking-widest"
                     />
                   </div>
                   <div>
@@ -430,9 +454,17 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
                     </label>
                     <Input
                       value={rEnd}
-                      onChange={(e) => setREnd(e.target.value)}
-                      type="time"
-                      className="w-full"
+                      onChange={(e) => {
+                        let v = e.target.value.replace(/\D/g, "");
+                        if (v.length > 4) v = v.slice(0, 4);
+                        if (v.length >= 3) {
+                          v = `${v.slice(0, 2)}:${v.slice(2)}`;
+                        }
+                        setREnd(v);
+                      }}
+                      placeholder="00:00"
+                      maxLength={5}
+                      className="w-full text-center tracking-widest"
                     />
                   </div>
                 </div>

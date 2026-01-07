@@ -1022,6 +1022,12 @@ function AppContent() {
     const fetchedOverrides = await api.loadIntervalOverrides();
     setIntervalOverrides(fetchedOverrides);
 
+    // NEW (SYNC FIX): Always sync presets to ensure new sectors appear for everyone
+    const fetchedPresets = await api.loadPresets();
+    if (fetchedPresets && fetchedPresets.length > 0) {
+      setPresets(fetchedPresets);
+    }
+
     let finalData: Vigilante[] = [];
 
     if (fetchedData && fetchedData.length > 0) {
@@ -1404,17 +1410,52 @@ function AppContent() {
 
       if (currentUserVig) {
         const myEq = cleanString(currentUserVig.eq);
-        const visibleTeams = getVisibleTeams(myEq);
-        filtered = filtered.filter((v) =>
-          visibleTeams.includes(cleanString(v.eq)),
-        );
+        const visibleTeams = getVisibleTeams(myEq, isMaster);
+        filtered = filtered.filter((v) => {
+          // 1. Team Visibility
+          if (!visibleTeams.includes(cleanString(v.eq))) return false;
+
+          // 2. Strict Sector Visibility (Expediente Logic)
+          // If the sector implies a hidden team (e.g. EXP_2 -> ECO 2), hide it.
+          const p = presets.find((pre) => pre.sector === v.setor);
+          if (p) {
+            const isExp2 =
+              p.type === "EXP_2" ||
+              (p.name && p.name.toUpperCase().includes("EXPEDIENTE 2")) ||
+              (p.name && p.name.includes("Expediente 2")); // Safety check
+            const isExp1 =
+              p.type === "EXP_1" ||
+              (p.name && p.name.toUpperCase().includes("EXPEDIENTE 1"));
+
+            if (isExp2) {
+              // EXP_2 requires ECO2 visibility
+              if (
+                !visibleTeams.includes("ECO2") &&
+                !visibleTeams.includes("ECO 2")
+              )
+                return false;
+            }
+            if (isExp1) {
+              // EXP_1 requires ECO1 visibility
+              if (
+                !visibleTeams.includes("ECO1") &&
+                !visibleTeams.includes("ECO 1")
+              )
+                return false;
+            }
+          }
+          return true;
+        });
       } else {
         filtered = []; // Fiscal sem equipe não vê ninguém
       }
     }
 
     // Filtro visual do dropdown (Aplica-se DEPOIS da restrição de segurança)
-    if (selectedLancadorTeam !== "TODAS") {
+    // FEATURE: Global Search for Master (Bypass team filter if searching)
+    const bypassTeamFilter = isMaster && lancadorSearch.trim().length > 0;
+
+    if (selectedLancadorTeam !== "TODAS" && !bypassTeamFilter) {
       filtered = filtered.filter(
         (v) => cleanString(v.eq) === cleanString(selectedLancadorTeam),
       );
@@ -1435,6 +1476,7 @@ function AppContent() {
     user,
     currentUserVig,
     isMaster,
+    presets,
   ]);
 
   const lancadorSummary = useMemo(() => {
@@ -2957,7 +2999,11 @@ function AppContent() {
     if (shouldCascade) {
       const newVigilantes = data.map((v) => {
         // Match Campus AND Sector (Name) using the OLD values
-        if (v.campus === oldCampus && v.setor === oldName) {
+        // FIX: Use cleanString logic to ensure match even with spacing differences
+        if (
+          cleanString(v.campus) === cleanString(oldCampus) &&
+          cleanString(v.setor) === cleanString(oldName)
+        ) {
           return {
             ...v,
             setor: newName,
@@ -4841,23 +4887,37 @@ function AppContent() {
             </label>
             <div className="flex gap-2">
               <input
-                type="time"
-                className="border rounded p-2 w-full bg-slate-700 text-white border-slate-600"
+                type="text"
+                maxLength={5}
+                placeholder="00:00"
+                className="border rounded p-2 w-full bg-slate-700 text-white border-slate-600 text-center tracking-widest"
                 value={tempTimeInputs.hStart}
-                onChange={(e) =>
+                onChange={(e) => {
+                  let v = e.target.value.replace(/\D/g, "");
+                  if (v.length > 4) v = v.slice(0, 4);
+                  if (v.length >= 3) {
+                    v = `${v.slice(0, 2)}:${v.slice(2)}`;
+                  }
                   setTempTimeInputs({
                     ...tempTimeInputs,
-                    hStart: e.target.value,
-                  })
-                }
+                    hStart: v,
+                  });
+                }}
               />
               <input
-                type="time"
-                className="border rounded p-2 w-full bg-slate-700 text-white border-slate-600"
+                type="text"
+                maxLength={5}
+                placeholder="00:00"
+                className="border rounded p-2 w-full bg-slate-700 text-white border-slate-600 text-center tracking-widest"
                 value={tempTimeInputs.hEnd}
-                onChange={(e) =>
-                  setTempTimeInputs({ ...tempTimeInputs, hEnd: e.target.value })
-                }
+                onChange={(e) => {
+                  let v = e.target.value.replace(/\D/g, "");
+                  if (v.length > 4) v = v.slice(0, 4);
+                  if (v.length >= 3) {
+                    v = `${v.slice(0, 2)}:${v.slice(2)}`;
+                  }
+                  setTempTimeInputs({ ...tempTimeInputs, hEnd: v });
+                }}
               />
             </div>
           </div>
@@ -4868,23 +4928,37 @@ function AppContent() {
             </label>
             <div className="flex gap-2">
               <input
-                type="time"
-                className="border rounded p-2 w-full bg-slate-700 text-white border-slate-600"
+                type="text"
+                maxLength={5}
+                placeholder="00:00"
+                className="border rounded p-2 w-full bg-slate-700 text-white border-slate-600 text-center tracking-widest"
                 value={tempTimeInputs.rStart}
-                onChange={(e) =>
+                onChange={(e) => {
+                  let v = e.target.value.replace(/\D/g, "");
+                  if (v.length > 4) v = v.slice(0, 4);
+                  if (v.length >= 3) {
+                    v = `${v.slice(0, 2)}:${v.slice(2)}`;
+                  }
                   setTempTimeInputs({
                     ...tempTimeInputs,
-                    rStart: e.target.value,
-                  })
-                }
+                    rStart: v,
+                  });
+                }}
               />
               <input
-                type="time"
-                className="border rounded p-2 w-full bg-slate-700 text-white border-slate-600"
+                type="text"
+                maxLength={5}
+                placeholder="00:00"
+                className="border rounded p-2 w-full bg-slate-700 text-white border-slate-600 text-center tracking-widest"
                 value={tempTimeInputs.rEnd}
-                onChange={(e) =>
-                  setTempTimeInputs({ ...tempTimeInputs, rEnd: e.target.value })
-                }
+                onChange={(e) => {
+                  let v = e.target.value.replace(/\D/g, "");
+                  if (v.length > 4) v = v.slice(0, 4);
+                  if (v.length >= 3) {
+                    v = `${v.slice(0, 2)}:${v.slice(2)}`;
+                  }
+                  setTempTimeInputs({ ...tempTimeInputs, rEnd: v });
+                }}
               />
             </div>
           </div>

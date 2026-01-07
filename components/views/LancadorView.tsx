@@ -77,7 +77,6 @@ const LancadorViewComponent: React.FC<LancadorViewProps> = (props) => {
 
   // --- STATES FOR VIEW CONFIGURATION ---
 
-
   // --- LÓGICA LOCAL DE EDIÇÃO (SEM SALVAR NO BANCO) ---
 
   const handleTeamChange = (newTeam: Team) => {
@@ -232,10 +231,11 @@ const LancadorViewComponent: React.FC<LancadorViewProps> = (props) => {
   return (
     <div className="flex flex-1 h-full overflow-hidden bg-slate-900 relative print:h-auto print:overflow-visible">
       <div
-        className={`w-full md:w-[380px] bg-slate-800 border-r border-slate-700 flex flex-col shadow-xl z-20 shrink-0 h-full absolute md:relative top-0 left-0 bottom-0 transition-transform duration-300 ease-in-out ${showMobileEditor
-          ? "translate-x-0"
-          : "-translate-x-full md:translate-x-0"
-          } print:hidden`}
+        className={`w-full md:w-[380px] bg-slate-800 border-r border-slate-700 flex flex-col shadow-xl z-20 shrink-0 h-full absolute md:relative top-0 left-0 bottom-0 transition-transform duration-300 ease-in-out ${
+          showMobileEditor
+            ? "translate-x-0"
+            : "-translate-x-full md:translate-x-0"
+        } print:hidden`}
       >
         <div className="bg-slate-950 text-white p-4 text-center border-b border-slate-700 relative shrink-0">
           <button
@@ -273,7 +273,6 @@ const LancadorViewComponent: React.FC<LancadorViewProps> = (props) => {
 
           {/* New Filter: Turno (Only useful for EXPEDIENTE context usually, but good to have) */}
 
-
           <div>
             <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">
               3. Buscar Nome:
@@ -300,15 +299,15 @@ const LancadorViewComponent: React.FC<LancadorViewProps> = (props) => {
                 {(editingVig.folgasGeradas || []).filter(
                   (f: number) => !(editingVig.dias || []).includes(f),
                 ).length > 0 && (
-                    <div className="mt-2 text-xs font-bold text-red-600">
-                      Folgas Extras:{" "}
-                      {
-                        (editingVig.folgasGeradas || []).filter(
-                          (f: number) => !(editingVig.dias || []).includes(f),
-                        ).length
-                      }
-                    </div>
-                  )}
+                  <div className="mt-2 text-xs font-bold text-red-600">
+                    Folgas Extras:{" "}
+                    {
+                      (editingVig.folgasGeradas || []).filter(
+                        (f: number) => !(editingVig.dias || []).includes(f),
+                      ).length
+                    }
+                  </div>
+                )}
               </div>
               <div className="p-4 space-y-4">
                 <div>
@@ -354,23 +353,37 @@ const LancadorViewComponent: React.FC<LancadorViewProps> = (props) => {
                   </label>
                   <div className="flex items-center gap-2">
                     <input
-                      type="time"
-                      className="flex-1 border border-slate-600 bg-slate-700 text-white rounded p-1.5 text-xs text-center font-bold"
+                      type="text"
+                      maxLength={5}
+                      placeholder="00:00"
+                      className="flex-1 border border-slate-600 bg-slate-700 text-white rounded p-1.5 text-xs text-center font-bold tracking-widest"
                       value={timeInputs.hStart}
-                      onChange={(e) =>
-                        setTimeInputs({ ...timeInputs, hStart: e.target.value })
-                      }
+                      onChange={(e) => {
+                        let v = e.target.value.replace(/\D/g, "");
+                        if (v.length > 4) v = v.slice(0, 4);
+                        if (v.length >= 3) {
+                          v = `${v.slice(0, 2)}:${v.slice(2)}`;
+                        }
+                        setTimeInputs({ ...timeInputs, hStart: v });
+                      }}
                     />
                     <span className="text-[10px] font-bold text-slate-400">
                       às
                     </span>
                     <input
-                      type="time"
-                      className="flex-1 border border-slate-600 bg-slate-700 text-white rounded p-1.5 text-xs text-center font-bold"
+                      type="text"
+                      maxLength={5}
+                      placeholder="00:00"
+                      className="flex-1 border border-slate-600 bg-slate-700 text-white rounded p-1.5 text-xs text-center font-bold tracking-widest"
                       value={timeInputs.hEnd}
-                      onChange={(e) =>
-                        setTimeInputs({ ...timeInputs, hEnd: e.target.value })
-                      }
+                      onChange={(e) => {
+                        let v = e.target.value.replace(/\D/g, "");
+                        if (v.length > 4) v = v.slice(0, 4);
+                        if (v.length >= 3) {
+                          v = `${v.slice(0, 2)}:${v.slice(2)}`;
+                        }
+                        setTimeInputs({ ...timeInputs, hEnd: v });
+                      }}
                     />
                   </div>
                 </div>
@@ -380,12 +393,19 @@ const LancadorViewComponent: React.FC<LancadorViewProps> = (props) => {
                   </label>
                   <div className="flex items-center gap-2">
                     <input
-                      type="time"
-                      className="flex-1 border border-slate-600 bg-slate-700 text-white rounded p-1.5 text-xs text-center font-bold"
+                      type="text"
+                      maxLength={5}
+                      placeholder="00:00"
+                      className="flex-1 border border-slate-600 bg-slate-700 text-white rounded p-1.5 text-xs text-center font-bold tracking-widest"
                       value={timeInputs.rStart}
-                      onChange={(e) =>
-                        setTimeInputs({ ...timeInputs, rStart: e.target.value })
-                      }
+                      onChange={(e) => {
+                        let v = e.target.value.replace(/\D/g, "");
+                        if (v.length > 4) v = v.slice(0, 4);
+                        if (v.length >= 3) {
+                          v = `${v.slice(0, 2)}:${v.slice(2)}`;
+                        }
+                        setTimeInputs({ ...timeInputs, rStart: v });
+                      }}
                     />
                   </div>
                 </div>
@@ -415,37 +435,41 @@ const LancadorViewComponent: React.FC<LancadorViewProps> = (props) => {
                   <div className="flex bg-slate-900 rounded-lg p-1 gap-1">
                     <button
                       onClick={() => setEditorMode("days")}
-                      className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${editorMode === "days"
-                        ? "bg-slate-700 text-white shadow-sm"
-                        : "text-slate-500 hover:text-slate-300"
-                        }`}
+                      className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${
+                        editorMode === "days"
+                          ? "bg-slate-700 text-white shadow-sm"
+                          : "text-slate-500 hover:text-slate-300"
+                      }`}
                     >
                       📅 DIAS
                     </button>
                     <button
                       onClick={() => setEditorMode("vacation")}
-                      className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${editorMode === "vacation"
-                        ? "bg-amber-100 text-amber-800 shadow-sm"
-                        : "text-slate-500 hover:text-slate-700"
-                        }`}
+                      className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${
+                        editorMode === "vacation"
+                          ? "bg-amber-100 text-amber-800 shadow-sm"
+                          : "text-slate-500 hover:text-slate-700"
+                      }`}
                     >
                       🏖️ FÉRIAS
                     </button>
                     <button
                       onClick={() => setEditorMode("falta")}
-                      className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${editorMode === "falta"
-                        ? "bg-red-600 text-white shadow-sm"
-                        : "text-slate-500 hover:text-slate-300"
-                        }`}
+                      className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${
+                        editorMode === "falta"
+                          ? "bg-red-600 text-white shadow-sm"
+                          : "text-slate-500 hover:text-slate-300"
+                      }`}
                     >
                       ❌ FALTA
                     </button>
                     <button
                       onClick={() => setEditorMode("partial")}
-                      className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${editorMode === "partial"
-                        ? "bg-orange-500 text-white shadow-sm"
-                        : "text-slate-500 hover:text-slate-300"
-                        }`}
+                      className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${
+                        editorMode === "partial"
+                          ? "bg-orange-500 text-white shadow-sm"
+                          : "text-slate-500 hover:text-slate-300"
+                      }`}
                     >
                       ⚠️ PARCIAL
                     </button>
@@ -588,20 +612,27 @@ const LancadorViewComponent: React.FC<LancadorViewProps> = (props) => {
                   const groups: Record<string, Vigilante[]> = {};
 
                   // Sort Logic if needed
-                  const sortedList = [...lancadorList].sort((a, b) => a.nome.localeCompare(b.nome));
+                  const sortedList = [...lancadorList].sort((a, b) =>
+                    a.nome.localeCompare(b.nome),
+                  );
 
                   sortedList.forEach((v) => {
                     // Filter Logic: Shift (Turno)
                     if (expedienteShiftFilter !== "ALL") {
                       // Heuristic: Check preset time if available or default
                       // We used presets prop. Let's try to match v.setor to a preset
-                      const preset = presets.find(p => p.sector === v.setor && p.campus === v.campus);
+                      const preset = presets.find(
+                        (p) => p.sector === v.setor && p.campus === v.campus,
+                      );
                       // If no preset, can't reliably filter by TIME, but maybe by manual convention?
                       // User mentioned ECO 1 = 06:00, ECO 2 = 13:45
                       // Let's assume strict filtering if we can find the time
                       let startHour = 0;
                       if (preset && preset.timeStart) {
-                        startHour = parseInt(preset.timeStart.split(':')[0], 10);
+                        startHour = parseInt(
+                          preset.timeStart.split(":")[0],
+                          10,
+                        );
                       } else {
                         // Fallback: Try to guess from sector name or default
                         // If user typed "06h" in a custom field, we might miss it.
@@ -612,8 +643,10 @@ const LancadorViewComponent: React.FC<LancadorViewProps> = (props) => {
                         startHour = 6; // Default to morning
                       }
 
-                      if (expedienteShiftFilter === "ECO1" && startHour >= 12) return; // Hide afternoon
-                      if (expedienteShiftFilter === "ECO2" && startHour < 12) return; // Hide morning
+                      if (expedienteShiftFilter === "ECO1" && startHour >= 12)
+                        return; // Hide afternoon
+                      if (expedienteShiftFilter === "ECO2" && startHour < 12)
+                        return; // Hide morning
                     }
 
                     let groupKey = v.campus || "OUTROS";
@@ -669,13 +702,15 @@ const LancadorViewComponent: React.FC<LancadorViewProps> = (props) => {
                             groupMembers.map((vig) => {
                               <tr
                                 key={vig.mat}
-                                className={`cursor-pointer transition-colors border-b border-slate-800/50 ${editingVig?.mat === vig.mat
+                                className={`cursor-pointer transition-colors border-b border-slate-800/50 ${
+                                  editingVig?.mat === vig.mat
                                     ? "bg-blue-900/30 border-l-4 border-l-blue-500"
                                     : "hover:bg-slate-800 even:bg-slate-800/30"
-                                  } ${vig.campus === "AFASTADOS" ? "opacity-60 bg-red-900/10" : ""}`}
+                                } ${vig.campus === "AFASTADOS" ? "opacity-60 bg-red-900/10" : ""}`}
                                 onClick={() => {
                                   setEditingVig(vig);
-                                  if (window.innerWidth < 768) setShowMobileEditor(true);
+                                  if (window.innerWidth < 768)
+                                    setShowMobileEditor(true);
                                 }}
                               >
                                 <td className="px-4 py-3 font-bold">
@@ -698,7 +733,7 @@ const LancadorViewComponent: React.FC<LancadorViewProps> = (props) => {
                                 <td className="px-4 py-3 text-slate-400 text-xs font-mono text-center">
                                   {vig.horario}
                                 </td>
-                              </tr>
+                              </tr>;
                             })}
                         </React.Fragment>
                       );
