@@ -42,7 +42,9 @@ export type ShiftType =
   | "12x36_NOTURNO"
   | "EXP_1"
   | "EXP_2"
-  | "EXP_ADM";
+  | "EXP_ADM"
+  | "ECO_1"
+  | "ECO_2";
 
 export const SHIFT_TYPES: Record<
   ShiftType,
@@ -53,6 +55,8 @@ export const SHIFT_TYPES: Record<
   EXP_1: { label: "Expediente 1 (Sáb)", worksSaturday: true },
   EXP_2: { label: "Expediente 2 (Seg-Sex)", worksSaturday: false },
   EXP_ADM: { label: "Exp. Administrativo (Seg-Sex)", worksSaturday: false },
+  ECO_1: { label: "ECO 1 (Manhã/Tarde)", worksSaturday: true },
+  ECO_2: { label: "ECO 2 (Tarde/Noite)", worksSaturday: true },
 };
 
 // DADOS DEZEMBRO 2025 JÁ PROCESSADOS (PRESET)
