@@ -340,7 +340,7 @@ function AppContent() {
   useEffect(() => {
     const loadPresets = async () => {
       try {
-        const saved = await api.loadPresets();
+        let saved = await api.loadPresets();
         const defaults = generateDefaultPresets();
 
         // LOGIC: Force update if saved presets are outdated or missing critical sections
