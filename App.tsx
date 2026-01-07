@@ -1421,7 +1421,10 @@ function AppContent() {
 
           // 2. Strict Sector Visibility (Expediente Logic)
           // If the sector implies a hidden team (e.g. EXP_2 -> ECO 2), hide it.
-          const p = presets.find((pre) => pre.sector === v.setor);
+          // FIX: Case-insensitive match for robust preset lookup
+          const p = presets.find(
+            (pre) => cleanString(pre.sector) === cleanString(v.setor),
+          );
 
           // HEURISTIC: Check Start Time
           // If starts >= 09:00, it's likely Afternoon/Night (ECO 2)
