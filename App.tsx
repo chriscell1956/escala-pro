@@ -85,6 +85,10 @@ const getVisibleTeams = (fiscalTeam: string, isMaster: boolean) => {
   if (t === "C") return ["C", "ECO1", "ECO 1", "ADM"];
   if (t === "D") return ["D", "ECO1", "ECO 1", "ADM"];
 
+  // GENERIC TEAM MAPPINGS
+  if (t.includes("DIURNO")) return [t, "ECO1", "ECO 1", "ADM", "C", "D"];
+  if (t.includes("NOTURNO")) return [t, "ECO2", "ECO 2", "ADM", "A", "B"];
+
   return [t, "ADM"];
 };
 
@@ -1445,10 +1449,22 @@ function AppContent() {
           const isLateStart = startHour >= 9; // 09:00 or later implies ECO 2
 
           // ROBUST FIX: Explicit Rule for Day Fiscals
-          // If I am a Day Fiscal (C, D, ECO1), I CANNOT see Late Slots (>= 09:00)
-          // This bypasses any Preset confusion.
-          const isDayFiscal = ["C", "D", "ECO1", "E1", "ECO 1"].includes(myEq);
-          if (isDayFiscal && isLateStart) return false;
+          // Instead of guessing team names ("C", "D"), checks CAPABILITY.
+          // If I see ECO1 but NOT ECO2, I am strictly Day Shift.
+          const seesEco1 =
+            visibleTeams.includes("ECO1") ||
+            visibleTeams.includes("ECO 1") ||
+            visibleTeams.includes("C") ||
+            visibleTeams.includes("D");
+          const seesEco2 =
+            visibleTeams.includes("ECO2") ||
+            visibleTeams.includes("ECO 2") ||
+            visibleTeams.includes("A") ||
+            visibleTeams.includes("B");
+
+          const isStrictlyDayFiscal = seesEco1 && !seesEco2;
+
+          if (isStrictlyDayFiscal && isLateStart) return false;
 
           if (p) {
             const isExp2 =
