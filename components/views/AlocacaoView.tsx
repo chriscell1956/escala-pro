@@ -672,6 +672,11 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
                             <div className="flex flex-col flex-1">
                               <span className="font-bold text-sm text-slate-100 group-hover:text-blue-300 transition-colors">
                                 {preset.name}
+                                {preset.team && (
+                                  <span className="ml-2 text-[10px] bg-purple-900/50 text-purple-300 border border-purple-700/50 px-1.5 py-0.5 rounded font-mono font-bold">
+                                    EQ: {preset.team}
+                                  </span>
+                                )}
                               </span>
                               <div className="flex flex-wrap gap-2 mt-2">
                                 <span className="text-xs text-slate-300 font-mono bg-slate-800/80 border border-slate-700 px-2 py-1 rounded flex items-center gap-1.5 shadow-sm">
