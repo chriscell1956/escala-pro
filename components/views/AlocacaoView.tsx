@@ -622,20 +622,21 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
                       );
 
                       // Prioritize occupants matching the preset's team
-                      const availableOccupant =
-                        allOccupants.find((v) => {
-                          if (displayedVigilantes.has(v.mat)) return false;
-                          // If preset has a team, strictly require match IF possible
-                          if (preset.team) {
-                            return (
-                              cleanString(v.eq) === cleanString(preset.team)
-                            );
-                          }
-                          return true;
-                        }) ||
-                        allOccupants.find(
-                          (v) => !displayedVigilantes.has(v.mat),
-                        ); // Fallback to any available
+                      const availableOccupant = allOccupants.find((v) => {
+                        if (displayedVigilantes.has(v.mat)) return false;
+
+                        // STRICT MATCHING RULE:
+                        // If the preset belongs to a specific team (e.g. "C"),
+                        // ONLY allow occupants from that team.
+                        // This prevents Team D members from "stealing" the Team C slot
+                        // just because they appear earlier in the list.
+                        if (preset.team) {
+                          return cleanString(v.eq) === cleanString(preset.team);
+                        }
+
+                        // If preset is generic (no team), take the first available
+                        return true;
+                      });
 
                       if (availableOccupant) {
                         displayedVigilantes.add(availableOccupant.mat);
