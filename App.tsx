@@ -560,44 +560,7 @@ function AppContent() {
     return v || null;
   }, [data, user, month]);
 
-  // Load Presets on Init (if Master or Fiscal)
-  useEffect(() => {
-    if (
-      user?.role === "MASTER" ||
-      user?.role === "FISCAL" ||
-      user?.canSimulate
-    ) {
-      api.loadPresets().then((loaded) => {
-        if (loaded && loaded.length > 0) {
-          // CHECK: Does it have the new Expedition structure? (e.g. Laboratório or specific Counts)
-          const hasNewStructure = loaded.some(
-            (s) => s.campus.includes("LABORATÓRIO") && s.type === "EXPEDIENTE",
-          );
-          // ALSO CHECK: Specific Campus I Expedition Count (Block B should be 4, but let's check for existence of one of the new keys)
-          // Actually, just checking for LAB EXPEDIENTE is a strong enough signal that it's the new version.
-
-          if (!hasNewStructure) {
-            console.log(
-              "Old presets detected. Overwriting with new defaults...",
-            );
-            const defaults = generateDefaultPresets();
-            setPresets(defaults);
-            api.savePresets(defaults);
-            showToast(
-              "Presets atualizados para a nova estrutura de Expediente.",
-              "info",
-            );
-          } else {
-            setPresets(loaded);
-          }
-        } else {
-          // Fallback: Generate from config
-          const defaults = generateDefaultPresets();
-          setPresets(defaults);
-        }
-      });
-    }
-  }, [user]);
+  /* MIGRATION LOGIC REMOVED */
 
   // --- Effects ---
 
