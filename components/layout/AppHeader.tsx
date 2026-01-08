@@ -64,6 +64,7 @@ const AppHeaderComponent: React.FC<AppHeaderProps> = (props) => {
     fileInputRef,
     teamsStatus,
     handleSendToSupervision,
+
     isSilentUpdating,
     setIsPresetManagerOpen,
     conflicts = [],
@@ -245,6 +246,7 @@ const AppHeaderComponent: React.FC<AppHeaderProps> = (props) => {
                   </span>
                 </Button>
               )}
+
               {isMaster && (
                 <>
                   <Button

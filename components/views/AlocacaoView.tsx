@@ -611,15 +611,21 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
                         b.sector || "",
                       );
                       if (secCompare !== 0) return secCompare;
-                      return (a.name || "").localeCompare(b.name || "");
+                      const nameCompare = (a.name || "").localeCompare(
+                        b.name || "",
+                      );
+                      if (nameCompare !== 0) return nameCompare;
+                      return (a.id || "").localeCompare(b.id || "");
                     })
                     .map((preset, idx) => {
                       // Quem está neste posto?
-                      const allOccupants = vigilantes.filter(
-                        (v) =>
-                          v.campus === preset.campus &&
-                          v.setor === preset.sector,
-                      );
+                      const allOccupants = vigilantes
+                        .filter(
+                          (v) =>
+                            v.campus === preset.campus &&
+                            v.setor === preset.sector,
+                        )
+                        .sort((a, b) => a.nome.localeCompare(b.nome));
 
                       // Prioritize occupants matching the preset's team
                       const availableOccupant = allOccupants.find((v) => {

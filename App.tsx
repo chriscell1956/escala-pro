@@ -400,8 +400,82 @@ function AppContent() {
     const safeLoad = async () => {
       try {
         console.log("Sistema: Carregando presets...");
-        const s = await api.loadPresets();
-        setPresets(Array.isArray(s) ? s : []);
+        let s = await api.loadPresets();
+        s = Array.isArray(s) ? s : [];
+
+        // Check for Admin Presets (Supervisão / Fiscal)
+        // If "SUPERVISÃO E ADMINISTRAÇÃO" is missing, we check if we need to seed the new structure
+        const hasNewAdminStructure = s.some(
+          (p) => p.campus === "SUPERVISÃO E ADMINISTRAÇÃO",
+        );
+
+        if (!hasNewAdminStructure) {
+          console.log(
+            "Sistema: Estrutura de Supervisão ausente. Criando novos presets...",
+          );
+          const newPresets = generateDefaultPresets(); // Should return only ADMIN_PRESETS now
+          const merged = [...s, ...newPresets];
+
+          await api.savePresets(merged);
+          s = merged;
+          showToast(
+            "Novos postos de Supervisão e Fiscalização criados automaticamente.",
+            "success",
+          );
+        }
+
+        // GLOBAL STABLE SORT to prevent UI jumping
+        s.sort((a, b) => {
+          const c = (a.campus || "").localeCompare(b.campus || "");
+          if (c !== 0) return c;
+          const sec = (a.sector || "").localeCompare(b.sector || "");
+          if (sec !== 0) return sec;
+          const n = (a.name || "").localeCompare(b.name || "");
+          if (n !== 0) return n;
+          return (a.id || "").localeCompare(b.id || "");
+        });
+
+        // 1. CRITICAL FIX: Ensure IDs are Unique
+        const seenIds = new Set();
+        let needsSave = false;
+
+        let processed = s.map((p) => {
+          if (seenIds.has(p.id)) {
+            needsSave = true;
+            return {
+              ...p,
+              id: `${p.id}_${Math.random().toString(36).substr(2, 5)}`,
+            };
+          }
+          seenIds.add(p.id);
+          return p;
+        });
+
+        // 2. SPECIFIC FIX: Detach ALFA 02 from ALFA 01 (Shared Sector "BLOCO A")
+        processed = processed.map((p) => {
+          const nameUpper = (p.name || "").toUpperCase();
+          const sectorUpper = (p.sector || "").toUpperCase();
+
+          // If Preset is ALFA 02 but uses BLOCO A (which belongs to Alfa 1)
+          // We force it to have its own sector "ALFA 02"
+          if (
+            nameUpper.includes("ALFA 02") &&
+            sectorUpper.includes("BLOCO A")
+          ) {
+            needsSave = true;
+            return { ...p, sector: "ALFA 02" };
+          }
+          return p;
+        });
+
+        if (needsSave) {
+          console.warn(
+            "Sistema: Correções de integridade aplicadas aos presets (IDs/Setores).",
+          );
+          await api.savePresets(processed);
+        }
+
+        setPresets(processed);
       } catch (e) {
         console.error("Erro ao carregar presets:", e);
         setPresets([]);
@@ -2918,6 +2992,8 @@ function AppContent() {
   };
 
   const handleUpdateVigilante = (mat: string, changes: Partial<Vigilante>) => {
+    const targetVig = data.find((v) => v.mat === mat); // FIX: Define targetVig
+
     const newData = data.map((v) => {
       if (v.mat === mat) {
         const updated = { ...v, ...changes };
@@ -5473,7 +5549,7 @@ function AppContent() {
 
           if (changedCount > 0) {
             setData(updatedVigData);
-            await api.saveVigilantes(updatedVigData);
+            await api.saveData(month, updatedVigData);
             setToast({
               type: "info",
               msg: `Posto excluído. ${changedCount} vigilante(s) foram desalocados.`,
