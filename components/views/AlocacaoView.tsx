@@ -1,7 +1,16 @@
 import React, { useMemo, useState } from "react";
 import { Vigilante, DepartmentPreset, VisibilityPermission } from "../../types";
 import { cleanString, calculateDaysForTeam } from "../../utils";
-import { Icons, Badge, SearchableSelect, Button, Select, Modal } from "../ui";
+import { TEAM_OPTIONS } from "../../constants";
+import {
+  Icons,
+  Badge,
+  SearchableSelect,
+  Button,
+  Select,
+  Modal,
+  Input,
+} from "../ui";
 import { CalendarGrid } from "../common/CalendarGrid";
 
 interface AlocacaoViewProps {
@@ -266,6 +275,9 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
       faltas: managingVig.faltas,
       vacation: managingVig.vacation,
       saidasAntecipadas: managingVig.saidasAntecipadas,
+      nome: managingVig.nome,
+      eq: managingVig.eq,
+      mat: managingVig.mat, // Allow fixing matricula if needed (be careful with ID mismatch if Logic relies on it, but usually Mat is the key)
     });
     setManagingVig(null);
   };
@@ -880,7 +892,17 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
         <div className="space-y-4">
           {managingVig && (
             <>
-              <div className="flex bg-slate-900 rounded-lg p-1 gap-1">
+              <div className="flex bg-slate-900 rounded-lg p-1 gap-1 mb-4 flex-wrap">
+                <button
+                  onClick={() => setEditorMode("edit_info")}
+                  className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${
+                    editorMode === "edit_info"
+                      ? "bg-blue-600 text-white shadow-sm"
+                      : "text-slate-400 hover:text-slate-300 bg-slate-800 border border-slate-700"
+                  }`}
+                >
+                  📝 DADOS
+                </button>
                 <button
                   onClick={() => setEditorMode("days")}
                   className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${
@@ -924,15 +946,71 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
               </div>
 
               <div className="bg-slate-900 p-2 rounded-lg border border-slate-700">
-                <CalendarGrid
-                  vig={managingVig}
-                  month={month}
-                  editorMode={editorMode}
-                  onToggleDay={localToggleDay}
-                  onToggleVacation={localToggleVacation}
-                  onToggleFalta={localToggleFalta}
-                  onTogglePartial={localTogglePartial}
-                />
+                {editorMode === "edit_info" ? (
+                  <div className="space-y-4 p-2">
+                    <div>
+                      <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">
+                        Nome do Vigilante
+                      </label>
+                      <Input
+                        value={managingVig.nome}
+                        onChange={(e) =>
+                          setManagingVig({
+                            ...managingVig,
+                            nome: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">
+                        Matrícula
+                      </label>
+                      <Input
+                        value={managingVig.mat}
+                        onChange={(e) =>
+                          setManagingVig({
+                            ...managingVig,
+                            mat: e.target.value,
+                          })
+                        }
+                        className="font-mono text-yellow-300"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">
+                        Equipe (Afeta os dias de trabalho)
+                      </label>
+                      <div className="flex flex-wrap gap-2">
+                        {TEAM_OPTIONS.map((t) => (
+                          <button
+                            key={t}
+                            onClick={() =>
+                              setManagingVig({ ...managingVig, eq: t })
+                            }
+                            className={`px-3 py-2 rounded text-xs font-bold border transition-all ${
+                              managingVig.eq === t
+                                ? "bg-brand-600 text-white border-brand-500 shadow-md transform scale-105"
+                                : "bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700"
+                            }`}
+                          >
+                            {t}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <CalendarGrid
+                    vig={managingVig}
+                    month={month}
+                    editorMode={editorMode}
+                    onToggleDay={localToggleDay}
+                    onToggleVacation={localToggleVacation}
+                    onToggleFalta={localToggleFalta}
+                    onTogglePartial={localTogglePartial}
+                  />
+                )}
               </div>
 
               <div className="flex gap-2 justify-end pt-2">

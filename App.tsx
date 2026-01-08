@@ -4469,7 +4469,7 @@ function AppContent() {
               Equipe Inicial:
             </label>
             <div className="flex gap-2">
-              {TEAM_OPTIONS.filter((t) => t !== "ADM").map((t) => (
+              {TEAM_OPTIONS.map((t) => (
                 <button
                   key={t}
                   onClick={() => setNewVigForm({ ...newVigForm, eq: t })}
