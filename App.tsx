@@ -400,7 +400,7 @@ function AppContent() {
     const safeLoad = async () => {
       try {
         console.log("Sistema: Carregando presets...");
-        const s = await api.getPresets();
+        const s = await api.loadPresets();
         setPresets(Array.isArray(s) ? s : []);
       } catch (e) {
         console.error("Erro ao carregar presets:", e);
