@@ -281,7 +281,11 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
                   <span className="font-bold text-slate-200">
                     {preset.name}
                   </span>
-                  {/* Badge removed as requested by user to clean up UI (was showing N/A) */}
+                  {preset.team && (
+                    <span className="text-[10px] bg-purple-900/50 text-purple-300 border border-purple-700/50 px-1.5 py-0.5 rounded font-mono font-bold">
+                      EQ: {preset.team}
+                    </span>
+                  )}
                 </div>
                 <div className="text-xs text-slate-400 grid grid-cols-2 gap-x-4 gap-y-1">
                   <span>📍 {preset.campus}</span>
