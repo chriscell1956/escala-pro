@@ -605,9 +605,21 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
                           v.setor === preset.sector,
                       );
 
-                      const availableOccupant = allOccupants.find(
-                        (v) => !displayedVigilantes.has(v.mat),
-                      );
+                      // Prioritize occupants matching the preset's team
+                      const availableOccupant =
+                        allOccupants.find((v) => {
+                          if (displayedVigilantes.has(v.mat)) return false;
+                          // If preset has a team, strictly require match IF possible
+                          if (preset.team) {
+                            return (
+                              cleanString(v.eq) === cleanString(preset.team)
+                            );
+                          }
+                          return true;
+                        }) ||
+                        allOccupants.find(
+                          (v) => !displayedVigilantes.has(v.mat),
+                        ); // Fallback to any available
 
                       if (availableOccupant) {
                         displayedVigilantes.add(availableOccupant.mat);
