@@ -451,21 +451,65 @@ function AppContent() {
           return p;
         });
 
-        // 2. SPECIFIC FIX: Detach ALFA 02 from ALFA 01 (Shared Sector "BLOCO A")
-        processed = processed.map((p) => {
-          const nameUpper = (p.name || "").toUpperCase();
-          const sectorUpper = (p.sector || "").toUpperCase();
+        // 2. BROAD FIX: Detach ANY preset that seems to share a sector incorrectly
+        // "I copied sectors... now CFTV mixes with Alfa 1"
+        // Logic: If multiple presets share a sector, but their Names are very different, Split them.
 
-          // If Preset is ALFA 02 but uses BLOCO A (which belongs to Alfa 1)
-          // We force it to have its own sector "ALFA 02"
-          if (
-            nameUpper.includes("ALFA 02") &&
-            sectorUpper.includes("BLOCO A")
-          ) {
-            needsSave = true;
-            return { ...p, sector: "ALFA 02" };
+        // Group by Sector
+        const bySector: Record<string, typeof processed> = {};
+        processed.forEach((p) => {
+          const sKey = (p.sector || "UNKNOWN").toUpperCase();
+          if (!bySector[sKey]) bySector[sKey] = [];
+          bySector[sKey].push(p);
+        });
+
+        Object.entries(bySector).forEach(([secKey, group]) => {
+          // If group has mixed content (e.g. "Guarita" and "CFTV" and "Ronda")
+          // We check if "Name" divergence is high.
+          // Heuristic: If name doesn't include the Sector String (approx),
+          // and there are multiple *different* names in this group.
+
+          if (group.length > 1) {
+            const names = new Set(group.map((p) => p.name));
+            if (names.size > 1) {
+              // Potential Conflict.
+              // E.g. Sector="BLOCO A". Names=["Alfa 1 (Guarita)", "Alfa 2 (Tesouraria)", "CFTV"]
+              // We will force-reset Sector to match Name for distinct items.
+              // Except maybe for Diurno/Noturno variations.
+
+              group.forEach((p) => {
+                // Check if this specific preset seems to be the "owner" of the sector?
+                // Simplify: Just set Sector = Name (This creates 1 line per Preset Header).
+                // User wants "Separation".
+
+                // To keep Diurno/Noturno grouped, we strip shift keywords.
+                // "CFTV - Diurno" -> Base "CFTV"
+                // "CFTV - Noturno" -> Base "CFTV"
+                // If Base Names differ, we split.
+
+                const clean = (str: string) =>
+                  str
+                    .toUpperCase()
+                    .replace(/\s*-\s*DIURNO/g, "")
+                    .replace(/\s*-\s*NOTURNO/g, "")
+                    .replace(/\s*12X36/g, "")
+                    .trim();
+
+                const baseName = clean(p.name);
+                const currentSector = (p.sector || "").toUpperCase();
+
+                // If the Base Name is DIFFERENT from the Current Sector (fuzzy check)
+                // AND causes conflict with others?
+                // Let's just ENFORCE Sector = Base Name for everyone in a "Generic" sector like BLOCO A.
+
+                // Filter "Safe" sectors (like 'SUPERVISÃO')? No, fix all.
+                if (clean(p.sector) !== baseName) {
+                  p.sector = baseName;
+                  needsSave = true;
+                }
+              });
+            }
           }
-          return p;
         });
 
         if (needsSave) {

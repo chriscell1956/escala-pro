@@ -70,7 +70,7 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
     // Pre-fill form with existing data
     setName(preset.name + " (Cópia)");
     setCampus(preset.campus);
-    setSector(preset.sector);
+    setSector(preset.sector + " (Cópia)");
     setShiftType((preset.type as ShiftType) || "12x36_DIURNO");
     setTeam((preset.team as string) || "");
     setHStart(preset.timeStart);
