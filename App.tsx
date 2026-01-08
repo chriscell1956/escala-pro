@@ -3561,9 +3561,6 @@ function AppContent() {
             <h3 className="text-brand-500 font-bold text-sm tracking-[0.2em] uppercase">
               Gestão de Escalas
             </h3>
-            <div className="mt-2 text-[10px] text-emerald-400 font-mono bg-emerald-900/30 border border-emerald-800 rounded-full px-3 py-0.5 inline-block">
-              v5.0 - CLOUD SAFE ✅
-            </div>
           </div>
           <form onSubmit={handleLogin} className="space-y-5">
             <div className="space-y-1">
