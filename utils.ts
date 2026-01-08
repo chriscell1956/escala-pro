@@ -33,7 +33,7 @@ export const calculateDaysForTeam = (
   const daysInMonth = getDaysInMonth(period);
   const days: number[] = [];
 
-  const t = cleanString(team);
+  const t = cleanString(team).replace(/\s/g, "");
 
   // Regras de equipe especiais (ECO1, ECO2, ADM)
   if (t === "ECO1" || t === "E1") {
