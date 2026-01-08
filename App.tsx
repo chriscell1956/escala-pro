@@ -5427,6 +5427,66 @@ function AppContent() {
         presets={presets}
         setPresets={setPresets}
         onUpdatePreset={handleUpdatePreset}
+        onDeletePreset={async (id) => {
+          const target = presets.find((p) => p.id === id);
+          if (!target) return;
+
+          // 1. Remove Preset
+          const newPresets = presets.filter((p) => p.id !== id);
+          setPresets(newPresets);
+          await api.savePresets(newPresets);
+
+          // 2. Check for Orphaned Vigilantes
+          // If a vigilante was in this Campus/Sector, and NO VALID PRESET remains for them, unassign.
+          const updatedVigData = data.map((v) => {
+            const isTarget =
+              v.campus === target.campus && v.setor === target.sector;
+            if (!isTarget) return v;
+
+            // Does another valid preset exist for this vigilante?
+            const stillHasSpot = newPresets.some((p) => {
+              if (p.campus !== v.campus || p.sector !== v.setor) return false;
+              // Strict Team Check (if P has team, V must match)
+              if (p.team) {
+                return cleanString(p.team) === cleanString(v.eq);
+              }
+              return true; // Generic preset accepts anyone
+            });
+
+            if (!stillHasSpot) {
+              // Unassign
+              return {
+                ...v,
+                campus: "SEM POSTO",
+                setor: "AGUARDANDO",
+                horario: "", // Clear details
+                refeicao: "",
+              };
+            }
+            return v;
+          });
+
+          // Check if any vigilante was actually changed
+          const changedCount = updatedVigData.filter(
+            (v, i) => v !== data[i],
+          ).length;
+
+          if (changedCount > 0) {
+            setData(updatedVigData);
+            await api.saveVigilantes(updatedVigData);
+            setToast({
+              type: "info",
+              msg: `Posto excluído. ${changedCount} vigilante(s) foram desalocados.`,
+            });
+            setTimeout(() => setToast(null), 4000);
+          } else {
+            setToast({
+              type: "success",
+              msg: "Posto excluído com sucesso.",
+            });
+            setTimeout(() => setToast(null), 3000);
+          }
+        }}
       />
 
       {/* Toast Container */}

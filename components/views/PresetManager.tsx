@@ -11,6 +11,7 @@ interface PresetManagerProps {
   presets: DepartmentPreset[];
   setPresets: (presets: DepartmentPreset[]) => void;
   onUpdatePreset?: (id: string, updates: Partial<DepartmentPreset>) => void;
+  onDeletePreset?: (id: string) => void;
 }
 
 export const PresetManager: React.FC<PresetManagerProps> = ({
@@ -19,6 +20,7 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
   presets,
   setPresets,
   onUpdatePreset,
+  onDeletePreset,
 }) => {
   const [editingPreset, setEditingPreset] = useState<DepartmentPreset | null>(
     null,
@@ -83,6 +85,14 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
 
   const handleDelete = async (id: string) => {
     if (!confirm("Tem certeza que deseja excluir este posto?")) return;
+
+    // Hand off to parent if provided (Centralized Logic)
+    if (onDeletePreset) {
+      onDeletePreset(id);
+      return;
+    }
+
+    // Legacy Local Logic
     const newPresets = presets.filter((p) => p.id !== id);
     setPresets(newPresets);
     await api.savePresets(newPresets);
