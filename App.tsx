@@ -462,120 +462,12 @@ function AppContent() {
   }, [data]);
 
   // FORCE REPAIR EFFECT: Specifically targets broken presets reported by user
+  // FORCE REPAIR EFFECT DISABLED (Legacy auto-fix removed to allow manual control)
+  /*
   useEffect(() => {
-    if (presets.length === 0) return;
-
-    let hasChanges = false;
-    let newPresets = [...presets];
-
-    // 1. GARBAGE COLLECTION & DEDUPLICATION
-    // Remove entries with "undefined" times or known bad legacy names
-    const cleanedPresets = newPresets.filter((p) => {
-      const isGarbage =
-        p.horario?.includes("undefined") ||
-        p.timeStart === "undefined" ||
-        p.name === "Bloco B / Alfa 06 / Alfa 07"; // Legacy trash reported by user
-      return !isGarbage;
-    });
-
-    if (cleanedPresets.length !== newPresets.length) {
-      console.log(
-        `Sistema: Removidos ${newPresets.length - cleanedPresets.length} presets lixo.`,
-      );
-      newPresets = cleanedPresets;
-      hasChanges = true;
-    }
-
-    // Deduplicate "Alfa 07 (C.A.)" - Keep only the valid one matches EXPEDIENTE
-    const alfa07Count = newPresets.filter(
-      (p) => p.name === "Alfa 07 (C.A.)",
-    ).length;
-    if (alfa07Count > 1) {
-      console.log("Sistema: Deduping Alfa 07...");
-      const keepIdx = newPresets.findIndex(
-        (p) =>
-          p.name === "Alfa 07 (C.A.)" &&
-          p.type === "EXPEDIENTE" &&
-          !p.horario?.includes("undefined"),
-      );
-      if (keepIdx > -1) {
-        newPresets = newPresets.filter(
-          (p, i) => i === keepIdx || p.name !== "Alfa 07 (C.A.)",
-        );
-        hasChanges = true;
-      }
-    }
-
-    // 2. Target Problematic Preset (Fix existing if needed)
-    const targetName = "Alfa 07 (C.A.)";
-    const brokenPresetIndex = newPresets.findIndex(
-      (p) => p.name === targetName || p.name.includes("Alfa 07"),
-    );
-
-    if (brokenPresetIndex > -1) {
-      const brokenPreset = newPresets[brokenPresetIndex];
-      // Check validation conditions
-      const isWrongType = brokenPreset.type !== "EXPEDIENTE";
-      const isWrongTime = brokenPreset.timeStart !== "09:45";
-      const isWrongMeal = brokenPreset.mealStart !== "13:00";
-
-      if (isWrongType || isWrongTime || isWrongMeal) {
-        console.log("Sistema: Reparo FORÇADO do Alfa 07 iniciado.");
-        const fixedPreset = {
-          ...brokenPreset,
-          name: "Alfa 07 (C.A.)",
-          campus: "CAMPUS I - EXPEDIENTE C.A.",
-          type: "EXPEDIENTE",
-          horario: "09h45 às 20h00", // Standardized display format
-          refeicao: "13h00 às 14h15",
-          mealStart: "13:00",
-          mealEnd: "14:15",
-          timeStart: "09:45",
-          timeEnd: "20:00",
-        };
-        newPresets[brokenPresetIndex] = fixedPreset;
-        setPresets(newPresets);
-        api.savePresets(newPresets);
-        hasChanges = true;
-
-        // 2. Cascade to Vigilantes IMMEDIATELY
-        // We use the dataRef to ensure we have the latest data even inside this effect
-        // (Assuming dataRef usage is pattern here, or we use 'data' from closure if 'data' is in dependency array - adding it now)
-        const currentData = data; // Using state from closure, ensure dependency
-        const updatedData = currentData.map((v) => {
-          if (v.setor === targetName || v.setor.includes("Alfa 07")) {
-            // Verify if vig needs update
-            if (
-              v.horario !== fixedPreset.horario ||
-              v.refeicao !== fixedPreset.refeicao
-            ) {
-              return {
-                ...v,
-                setor: fixedPreset.name,
-                campus: fixedPreset.campus,
-                horario: fixedPreset.horario,
-                refeicao: fixedPreset.refeicao,
-                manualLock: true,
-                status: "MANUAL_OK",
-              };
-            }
-          }
-          return v;
-        });
-
-        if (JSON.stringify(updatedData) !== JSON.stringify(currentData)) {
-          setData(updatedData);
-          api.saveData(updatedData); // Direct API save to ensure persistence
-          showToast(
-            "Sincronização Forçada: Alfa 07 (Posto + Vigilantes) atualizados.",
-            "success",
-          );
-        } else {
-          showToast("Posto 'Alfa 07' corrigido.", "success");
-        }
-      }
-    }
+    // ... code removed ...
   }, [presets, data]);
+  */
 
   // --- DERIVED PERMISSIONS & HELPERS ---
   const isMaster = user?.role === "MASTER";
