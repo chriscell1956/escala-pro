@@ -396,70 +396,34 @@ function AppContent() {
     // loadPresets();
     // loadPresets();
     // loadPresets();
+    // --- STANDARD LOAD (NO WIPING) ---
     const safeLoad = async () => {
       try {
-        // --- WIPE PRESETS V5 (FINAL REAL - RE-PUSH) ---
-        const WIPE_KEY = "WIPE_PRESETS_V5";
-        if (!localStorage.getItem(WIPE_KEY)) {
-          console.log("Sistema: Efetuando ZERAMENTO PRESETS (V5).");
-
-          // Create ONLY the Test Preset again, or just empty?
-          // User said "Zera cria um precedente só de teste". I'll keep the test one.
-          const testPreset = {
-            id: "POSTO-TESTE-V5",
-            name: "Posto de Teste V5 (Novo)",
-            campus: "CAMPUS I",
-            sector: "Teste de Criação",
-            type: "ECO_1",
-            horario: "07h00 às 19h00",
-            refeicao: "12h00 às 13h00",
-            timeStart: "07:00",
-            timeEnd: "19:00",
-            mealStart: "12:00",
-            mealEnd: "13:00",
-          };
-          const cleanState = [testPreset as any];
-          await api.savePresets(cleanState);
-          setPresets(cleanState);
-
-          localStorage.setItem(WIPE_KEY, "true");
-          showToast("Sistema Zerado (V5)! Lista limpa.", "success");
-          return;
-        }
-
+        console.log("Sistema: Carregando presets...");
         const s = await api.getPresets();
         setPresets(Array.isArray(s) ? s : []);
       } catch (e) {
+        console.error("Erro ao carregar presets:", e);
         setPresets([]);
       }
     };
     safeLoad();
   }, []);
 
-  // --- WIPE SCHEDULE V5 (Assignments) ---
+  // --- STANDARD LOAD SCHEDULE (NO WIPING) ---
+  /*
+  // WIPE REMOVED TO PREVENT DATA LOSS ON NEW SESSIONS
   useEffect(() => {
-    if (data.length === 0) return;
+     // ...
+  }, [data]); 
+  */
 
-    const WIPE_KEY = "WIPE_SCHEDULE_V5";
-    if (!localStorage.getItem(WIPE_KEY)) {
-      console.log("Sistema: Efetuando ZERAMENTO ESCALA (V5).");
-
-      const wipedData = data.map((v) => ({
-        ...v,
-        campus: "SEM POSTO",
-        setor: "AGUARDANDO",
-        horario: "",
-        refeicao: "",
-        status: "PENDENTE",
-        manualLock: false,
-      }));
-
-      setData(wipedData);
-      saveData(wipedData);
-      localStorage.setItem(WIPE_KEY, "true");
-      showToast("Escala Zerada Novamente (V4)", "warning");
-    }
+  // --- WIPE SCHEDULE V5 (DISABLED) ---
+  /*
+  useEffect(() => {
+     // Wipe logic removed to prevent data loss.
   }, [data]);
+  */
 
   // FORCE REPAIR EFFECT: Specifically targets broken presets reported by user
   // FORCE REPAIR EFFECT DISABLED (Legacy auto-fix removed to allow manual control)
