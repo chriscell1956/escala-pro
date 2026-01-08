@@ -30,6 +30,7 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
   const [campus, setCampus] = useState("CAMPUS I");
   const [sector, setSector] = useState("");
   const [shiftType, setShiftType] = useState<ShiftType>("12x36_DIURNO");
+  const [team, setTeam] = useState("");
   const [hStart, setHStart] = useState("");
   const [hEnd, setHEnd] = useState("");
   const [rStart, setRStart] = useState("");
@@ -40,6 +41,7 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
     setCampus("CAMPUS I");
     setSector("");
     setShiftType("12x36_DIURNO");
+    setTeam("");
     setHStart("");
     setHEnd("");
     setRStart("");
@@ -54,10 +56,28 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
     setSector(preset.sector);
     // Default to DIURNO if type is missing (legacy data)
     setShiftType((preset.type as ShiftType) || "12x36_DIURNO");
+    setTeam((preset.team as string) || "");
     setHStart(preset.timeStart);
     setHEnd(preset.timeEnd);
     setRStart(preset.mealStart || "");
     setREnd(preset.mealEnd || "");
+    setIsFormOpen(true);
+  };
+
+  const handleDuplicate = (preset: DepartmentPreset) => {
+    // Pre-fill form with existing data
+    setName(preset.name + " (Cópia)");
+    setCampus(preset.campus);
+    setSector(preset.sector);
+    setShiftType((preset.type as ShiftType) || "12x36_DIURNO");
+    setTeam((preset.team as string) || "");
+    setHStart(preset.timeStart);
+    setHEnd(preset.timeEnd);
+    setRStart(preset.mealStart || "");
+    setREnd(preset.mealEnd || "");
+
+    // Set editingPreset to null so handleSave creates a NEW ID
+    setEditingPreset(null);
     setIsFormOpen(true);
   };
 
@@ -140,6 +160,7 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
         campus,
         sector,
         type: shiftType,
+        team: team || undefined, // Save team if selected
         timeStart: hStart,
         timeEnd: hEnd,
         mealStart: rStart,
@@ -161,7 +182,7 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
       campus,
       sector,
       type: shiftType,
-      team: undefined, // No longer using team for presets
+      team: team || undefined, // Save team if selected
       timeStart: hStart,
       timeEnd: hEnd,
       mealStart: rStart,
@@ -279,6 +300,14 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
                 <Button
                   variant="outline"
                   className="h-8 w-8 !p-0"
+                  onClick={() => handleDuplicate(preset)}
+                  title="Duplicar"
+                >
+                  📑
+                </Button>
+                <Button
+                  variant="outline"
+                  className="h-8 w-8 !p-0"
                   onClick={() => handleEdit(preset)}
                   title="Editar"
                 >
@@ -338,17 +367,13 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
                     >
                       {[
                         "CAMPUS I",
-                        "CAMPUS I - EXPEDIENTE C.A.",
-                        "CAMPUS I - EXPEDIENTE VIG",
+                        "CAMPUS I - EXPEDIENTE",
                         "CAMPUS II",
-                        "CAMPUS II - EXPEDIENTE C.A.",
-                        "CAMPUS II - EXPEDIENTE VIG",
-                        "HU",
-                        "HR",
-                        "AME",
+                        "CAMPUS II - EXPEDIENTE",
+                        "CAMPUS III",
+                        "CHÁCARA",
                         "LABORATÓRIO",
-                        "LABORATÓRIO - EXPEDIENTE",
-                        "OUTROS",
+                        "AMBULATÓRIO",
                         "SUPERVISÃO E ADMINISTRAÇÃO",
                       ].map((c) => (
                         <option key={c} value={c}>
@@ -370,21 +395,44 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-400 mb-1">
-                    Tipo de Turno / Escala
-                  </label>
-                  <Select
-                    value={shiftType}
-                    onChange={(e) => setShiftType(e.target.value as ShiftType)}
-                    className="w-full"
-                  >
-                    {Object.entries(SHIFT_TYPES).map(([key, config]) => (
-                      <option key={key} value={key}>
-                        {config.label}
-                      </option>
-                    ))}
-                  </Select>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-400 mb-1">
+                      Tipo de Turno / Escala
+                    </label>
+                    <Select
+                      value={shiftType}
+                      onChange={(e) =>
+                        setShiftType(e.target.value as ShiftType)
+                      }
+                      className="w-full"
+                    >
+                      {Object.entries(SHIFT_TYPES).map(([key, config]) => (
+                        <option key={key} value={key}>
+                          {config.label}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-400 mb-1">
+                      Equipe Fixa (Opcional)
+                    </label>
+                    <Select
+                      value={team}
+                      onChange={(e) => setTeam(e.target.value)}
+                      className="w-full"
+                    >
+                      <option value="">-- Qualquer --</option>
+                      {["A", "B", "C", "D", "ECO 1", "ECO 2", "ADM"].map(
+                        (t) => (
+                          <option key={t} value={t}>
+                            {t}
+                          </option>
+                        ),
+                      )}
+                    </Select>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-800">

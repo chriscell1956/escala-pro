@@ -106,14 +106,16 @@ export const sectorPresets: Record<
   },
 
   // --- CAMPUS III / CHÁCARA / LAB (12x36) ---
-  "Portaria PO-03 / PO-04": { // User update: PO-04 included
+  "Portaria PO-03 / PO-04": {
+    // User update: PO-04 included
     DIURNO: {
       campus: "CAMPUS III",
       horario: "06h às 18h15",
       refeicao: "10h20 às 11h35",
     },
   },
-  "Portaria PO-03 (Noturno) / Igreja": { // Specific key for Noturno
+  "Portaria PO-03 (Noturno) / Igreja": {
+    // Specific key for Noturno
     NOTURNO: {
       campus: "CAMPUS III",
       horario: "18h às 06h15",
@@ -144,7 +146,8 @@ export const sectorPresets: Record<
       refeicao: "22h00 às 23h00",
     },
   },
-  "Laboratório Lima 01": { // Renamed from Lab. Lima 01
+  "Laboratório Lima 01": {
+    // Renamed from Lab. Lima 01
     DIURNO: {
       campus: "LABORATÓRIO",
       horario: "06h às 18h15",
@@ -162,6 +165,12 @@ export const sectorPresets: Record<
 export const generateDefaultPresets = (): DepartmentPreset[] => {
   const presets: DepartmentPreset[] = [];
 
+  // ==========================================
+  // USUÁRIO SOLICITOU ZERAR TODOS OS PRESETS
+  // PARA RECRIAÇÃO MANUAL DO ZERO.
+  // ==========================================
+
+  /*
   // ==========================================
   // 1. GENERATE 12x36 PRESETS (Based on sectorPresets)
   // ==========================================
@@ -227,7 +236,14 @@ export const generateDefaultPresets = (): DepartmentPreset[] => {
   // ==========================================
 
   const addPresets = (
-    configList: { name: string; count: number; campus: string; horario: string; refeicao: string; type?: "EXPEDIENTE" | "ADM" | "12x36" }[]
+    configList: {
+      name: string;
+      count: number;
+      campus: string;
+      horario: string;
+      refeicao: string;
+      type?: "ECO_1" | "ECO_2" | "EXP_ADM" | "12x36_DIURNO" | "12x36_NOTURNO";
+    }[]
   ) => {
     configList.forEach((cfg) => {
       // Heuristic parsing for time
@@ -239,7 +255,7 @@ export const generateDefaultPresets = (): DepartmentPreset[] => {
         // Format "06h-15h15"
         const p = cfg.horario.split("-");
         const s = p[0].trim().replace("h", ":00");
-        // handle "(Sex...)" 
+        // handle "(Sex...)"
         const e = p[1].split("(")[0].trim().replace("h", ":");
         start = s.includes(":") ? s : s + ":00";
         end = e.includes(":") ? e : e + ":00";
@@ -251,13 +267,27 @@ export const generateDefaultPresets = (): DepartmentPreset[] => {
         }
       }
 
+      // INFER TYPE BASED ON SATURDAY
+      let inferredType = cfg.type;
+      if (!inferredType) {
+        const h = cfg.horario.toLowerCase();
+        if (h.includes("sáb") || h.includes("sab")) {
+          inferredType = "ECO_1";
+        } else {
+          inferredType = "ECO_2";
+        }
+      }
+
       for (let i = 0; i < cfg.count; i++) {
         presets.push({
-          id: `${cfg.campus.replace(/\s+/g, "-")}-${cfg.name.replace(/\s+/g, "-")}-${i + 1}`,
+          id: `${cfg.campus.replace(/\s+/g, "-")}-${cfg.name.replace(
+            /\s+/g,
+            "-"
+          )}-${i + 1}`,
           name: cfg.name,
           campus: cfg.campus,
           sector: cfg.name,
-          type: cfg.type || "EXPEDIENTE",
+          type: inferredType as any, // Cast to avoid TS issues during transition
           horario: cfg.horario,
           refeicao: cfg.refeicao,
           timeStart: start,
@@ -392,9 +422,10 @@ export const generateDefaultPresets = (): DepartmentPreset[] => {
     },
   ];
 
-  addPresets(campus1Exp);
-  addPresets(campus2Exp);
-  addPresets(labs);
+  // addPresets(campus1Exp);
+  // addPresets(campus2Exp);
+  // addPresets(labs);
+  */
 
   return presets;
 };

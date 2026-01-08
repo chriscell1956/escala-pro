@@ -70,6 +70,14 @@ export interface User {
   canPrint?: boolean;
   canViewLogs?: boolean;
   canSimulate?: boolean; // Permite entrar no modo simulação e publicar
+  canViewCFTV?: boolean;
+  permissions?: VisibilityPermission[];
+}
+
+export interface VisibilityPermission {
+  team: string; // "A", "B", "C", "D", "ECO 1", "ECO 2", "ADM"
+  canView: boolean;
+  canEdit: boolean;
 }
 
 export interface AuthResponse {

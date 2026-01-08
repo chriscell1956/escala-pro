@@ -315,6 +315,7 @@ function AppContent() {
     canPrint: false,
     canSimulate: false,
     canViewCFTV: false,
+    permissions: [] as { team: string; canView: boolean; canEdit: boolean }[],
   });
 
   // Password Modal State
@@ -344,162 +345,121 @@ function AppContent() {
   useEffect(() => {
     const loadPresets = async () => {
       try {
-        let saved = await api.loadPresets();
-        const defaults = generateDefaultPresets();
+        // --- ONE-TIME FORCED WIPE & SEED TEST ---
+        // Checks if we already performed the "Wipe V1" requested by user.
+        const WIPE_KEY = "WIPE_PRESETS_V1";
+        const hasWiped = localStorage.getItem(WIPE_KEY);
 
-        // LOGIC: Force update if saved presets are outdated or missing critical sections
-        const isOutdated = saved.some(
-          (s) =>
-            s.campus === "CHÁCARA DA DONA ANA" || // Detected old naming
-            (s.id.includes("EXPEDIENTE") && !s.campus.includes("C.A.")), // Detected old Expediente naming
-        );
-
-        // EXTRA CHECK FOR DUPLICATES (User reported "repetido bloco b alfa")
-        // REMOVED EXTRA CHECK FOR DUPLICATES to prevent overwriting valid multiple slots
-        // const isCorrupted = saved.some(...)
-
-        const missingCritical = defaults.filter(
-          (def) =>
-            !saved.some((s) => s.id === def.id) &&
-            (def.campus.includes("SUPERVISÃO") ||
-              def.campus.includes("EXPEDIENTE")),
-        );
-
-        // SMART REPAIR & MIGRATION LOGIC
-        // This block fixes data inconsistencies (missing meals, old naming) automatically on load.
-
-        let hasChanges = false;
-        let migrationLog: string[] = [];
-
-        // 0. AGGRESSIVE PRE-CLEANUP
-        // Filter out garbage presets before processing
-        let cleanSaved = saved.filter(
-          (p) =>
-            !p.name.includes("Bloco B / Alfa 06 / Alfa 07") && // Known garbage
-            p.timeStart !== "undefined" &&
-            !p.horario?.includes("undefined"),
-        );
-
-        // Deduplicate Alfa 07
-        const alfa07 = cleanSaved.filter((p) => p.name === "Alfa 07 (C.A.)");
-        if (alfa07.length > 1) {
-          cleanSaved = cleanSaved.filter((p) => p.name !== "Alfa 07 (C.A.)");
-          // Keep the best one (Expediente > 12x36)
-          const best = alfa07.find((p) => p.type === "EXPEDIENTE") || alfa07[0];
-          best.type = "EXPEDIENTE"; // Force correct type
-          best.horario = "09h45-20h00";
-          best.refeicao = "13h00-14h15";
-          best.mealStart = "13:00";
-          best.mealEnd = "14:15";
-          best.timeStart = "09:45";
-          best.timeEnd = "20:00";
-          cleanSaved.push(best);
-          hasChanges = true; // Signal reset
-          console.log("Sistema: Deduped Alfa 07 during load.");
-        }
-
-        // If we cleaned something, use the cleaned list
-        if (cleanSaved.length !== saved.length) {
-          saved = cleanSaved;
-          hasChanges = true;
-        }
-
-        const repairedPresets = saved.map((p) => {
-          let updated = { ...p };
-          let changed = false;
-
-          // 1. Fix Naming Migration (ECO 2 -> C.A.)
-          if (updated.name.includes("(ECO 2)")) {
-            updated.name = updated.name.replace("(ECO 2)", "(C.A.)");
-            if (updated.campus.includes("EXPEDIENTE")) {
-              updated.campus = updated.campus.replace(
-                "EXPEDIENTE",
-                "EXPEDIENTE C.A.",
-              );
-            }
-            changed = true;
-            migrationLog.push(`Renomeado: ${p.name} -> ${updated.name}`);
-          }
-          if (updated.name.includes("Controle de Acesso")) {
-            updated.name = updated.name.replace("Controle de Acesso", "C.A.");
-            changed = true;
-          }
-
-          // 2. Fix Missing Data (Intervals) using Defaults
-          // Find matching default by Name (or new name)
-          const def = defaults.find(
-            (d) => d.name === updated.name || d.name === p.name,
-          );
-          if (def) {
-            if (
-              (!updated.refeicao || updated.refeicao === "") &&
-              def.refeicao
-            ) {
-              updated.refeicao = def.refeicao;
-              updated.mealStart = def.mealStart;
-              updated.mealEnd = def.mealEnd;
-              changed = true;
-              migrationLog.push(`Corrigido Intervalo de ${updated.name}`);
-            }
-            // Enforce shift type consistency
-            if (updated.type !== def.type && def.type) {
-              updated.type = def.type;
-              changed = true;
-            }
-          }
-
-          if (changed) {
-            hasChanges = true;
-            return updated;
-          }
-          return p;
-        });
-
-        if (hasChanges) {
+        if (!hasWiped) {
           console.log(
-            "Sistema: Efetuando reparo automático nos presets...",
-            migrationLog,
+            "Sistema: Efetuando zeramento ÚNICO e criando Posto de Exemplo.",
           );
-          setPresets(repairedPresets);
-          api.savePresets(repairedPresets);
 
-          // CASCADE UPDATES TO VIGILANTES
-          // If we renamed sectors, we must update vigilantes assigned to the old names
-          const oldNamesMap = new Map();
-          saved.forEach((old, idx) => {
-            const newP = repairedPresets[idx];
-            if (old.name !== newP.name) {
-              oldNamesMap.set(old.name, newP.name);
-            }
-          });
+          // Pre-seed with ONE example preset as requested
+          const examplePreset = {
+            id: "POSTO-EXEMPLO-01",
+            name: "Posto Exemplo (Pode Apagar)",
+            campus: "CAMPUS I - EXPEDIENTE VIG",
+            sector: "Posto Exemplo (Pode Apagar)",
+            type: "ECO_1",
+            horario: "06h00 às 18h00", // Standard format for autofill test
+            refeicao: "12h00 às 13h00",
+            timeStart: "06:00",
+            timeEnd: "18:00",
+            mealStart: "12:00",
+            mealEnd: "13:00",
+          };
 
-          if (oldNamesMap.size > 0) {
-            const newData = dataRef.current.map((v) => {
-              // Use Ref to get latest data inside effect match?
-              // Actually 'data' from closure is potentially stale?
-              // We will update 'data' state safely.
-              if (oldNamesMap.has(v.setor)) {
-                return { ...v, setor: oldNamesMap.get(v.setor) };
-              }
-              return v;
-            });
-            setData(newData);
-            saveData(newData);
-            showToast(
-              `Sistema atualizado: ${migrationLog.length} correções aplicadas.`,
-              "success",
-            );
-          }
-        } else {
-          setPresets(saved);
+          const cleanState = [examplePreset as any]; // Force correct type mapping if strict
+          await api.savePresets(cleanState);
+          setPresets(cleanState);
+
+          localStorage.setItem(WIPE_KEY, "true");
+          showToast("Sistema Resetado! Posto de Exemplo criado.", "success");
+          return;
         }
+
+        // --- NORMAL RESTORE LOGIC ---
+        const saved = await api.getPresets();
+
+        // If saved is empty (which might be valid now), ensure it's an array
+        const safePresets = Array.isArray(saved) ? saved : [];
+
+        // No more "Auto-Repair" or "Merge Defaults" here, as user wants manual control.
+        // We just trust the DB.
+        setPresets(safePresets);
       } catch (error) {
         console.error("Error loading presets:", error);
-        setPresets(generateDefaultPresets());
+        setPresets([]);
       }
     };
-    loadPresets();
+    // loadPresets();
+    // loadPresets();
+    // loadPresets();
+    const safeLoad = async () => {
+      try {
+        // --- WIPE PRESETS V4 (FINAL REAL) ---
+        const WIPE_KEY = "WIPE_PRESETS_V4";
+        if (!localStorage.getItem(WIPE_KEY)) {
+          console.log("Sistema: Efetuando ZERAMENTO PRESETS (V4).");
+
+          // Create ONLY the Test Preset again, or just empty?
+          // User said "Zera cria um precedente só de teste". I'll keep the test one.
+          const testPreset = {
+            id: "POSTO-TESTE-V4",
+            name: "Posto de Teste V4",
+            campus: "CAMPUS I",
+            sector: "Teste de Criação",
+            type: "ECO_1",
+            horario: "07h00 às 19h00",
+            refeicao: "12h00 às 13h00",
+            timeStart: "07:00",
+            timeEnd: "19:00",
+            mealStart: "12:00",
+            mealEnd: "13:00",
+          };
+          const cleanState = [testPreset as any];
+          await api.savePresets(cleanState);
+          setPresets(cleanState);
+
+          localStorage.setItem(WIPE_KEY, "true");
+          showToast("Sistema Zerado (V4)! Lista limpa.", "success");
+          return;
+        }
+
+        const s = await api.getPresets();
+        setPresets(Array.isArray(s) ? s : []);
+      } catch (e) {
+        setPresets([]);
+      }
+    };
+    safeLoad();
   }, []);
+
+  // --- WIPE SCHEDULE V4 (Assignments) ---
+  useEffect(() => {
+    if (data.length === 0) return;
+
+    const WIPE_KEY = "WIPE_SCHEDULE_V4";
+    if (!localStorage.getItem(WIPE_KEY)) {
+      console.log("Sistema: Efetuando ZERAMENTO ESCALA (V4).");
+
+      const wipedData = data.map((v) => ({
+        ...v,
+        campus: "SEM POSTO",
+        setor: "AGUARDANDO",
+        horario: "",
+        refeicao: "",
+        status: "PENDENTE",
+        manualLock: false,
+      }));
+
+      setData(wipedData);
+      saveData(wipedData);
+      localStorage.setItem(WIPE_KEY, "true");
+      showToast("Escala Zerada Novamente (V4)", "warning");
+    }
+  }, [data]);
 
   // FORCE REPAIR EFFECT: Specifically targets broken presets reported by user
   useEffect(() => {
@@ -1395,6 +1355,21 @@ function AppContent() {
   }, [data, month, filterEq, isFutureMonth]);
 
   const visibleTeamsForFilter = useMemo(() => {
+    // 1. Explicit Permissions
+    if (user?.permissions && user.permissions.length > 0) {
+      const teams = user.permissions
+        .filter((p) => p.canView)
+        .map((p) => cleanString(p.team));
+      // Normalize to ensure compatibility
+      if (teams.includes("ECO1")) teams.push("ECO 1");
+      if (teams.includes("ECO2")) teams.push("ECO 2");
+      if (teams.includes("ECO 1") && !teams.includes("ECO1"))
+        teams.push("ECO1");
+      if (teams.includes("ECO 2") && !teams.includes("ECO2"))
+        teams.push("ECO2");
+      return teams;
+    }
+
     if (user?.role === "FISCAL") {
       const userTeam = currentUserVig ? cleanString(currentUserVig.eq) : "";
       if (!currentUserVig) return [userTeam]; // If fiscal but no current vig data, return just their (empty) team
@@ -1426,11 +1401,28 @@ function AppContent() {
       // Determine Visible Teams (Robust Logic)
       let visibleTeams: string[] = [];
 
-      // FIX: Hardcoded Override for Antônio inside logic
-      if (user.nome && cleanString(user.nome).includes("ANTONIO")) {
-        visibleTeams = ["C", "D", "ECO1", "ECO 1", "ADM"];
+      // 1. Explicit Permissions (Priority)
+      if (user.permissions && user.permissions.length > 0) {
+        visibleTeams = user.permissions
+          .filter((p) => p.canView)
+          .map((p) => {
+            // Normalize for compatibility with existing heuristics
+            if (cleanString(p.team) === "ECO1") return "ECO1";
+            if (cleanString(p.team) === "ECO2") return "ECO2";
+            return cleanString(p.team);
+          });
+
+        // Add variations for ECO teams to ensure matching works
+        if (visibleTeams.includes("ECO1")) visibleTeams.push("ECO 1");
+        if (visibleTeams.includes("ECO2")) visibleTeams.push("ECO 2");
       } else {
-        visibleTeams = getVisibleTeams(myEq, isMaster);
+        // 2. Legacy/Heuristic Logic
+        // FIX: Hardcoded Override for Antônio inside logic
+        if (user.nome && cleanString(user.nome).includes("ANTONIO")) {
+          visibleTeams = ["C", "D", "ECO1", "ECO 1", "ADM"];
+        } else {
+          visibleTeams = getVisibleTeams(myEq, isMaster);
+        }
       }
 
       // If we have no visible teams (and not Antonio), maybe we shouldn't show anything?
@@ -1528,19 +1520,24 @@ function AppContent() {
         // SPECIAL RULE: "EXPEDIENTE" (Generic) defaults to ECO_1 (Day) visibility
         // unless explicitly set to ECO_2.
         if (
-          shiftType === "EXP_1" ||
-          shiftType === "EXP_2" ||
+          (shiftType as string) === "EXP_1" ||
           shiftType === "EXP_ADM" ||
           shiftType === "EXPEDIENTE"
         ) {
           shiftType = "ECO_1";
         }
 
+        if ((shiftType as string) === "EXP_2") {
+          shiftType = "ECO_2";
+        }
+
         // 3. Apply Visibility Rules
         // Rule A: ECO 2 (Night/Afternoon) -> HIDDEN from Strict Day Fiscal
         // This is the new way to hide "Charlie 14 (09:45)": User sets it to ECO 2.
         if (shiftType === "ECO_2") {
-          if (isStrictlyDayFiscal) return false;
+          if (isStrictlyDayFiscal) {
+            return false;
+          }
         }
 
         // Rule B: ECO 1 (Morning) -> HIDDEN from Strict Night Fiscal
@@ -1569,13 +1566,13 @@ function AppContent() {
 
         if (p) {
           const isExp2 =
-            p.type === "EXP_2" ||
+            (p.type as string) === "EXP_2" ||
             p.type === "ECO_2" || // Treat ECO 2 as Exp 2 for this check
             (p.name && p.name.toUpperCase().includes("EXPEDIENTE 2")) ||
             (p.name && p.name.includes("Expediente 2"));
 
           const isExp1 =
-            p.type === "EXP_1" ||
+            (p.type as string) === "EXP_1" ||
             p.type === "ECO_1" || // Treat ECO 1 as Exp 1 for this check
             (p.name && p.name.toUpperCase().includes("EXPEDIENTE 1")) ||
             (!isLateStart && startHour > 0);
@@ -1676,10 +1673,14 @@ function AppContent() {
       // Fiscal só vê EXATAMENTE a sua equipe na tabela principal.
       // Impede ver outros fiscais ou outras equipes.
       if (user?.role === "FISCAL" && currentUserVig) {
-        const myEq = cleanString(currentUserVig.eq);
+        // CORREÇÃO: Usar a lista de equipes visíveis calculada (que respeita Permissões Explícitas)
+        // em vez da lógica hardcoded legada.
         const targetEq = cleanString(v.eq);
-        const visibleTeams = getVisibleTeams(myEq, isMaster);
-        // Se não for da minha equipe, esconde.
+
+        // Use the permission-aware list
+        const visibleTeams = visibleTeamsForFilter.map((t) => cleanString(t));
+
+        // Se a equipe do vigilante não estiver na lista de visíveis, esconde.
         if (!visibleTeams.includes(targetEq)) return false;
       }
 
@@ -1778,6 +1779,7 @@ function AppContent() {
     user,
     isUser,
     currentUserVig,
+    visibleTeamsForFilter,
   ]);
 
   const intervalData = useMemo<{
@@ -2080,7 +2082,9 @@ function AppContent() {
         canViewLogs: false,
         canPrint: false,
         canSimulate: false,
+        canSimulate: false,
         canViewCFTV: false,
+        permissions: [],
       });
       setIsUserMgmtModalOpen(false);
       showToast("Usuário criado com sucesso!");
@@ -2102,7 +2106,9 @@ function AppContent() {
       canViewLogs: !!userToEdit.canViewLogs,
       canPrint: !!userToEdit.canPrint,
       canSimulate: !!userToEdit.canSimulate,
+      canSimulate: !!userToEdit.canSimulate,
       canViewCFTV: !!(userToEdit as { canViewCFTV?: boolean }).canViewCFTV,
+      permissions: userToEdit.permissions || [],
     });
   };
   const cancelEditUser = () => {
@@ -2114,7 +2120,9 @@ function AppContent() {
       canViewLogs: false,
       canPrint: false,
       canSimulate: false,
+      canSimulate: false,
       canViewCFTV: false,
+      permissions: [],
     });
   };
   const handleSaveEditUser = async () => {
@@ -4013,6 +4021,7 @@ function AppContent() {
             )}
             isMaster={isMaster}
             month={month}
+            userPermissions={user?.permissions}
             onUpdatePreset={handleUpdatePreset}
             onCreateVigilante={() => setIsNewVigModalOpen(true)}
             onDeleteVigilante={handleDeleteVigilante}
@@ -5480,6 +5489,8 @@ function AppContent() {
                 Acesso CFTV (Monitoramento)
               </label>
             </div>
+
+            {/* SEÇÃO DE VISIBILIDADE REMOVIDA A PEDIDO DO USUÁRIO (AUTOMÁTICO VIA POSTO) */}
 
             <div className="flex gap-2">
               {editingUser && (

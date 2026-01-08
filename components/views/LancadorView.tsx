@@ -204,7 +204,12 @@ const LancadorViewComponent: React.FC<LancadorViewProps> = (props) => {
       allowedShiftTypes = ["12x36_DIURNO", "5x2_EXPEDIENTE"];
     } else {
       // For E1, E2, Adm, etc.
-      allowedShiftTypes = ["EXP_1", "EXP_2", "EXP_ADM", "5x2_EXPEDIENTE"];
+      allowedShiftTypes = [
+        "ECO_1",
+        "ECO_2",
+        "EXP_ADM",
+        "5x2_EXPEDIENTE" as ShiftType,
+      ]; // Cast legacy if needed
     }
 
     // Use the 'presets' prop which contains the loaded DepartmentPreset objects (with 'type', 'name', etc.)

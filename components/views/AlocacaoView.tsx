@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Vigilante, DepartmentPreset } from "../../types";
+import { Vigilante, DepartmentPreset, VisibilityPermission } from "../../types";
 import { cleanString, calculateDaysForTeam } from "../../utils";
 import { Icons, Badge, SearchableSelect, Button, Select, Modal } from "../ui";
 import { CalendarGrid } from "../common/CalendarGrid";
@@ -20,6 +20,7 @@ interface AlocacaoViewProps {
   ) => void;
   onCreateVigilante?: () => void;
   onDeleteVigilante?: (vig: Vigilante) => void;
+  userPermissions?: VisibilityPermission[];
 }
 
 // Helper to determine compatible teams based on preset type
@@ -55,6 +56,7 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
   onUpdatePreset,
   onCreateVigilante,
   onDeleteVigilante,
+  userPermissions,
 }) => {
   // --- STATE ---
   const [filterTeam, setFilterTeam] = useState<string>("TODAS"); // TODAS | ECO1 | ECO2 | specific team
@@ -82,6 +84,26 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
 
   // Internal "Today" for list status purposes (implicit)
   const today = new Date().getDate();
+
+  // Helper: Check Edit Permission
+  const canEdit = (target: string) => {
+    if (isMaster) return true;
+    if (!userPermissions || userPermissions.length === 0) return true;
+
+    let key = cleanString(target);
+    // Normalize logic matching App.tsx
+    if (key === "ECO1" || key === "E1" || target.includes("DIURNO"))
+      key = "ECO 1";
+    if (key === "ECO2" || key === "E2" || target.includes("NOTURNO"))
+      key = "ECO 2";
+    if (key === "ADM") key = "ADM";
+
+    // Explicit permission check
+    const perm = userPermissions.find(
+      (p) => cleanString(p.team) === cleanString(key),
+    );
+    return !!perm?.canEdit;
+  };
 
   // --- FILTER LOGIC ---
   const filteredVigilantes = useMemo(() => {
@@ -144,6 +166,21 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
       // 1. SUPERVISION RULE: Only Master sees Supervision/Admin presets
       if (campus.includes("SUPERVISÃO") && !isMaster) {
         return;
+      }
+
+      // 1.1 TEAM SPECIFIC PRESET RULE (REQUESTED BY USER)
+      // If the preset has a specific team assigned (e.g., "C"), ONLY users who can see "C" should see this preset.
+      if (p.team) {
+        const requiredTeam = cleanString(p.team);
+        const userCanSee = lancadorVisibleTeams
+          .map(cleanString)
+          .includes(requiredTeam);
+
+        // Special case: Master sees everything (already handled by lancadorVisibleTeams usually containing everything, but let's be safe)
+        // Actually lancadorVisibleTeams for Master is usually ["A","B","C"...].
+        // So if I am Fiscal A, my visible teams are ["A", "ECO2", "ADM"]. I should NOT see a preset for Team C.
+
+        if (!userCanSee) return;
       }
 
       // 2. STRICT TYPE FILTERING (Cross Rule / Regra Cruzada)
@@ -388,11 +425,23 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
               className="bg-slate-800 border-slate-700 text-xs py-1.5 h-8 w-32"
             >
               <option value="TODAS">-- Todas --</option>
-              {lancadorVisibleTeams.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
+              {Array.from(
+                new Set(
+                  lancadorVisibleTeams.map((t) => {
+                    const cleaned = cleanString(t);
+                    // Normalize display to user preference
+                    if (cleaned === "ECO1" || cleaned === "E1") return "ECO 1";
+                    if (cleaned === "ECO2" || cleaned === "E2") return "ECO 2";
+                    return t; // Keep others as is (A, B, C, D, ADM)
+                  }),
+                ),
+              )
+                .sort()
+                .map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
             </Select>
           </div>
         </div>
@@ -694,8 +743,13 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
                                           onClick={() =>
                                             handleOpenSchedule(occ)
                                           }
-                                          className="flex items-center gap-1 bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-md text-[10px] font-bold transition-all shadow-sm"
-                                          title="Gerenciar Escala"
+                                          disabled={!canEdit(occ.eq)}
+                                          className={`flex items-center gap-1 bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-md text-[10px] font-bold transition-all shadow-sm ${!canEdit(occ.eq) ? "opacity-50 cursor-not-allowed" : ""}`}
+                                          title={
+                                            canEdit(occ.eq)
+                                              ? "Gerenciar Escala"
+                                              : "Sem permissão para editar"
+                                          }
                                         >
                                           <Icons.Calendar className="w-3 h-3" />
                                           ESCALA
@@ -704,8 +758,13 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
                                           onClick={() =>
                                             handleUnassign(occ.mat)
                                           }
-                                          className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-900/20 rounded transition-colors"
-                                          title="Desalocar"
+                                          disabled={!canEdit(occ.eq)}
+                                          className={`p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-900/20 rounded transition-colors ${!canEdit(occ.eq) ? "opacity-50 cursor-not-allowed" : ""}`}
+                                          title={
+                                            canEdit(occ.eq)
+                                              ? "Desalocar"
+                                              : "Sem permissão para desalocar"
+                                          }
                                         >
                                           <Icons.X className="w-4 h-4" />
                                         </button>
@@ -773,6 +832,9 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
                                     }
                                     placeholder="+ Escalar..."
                                     className="text-xs"
+                                    disabled={
+                                      !canEdit(preset.type || preset.sector)
+                                    }
                                   />
                                 </div>
                               </div>
@@ -927,15 +989,19 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
                       ""
                     }
                     onChange={(e) => {
-                      const newVal = e.target.value;
+                      let val = e.target.value.replace(/\D/g, "");
+                      if (val.length > 4) val = val.slice(0, 4);
+                      if (val.length >= 3) {
+                        val = `${val.slice(0, 2)}:${val.slice(2)}`;
+                      }
                       const currentEnd =
                         managingPreset.timeEnd ||
                         managingPreset.horario.split(" às ")[1]?.trim() ||
                         "";
                       setManagingPreset({
                         ...managingPreset,
-                        timeStart: newVal,
-                        horario: `${newVal} às ${currentEnd}`,
+                        timeStart: val,
+                        horario: `${val} às ${currentEnd}`,
                       });
                     }}
                     placeholder="06:00"
@@ -954,15 +1020,19 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
                       ""
                     }
                     onChange={(e) => {
-                      const newVal = e.target.value;
+                      let val = e.target.value.replace(/\D/g, "");
+                      if (val.length > 4) val = val.slice(0, 4);
+                      if (val.length >= 3) {
+                        val = `${val.slice(0, 2)}:${val.slice(2)}`;
+                      }
                       const currentStart =
                         managingPreset.timeStart ||
                         managingPreset.horario.split(" às ")[0]?.trim() ||
                         "";
                       setManagingPreset({
                         ...managingPreset,
-                        timeEnd: newVal,
-                        horario: `${currentStart} às ${newVal}`,
+                        timeEnd: val,
+                        horario: `${currentStart} às ${val}`,
                       });
                     }}
                     placeholder="18:00"
@@ -992,7 +1062,11 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
                         : "")
                     }
                     onChange={(e) => {
-                      const newVal = e.target.value;
+                      let val = e.target.value.replace(/\D/g, "");
+                      if (val.length > 4) val = val.slice(0, 4);
+                      if (val.length >= 3) {
+                        val = `${val.slice(0, 2)}:${val.slice(2)}`;
+                      }
                       const currentEnd =
                         managingPreset.mealEnd ||
                         (managingPreset.refeicao
@@ -1000,8 +1074,8 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
                           : "");
                       setManagingPreset({
                         ...managingPreset,
-                        mealStart: newVal,
-                        refeicao: `${newVal} às ${currentEnd}`,
+                        mealStart: val,
+                        refeicao: `${val} às ${currentEnd}`,
                       });
                     }}
                     placeholder="12:00"
@@ -1021,7 +1095,11 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
                         : "")
                     }
                     onChange={(e) => {
-                      const newVal = e.target.value;
+                      let val = e.target.value.replace(/\D/g, "");
+                      if (val.length > 4) val = val.slice(0, 4);
+                      if (val.length >= 3) {
+                        val = `${val.slice(0, 2)}:${val.slice(2)}`;
+                      }
                       const currentStart =
                         managingPreset.mealStart ||
                         (managingPreset.refeicao
@@ -1029,8 +1107,8 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
                           : "");
                       setManagingPreset({
                         ...managingPreset,
-                        mealEnd: newVal,
-                        refeicao: `${currentStart} às ${newVal}`,
+                        mealEnd: val,
+                        refeicao: `${currentStart} às ${val}`,
                       });
                     }}
                     placeholder="13:00"

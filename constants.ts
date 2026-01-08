@@ -10,8 +10,6 @@ export const PEAK_HOURS = {
 
 // Formato YYYYMM para evitar conflitos de ano
 export const BASE_MONTH_OPTIONS = [
-  { value: 202511, label: "NOVEMBRO 2025" },
-  { value: 202512, label: "DEZEMBRO 2025" },
   { value: 202601, label: "JANEIRO 2026" },
   { value: 202602, label: "FEVEREIRO 2026" },
   { value: 202603, label: "MARÇO 2026" },
@@ -40,8 +38,6 @@ export const TEAM_OPTIONS = [
 export type ShiftType =
   | "12x36_DIURNO"
   | "12x36_NOTURNO"
-  | "EXP_1"
-  | "EXP_2"
   | "EXP_ADM"
   | "ECO_1"
   | "ECO_2";
@@ -52,11 +48,9 @@ export const SHIFT_TYPES: Record<
 > = {
   "12x36_DIURNO": { label: "12x36 Diurno", worksSaturday: true },
   "12x36_NOTURNO": { label: "12x36 Noturno", worksSaturday: true },
-  EXP_1: { label: "Expediente 1 (Sáb)", worksSaturday: true },
-  EXP_2: { label: "Expediente 2 (Seg-Sex)", worksSaturday: false },
   EXP_ADM: { label: "Exp. Administrativo (Seg-Sex)", worksSaturday: false },
-  ECO_1: { label: "ECO 1 (Manhã/Tarde)", worksSaturday: true },
-  ECO_2: { label: "ECO 2 (Tarde/Noite)", worksSaturday: true },
+  ECO_1: { label: "ECO 1 (Manhã/Tarde - Sáb)", worksSaturday: true },
+  ECO_2: { label: "ECO 2 (Tarde/Noite - Seg-Sex)", worksSaturday: false },
 };
 
 // DADOS DEZEMBRO 2025 JÁ PROCESSADOS (PRESET)
