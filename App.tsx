@@ -398,16 +398,16 @@ function AppContent() {
     // loadPresets();
     const safeLoad = async () => {
       try {
-        // --- WIPE PRESETS V4 (FINAL REAL) ---
-        const WIPE_KEY = "WIPE_PRESETS_V4";
+        // --- WIPE PRESETS V5 (FINAL REAL - RE-PUSH) ---
+        const WIPE_KEY = "WIPE_PRESETS_V5";
         if (!localStorage.getItem(WIPE_KEY)) {
-          console.log("Sistema: Efetuando ZERAMENTO PRESETS (V4).");
+          console.log("Sistema: Efetuando ZERAMENTO PRESETS (V5).");
 
           // Create ONLY the Test Preset again, or just empty?
           // User said "Zera cria um precedente só de teste". I'll keep the test one.
           const testPreset = {
-            id: "POSTO-TESTE-V4",
-            name: "Posto de Teste V4",
+            id: "POSTO-TESTE-V5",
+            name: "Posto de Teste V5 (Novo)",
             campus: "CAMPUS I",
             sector: "Teste de Criação",
             type: "ECO_1",
@@ -423,7 +423,7 @@ function AppContent() {
           setPresets(cleanState);
 
           localStorage.setItem(WIPE_KEY, "true");
-          showToast("Sistema Zerado (V4)! Lista limpa.", "success");
+          showToast("Sistema Zerado (V5)! Lista limpa.", "success");
           return;
         }
 
@@ -436,13 +436,13 @@ function AppContent() {
     safeLoad();
   }, []);
 
-  // --- WIPE SCHEDULE V4 (Assignments) ---
+  // --- WIPE SCHEDULE V5 (Assignments) ---
   useEffect(() => {
     if (data.length === 0) return;
 
-    const WIPE_KEY = "WIPE_SCHEDULE_V4";
+    const WIPE_KEY = "WIPE_SCHEDULE_V5";
     if (!localStorage.getItem(WIPE_KEY)) {
-      console.log("Sistema: Efetuando ZERAMENTO ESCALA (V4).");
+      console.log("Sistema: Efetuando ZERAMENTO ESCALA (V5).");
 
       const wipedData = data.map((v) => ({
         ...v,
