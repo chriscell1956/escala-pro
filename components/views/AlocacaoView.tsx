@@ -985,9 +985,15 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
                         {TEAM_OPTIONS.map((t) => (
                           <button
                             key={t}
-                            onClick={() =>
-                              setManagingVig({ ...managingVig, eq: t })
-                            }
+                            onClick={() => {
+                              const newDays = calculateDaysForTeam(t, month);
+                              setManagingVig({
+                                ...managingVig,
+                                eq: t,
+                                dias: newDays,
+                                folgasGeradas: [], // Reset generated days off as pattern changed
+                              });
+                            }}
                             className={`px-3 py-2 rounded text-xs font-bold border transition-all ${
                               managingVig.eq === t
                                 ? "bg-brand-600 text-white border-brand-500 shadow-md transform scale-105"
