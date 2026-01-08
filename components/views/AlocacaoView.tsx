@@ -594,9 +594,13 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
               {isExpanded && (
                 <div className="divide-y divide-slate-700/50">
                   {presetsInCampus
-                    .sort((a, b) =>
-                      (a.sector || "").localeCompare(b.sector || ""),
-                    )
+                    .sort((a, b) => {
+                      const secCompare = (a.sector || "").localeCompare(
+                        b.sector || "",
+                      );
+                      if (secCompare !== 0) return secCompare;
+                      return (a.name || "").localeCompare(b.name || "");
+                    })
                     .map((preset, idx) => {
                       // Quem está neste posto?
                       const allOccupants = vigilantes.filter(
