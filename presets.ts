@@ -141,7 +141,60 @@ export const ADMIN_PRESETS: DepartmentPreset[] = [
   },
 ];
 
+import { DECEMBER_2025_PRESET, SHIFT_TYPES, ShiftType } from "./constants";
+import { extractTimeInputs } from "./utils";
+
 export const generateDefaultPresets = (): DepartmentPreset[] => {
-  // Retorna apenas os presets administrativos novos, pois o resto o usuário já tem
-  return [...ADMIN_PRESETS];
+  const presets: DepartmentPreset[] = [...ADMIN_PRESETS];
+  const seenIds = new Set(presets.map((p) => p.id));
+
+  DECEMBER_2025_PRESET.forEach((vig) => {
+    // Skip if no sector/campus
+    if (!vig.setor || !vig.campus) return;
+
+    // Normalização básica de campus
+    let campus = vig.campus;
+    if (campus.includes("EXPEDIENTE")) return; // Skip generated expedient lists if they duplicate
+    // Actually, we want them! But we need to handle them carefully.
+    // The "December" source has them.
+    // Let's just key by Sector + Campus + Horario to be safe.
+
+    // Generate ID
+    const id = `${vig.campus}_${vig.setor}`.replace(/\s+/g, "_").toUpperCase();
+
+    if (seenIds.has(id)) return;
+
+    // Determine Type
+    let type = "12x36_DIURNO"; // Default
+    const h = vig.horario || "";
+    if (h.includes("18h") || h.includes("19h") || h.includes("NOTURNO")) {
+      type = "12x36_NOTURNO";
+    } else if (campus.includes("EXPEDIENTE")) {
+      type = "5x2_EXPEDIENTE"; // Or ECO_1/ECO_2
+      if (h.includes("14h45")) type = "ECO_2";
+      else type = "ECO_1";
+    }
+
+    // Time parsing
+    const time = extractTimeInputs(vig.horario || "");
+    const meal = extractTimeInputs(vig.refeicao || "");
+
+    presets.push({
+      id,
+      name: vig.setor,
+      campus: vig.campus,
+      sector: vig.setor,
+      type,
+      horario: vig.horario || "",
+      refeicao: vig.refeicao || "",
+      timeStart: time.start,
+      timeEnd: time.end,
+      mealStart: meal.start,
+      mealEnd: meal.end,
+      team: vig.eq,
+    });
+    seenIds.add(id);
+  });
+
+  return presets;
 };
