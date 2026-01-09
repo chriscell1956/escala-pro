@@ -257,12 +257,12 @@ export const getVigilanteStatus = (
 export interface AvailabilityStatus {
   available: boolean;
   type:
-    | "EXTRA"
-    | "REMANEJAMENTO"
-    | "OCUPADO"
-    | "FERIAS"
-    | "AFASTADO"
-    | "ACUMULO";
+  | "EXTRA"
+  | "REMANEJAMENTO"
+  | "OCUPADO"
+  | "FERIAS"
+  | "AFASTADO"
+  | "ACUMULO";
   label: string;
   color: string;
 }
@@ -399,7 +399,7 @@ export const analyzeConflicts = (
   const map: Record<string, Record<string, Vigilante[]>> = {};
 
   data.forEach((v) => {
-    if (v.campus === "AFASTADOS") return;
+    if (v.campus === "AFASTADOS" || v.campus === "OUTROS") return;
     if (!map[v.campus]) map[v.campus] = {};
     if (!map[v.campus][v.eq]) map[v.campus][v.eq] = [];
     map[v.campus][v.eq].push(v);
