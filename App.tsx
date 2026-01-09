@@ -1707,6 +1707,15 @@ function AppContent() {
         processedVig.displayStatus = status;
       }
       let groupKey = v.campus;
+
+      // FIX: Merge "AFASTADOS" and "OUTROS" into single folder "RETORNO DE FÉRIAS" as per user request
+      if (
+        groupKey === "AFASTADOS" ||
+        groupKey === "OUTROS" ||
+        groupKey === "RETORNO DE FÉRIAS"
+      ) {
+        groupKey = "RETORNO DE FÉRIAS";
+      }
       // Change: Move "A DEFINIR", "SEM POSTO", "AGUARDANDO" items to "CAMPUS DO EXPEDIENTE"
       const c = (v.campus || "").toUpperCase();
       const s = (v.setor || "").toUpperCase();
