@@ -399,7 +399,7 @@ export const analyzeConflicts = (
   const map: Record<string, Record<string, Vigilante[]>> = {};
 
   data.forEach((v) => {
-    if (v.campus === "AFASTADOS" || v.campus === "OUTROS") return;
+    if (v.campus === "AFASTADOS" || v.campus === "OUTROS" || v.campus === "RETORNO DE FÉRIAS") return;
     if (!map[v.campus]) map[v.campus] = {};
     if (!map[v.campus][v.eq]) map[v.campus][v.eq] = [];
     map[v.campus][v.eq].push(v);

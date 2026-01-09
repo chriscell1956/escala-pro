@@ -999,7 +999,7 @@ function AppContent() {
                   newCampus = original.campus;
                   newSetor = original.setor;
                 } else {
-                  newCampus = "OUTROS";
+                  newCampus = "RETORNO DE FÉRIAS";
                   newSetor = "RETORNO";
                 }
               } else {
@@ -1009,7 +1009,7 @@ function AppContent() {
                   newCampus = original.campus;
                   newSetor = original.setor;
                 } else {
-                  newCampus = "OUTROS";
+                  newCampus = "RETORNO DE FÉRIAS";
                   newSetor = "RETORNO";
                 }
               }
