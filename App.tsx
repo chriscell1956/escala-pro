@@ -1337,12 +1337,6 @@ function AppContent() {
       const userTeam = currentUserVig ? cleanString(currentUserVig.eq) : "";
       if (!currentUserVig) return [userTeam]; // If fiscal but no current vig data, return just their (empty) team
 
-      // FIX: Hardcoded Override for Antônio (User Report)
-      // He is Day Fiscal but might have wrong Team Code in DB. Force Day Visibility.
-      if (user.nome && cleanString(user.nome).includes("ANTONIO")) {
-        return ["C", "D", "ECO1", "ECO 1", "ADM"]; // Strictly Day Teams
-      }
-
       return getVisibleTeams(currentUserVig.eq, isMaster);
     }
     return TEAM_OPTIONS;
@@ -1380,12 +1374,7 @@ function AppContent() {
         if (visibleTeams.includes("ECO2")) visibleTeams.push("ECO 2");
       } else {
         // 2. Legacy/Heuristic Logic
-        // FIX: Hardcoded Override for Antônio inside logic
-        if (user.nome && cleanString(user.nome).includes("ANTONIO")) {
-          visibleTeams = ["C", "D", "ECO1", "ECO 1", "ADM"];
-        } else {
-          visibleTeams = getVisibleTeams(myEq, isMaster);
-        }
+        visibleTeams = getVisibleTeams(myEq, isMaster);
       }
 
       // If we have no visible teams (and not Antonio), maybe we shouldn't show anything?
