@@ -308,23 +308,13 @@ const LancadorViewComponent: React.FC<LancadorViewProps> = (props) => {
                 {(editingVig.folgasGeradas || []).filter(
                   (f: number) => !(editingVig.dias || []).includes(f),
                 ).length > 0 && (
-                    <div className="mt-2 text-xs font-bold text-red-600 flex flex-col gap-1 items-center">
-                      <span>
-                        Folgas Extras:{" "}
-                        {
-                          (editingVig.folgasGeradas || []).filter(
-                            (f: number) => !(editingVig.dias || []).includes(f),
-                          ).length
-                        }
-                      </span>
-                      <button
-                        onClick={() =>
-                          setEditingVig({ ...editingVig, folgasGeradas: [] })
-                        }
-                        className="text-[10px] bg-red-100 hover:bg-red-200 text-red-700 px-2 py-0.5 rounded border border-red-300 transition-colors"
-                      >
-                        Limpar Folgas
-                      </button>
+                    <div className="mt-2 text-xs font-bold text-red-600">
+                      Folgas Extras:{" "}
+                      {
+                        (editingVig.folgasGeradas || []).filter(
+                          (f: number) => !(editingVig.dias || []).includes(f),
+                        ).length
+                      }
                     </div>
                   )}
               </div>
