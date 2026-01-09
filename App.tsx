@@ -1726,7 +1726,8 @@ function AppContent() {
         s.includes("DEFINIR") ||
         s === "AGUARDANDO"
       ) {
-        groupKey = "A DEFINIR / PENDENTES";
+        // FIX: Also merge "Pending/Undefined" into "RETORNO DE FÉRIAS" to unify all unassigned staff
+        groupKey = "RETORNO DE FÉRIAS";
       }
 
       if (!groups[groupKey]) groups[groupKey] = [];
