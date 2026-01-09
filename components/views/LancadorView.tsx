@@ -184,7 +184,12 @@ const LancadorViewComponent: React.FC<LancadorViewProps> = (props) => {
     } else {
       target.vacation = newVacation;
       // Limpa dias de trabalho no período de férias
+      // Limpa dias de trabalho no período de férias
       target.dias = (target.dias || []).filter(
+        (d) => d < newVacation.start || d > newVacation.end,
+      );
+      // FIX: Also clear generated days off (folgas extras) that conflict with vacation
+      target.folgasGeradas = (target.folgasGeradas || []).filter(
         (d) => d < newVacation.start || d > newVacation.end,
       );
     }
@@ -236,11 +241,10 @@ const LancadorViewComponent: React.FC<LancadorViewProps> = (props) => {
   return (
     <div className="flex flex-1 h-full overflow-hidden bg-slate-900 relative print:h-auto print:overflow-visible">
       <div
-        className={`w-full md:w-[380px] bg-slate-800 border-r border-slate-700 flex flex-col shadow-xl z-20 shrink-0 h-full absolute md:relative top-0 left-0 bottom-0 transition-transform duration-300 ease-in-out ${
-          showMobileEditor
-            ? "translate-x-0"
-            : "-translate-x-full md:translate-x-0"
-        } print:hidden`}
+        className={`w-full md:w-[380px] bg-slate-800 border-r border-slate-700 flex flex-col shadow-xl z-20 shrink-0 h-full absolute md:relative top-0 left-0 bottom-0 transition-transform duration-300 ease-in-out ${showMobileEditor
+          ? "translate-x-0"
+          : "-translate-x-full md:translate-x-0"
+          } print:hidden`}
       >
         <div className="bg-slate-950 text-white p-4 text-center border-b border-slate-700 relative shrink-0">
           <button
@@ -304,15 +308,25 @@ const LancadorViewComponent: React.FC<LancadorViewProps> = (props) => {
                 {(editingVig.folgasGeradas || []).filter(
                   (f: number) => !(editingVig.dias || []).includes(f),
                 ).length > 0 && (
-                  <div className="mt-2 text-xs font-bold text-red-600">
-                    Folgas Extras:{" "}
-                    {
-                      (editingVig.folgasGeradas || []).filter(
-                        (f: number) => !(editingVig.dias || []).includes(f),
-                      ).length
-                    }
-                  </div>
-                )}
+                    <div className="mt-2 text-xs font-bold text-red-600 flex flex-col gap-1 items-center">
+                      <span>
+                        Folgas Extras:{" "}
+                        {
+                          (editingVig.folgasGeradas || []).filter(
+                            (f: number) => !(editingVig.dias || []).includes(f),
+                          ).length
+                        }
+                      </span>
+                      <button
+                        onClick={() =>
+                          setEditingVig({ ...editingVig, folgasGeradas: [] })
+                        }
+                        className="text-[10px] bg-red-100 hover:bg-red-200 text-red-700 px-2 py-0.5 rounded border border-red-300 transition-colors"
+                      >
+                        Limpar Folgas
+                      </button>
+                    </div>
+                  )}
               </div>
               <div className="p-4 space-y-4">
                 <div>
@@ -440,41 +454,37 @@ const LancadorViewComponent: React.FC<LancadorViewProps> = (props) => {
                   <div className="flex bg-slate-900 rounded-lg p-1 gap-1">
                     <button
                       onClick={() => setEditorMode("days")}
-                      className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${
-                        editorMode === "days"
-                          ? "bg-slate-700 text-white shadow-sm"
-                          : "text-slate-500 hover:text-slate-300"
-                      }`}
+                      className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${editorMode === "days"
+                        ? "bg-slate-700 text-white shadow-sm"
+                        : "text-slate-500 hover:text-slate-300"
+                        }`}
                     >
                       📅 DIAS
                     </button>
                     <button
                       onClick={() => setEditorMode("vacation")}
-                      className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${
-                        editorMode === "vacation"
-                          ? "bg-amber-100 text-amber-800 shadow-sm"
-                          : "text-slate-500 hover:text-slate-700"
-                      }`}
+                      className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${editorMode === "vacation"
+                        ? "bg-amber-100 text-amber-800 shadow-sm"
+                        : "text-slate-500 hover:text-slate-700"
+                        }`}
                     >
                       🏖️ FÉRIAS
                     </button>
                     <button
                       onClick={() => setEditorMode("falta")}
-                      className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${
-                        editorMode === "falta"
-                          ? "bg-red-600 text-white shadow-sm"
-                          : "text-slate-500 hover:text-slate-300"
-                      }`}
+                      className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${editorMode === "falta"
+                        ? "bg-red-600 text-white shadow-sm"
+                        : "text-slate-500 hover:text-slate-300"
+                        }`}
                     >
                       ❌ FALTA
                     </button>
                     <button
                       onClick={() => setEditorMode("partial")}
-                      className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${
-                        editorMode === "partial"
-                          ? "bg-orange-500 text-white shadow-sm"
-                          : "text-slate-500 hover:text-slate-300"
-                      }`}
+                      className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${editorMode === "partial"
+                        ? "bg-orange-500 text-white shadow-sm"
+                        : "text-slate-500 hover:text-slate-300"
+                        }`}
                     >
                       ⚠️ PARCIAL
                     </button>
@@ -707,11 +717,10 @@ const LancadorViewComponent: React.FC<LancadorViewProps> = (props) => {
                             groupMembers.map((vig) => {
                               <tr
                                 key={vig.mat}
-                                className={`cursor-pointer transition-colors border-b border-slate-800/50 ${
-                                  editingVig?.mat === vig.mat
-                                    ? "bg-blue-900/30 border-l-4 border-l-blue-500"
-                                    : "hover:bg-slate-800 even:bg-slate-800/30"
-                                } ${vig.campus === "AFASTADOS" ? "opacity-60 bg-red-900/10" : ""}`}
+                                className={`cursor-pointer transition-colors border-b border-slate-800/50 ${editingVig?.mat === vig.mat
+                                  ? "bg-blue-900/30 border-l-4 border-l-blue-500"
+                                  : "hover:bg-slate-800 even:bg-slate-800/30"
+                                  } ${vig.campus === "AFASTADOS" ? "opacity-60 bg-red-900/10" : ""}`}
                                 onClick={() => {
                                   setEditingVig(vig);
                                   if (window.innerWidth < 768)
