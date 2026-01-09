@@ -1641,6 +1641,9 @@ function AppContent() {
         return v.campus === "AFASTADOS";
       }
       if (v.campus === "AFASTADOS" && !searchTerm) {
+        // FIX: Master wants to see everyone, including Afastados, when viewing ALL
+        if (isMaster && filterEq === "TODAS") return true;
+
         return (
           filterEq !== "TODAS" && cleanString(v.eq) === cleanString(filterEq)
         );

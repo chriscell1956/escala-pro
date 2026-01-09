@@ -145,13 +145,12 @@ const EscalaViewComponent: React.FC<EscalaViewProps> = (props) => {
                 >
                   <div className="w-1.5 h-6 bg-blue-500 rounded-full shadow-[0_0_10px_rgba(59,130,246,0.5)] print:bg-black"></div>
                   <h3 className="font-bold text-lg text-white print:text-black tracking-tight">
-                    {campus}
+                    {campus === "OUTROS" ? "RETORNO DE FÉRIAS" : campus}
                   </h3>
                   <div className="ml-auto p-1 rounded-full transition-colors">
                     <div
-                      className={`transform transition-transform duration-200 ${
-                        !isExpanded ? "rotate-0" : "rotate-180"
-                      }`}
+                      className={`transform transition-transform duration-200 ${!isExpanded ? "rotate-0" : "rotate-180"
+                        }`}
                     >
                       <span className="text-slate-400 text-xs">▼</span>
                     </div>
