@@ -1726,8 +1726,20 @@ function AppContent() {
         s.includes("DEFINIR") ||
         s === "AGUARDANDO"
       ) {
-        // FIX: Also merge "Pending/Undefined" into "RETORNO DE FÉRIAS" to unify all unassigned staff
-        groupKey = "RETORNO DE FÉRIAS";
+        // FIX: Conditional Smart Grouping
+        // Only move to "RETORNO DE FÉRIAS" if explicit vacation indicators exist.
+        // Otherwise, keep as "A DEFINIR / PENDENTES" to avoid pollution.
+
+        const hasVacationIndicator =
+          (v.obs && v.obs.toUpperCase().includes("FÉRIAS")) ||
+          (v.setor && v.setor.toUpperCase().includes("FÉRIAS")) ||
+          v.vacation;
+
+        if (hasVacationIndicator) {
+          groupKey = "RETORNO DE FÉRIAS";
+        } else {
+          groupKey = "A DEFINIR / PENDENTES";
+        }
       }
 
       if (!groups[groupKey]) groups[groupKey] = [];
