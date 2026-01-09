@@ -50,6 +50,7 @@ import { AppHeader } from "./components/layout/AppHeader";
 import { EscalaView } from "./components/views/EscalaView";
 import { AlocacaoView } from "./components/views/AlocacaoView";
 import { PresetManager } from "./components/views/PresetManager";
+import { VigilanteManager } from "./components/views/VigilanteManager";
 // Nota: CalendarGrid agora é usado internamente pelo LancadorView, não precisa importar aqui
 
 // Define extended type for Interval View
@@ -300,6 +301,9 @@ function AppContent() {
 
   // Help Modal
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
+
+  // Vigilante Manager State (Global Edit)
+  const [isVigilanteManagerOpen, setIsVigilanteManagerOpen] = useState(false);
 
   // --- User Management State ---
   const [isUserMgmtModalOpen, setIsUserMgmtModalOpen] = useState(false);
@@ -726,7 +730,8 @@ function AppContent() {
       isSimulationMode ||
       unsavedChanges ||
       editingVig ||
-      isNewVigModalOpen
+      isNewVigModalOpen ||
+      isVigilanteManagerOpen
     )
       return;
 
@@ -743,6 +748,7 @@ function AppContent() {
     unsavedChanges,
     editingVig,
     isNewVigModalOpen,
+    isVigilanteManagerOpen,
   ]);
 
   const checkSystemStatus = async () => {
@@ -1256,6 +1262,26 @@ function AppContent() {
       showToast("Erro ao salvar na nuvem!", "error");
     }
     return success;
+  };
+
+  // --- VIGILANTE MANAGER CALLBACK ---
+  // --- VIGILANTE MANAGER CALLBACK ---
+  const handleGlobalVigilanteUpdate = async (updatedVig: Vigilante) => {
+    // Correctly compute new state based on current data
+    const newData = data.map((v) =>
+      v.mat === updatedVig.mat ? updatedVig : v,
+    );
+
+    // Update local state immediately for responsiveness
+    setData(newData);
+
+    // FORCE SAVE to backend to prevent auto-refresh overwrite.
+    // We use forcePublish=true because this is an administrative "Repair" action 
+    // that should be effective immediately, even in future months/drafts.
+    await saveData(newData, true);
+
+    showToast(`Vigilante ${updatedVig.nome} atualizado e salvo!`, "success");
+    // No need to setUnsavedChanges(true) because saveData handles it (sets to false on success)
   };
 
   // --- MEMOIZED VIEWS ---
@@ -1848,8 +1874,8 @@ function AppContent() {
       intervalCategory === "TODOS"
         ? rawList
         : rawList.filter(
-            (v) => getCategory(v.effectiveCampus) === intervalCategory,
-          );
+          (v) => getCategory(v.effectiveCampus) === intervalCategory,
+        );
 
     const grouped: Record<string, IntervalVigilante[]> = {};
     list.forEach((v) => {
@@ -3776,6 +3802,7 @@ function AppContent() {
         fileInputRef={fileInputRef}
         teamsStatus={teamsStatus}
         handleSendToSupervision={handleSendToSupervision}
+        setIsVigilanteManagerOpen={setIsVigilanteManagerOpen}
         isSilentUpdating={isSilentUpdating}
         conflicts={conflicts}
       />
@@ -4673,6 +4700,13 @@ function AppContent() {
       </Modal>
 
       {/* Import Modal */}
+      <VigilanteManager
+        isOpen={isVigilanteManagerOpen}
+        onClose={() => setIsVigilanteManagerOpen(false)}
+        data={data}
+        onUpdateVigilante={handleGlobalVigilanteUpdate}
+      />
+
       <Modal
         title="Importar Dados"
         isOpen={isImportModalOpen}
@@ -4958,10 +4992,10 @@ function AppContent() {
                   filterTime,
                 ).status !== "INTERVALO",
             ).length === 0 && (
-              <div className="p-4 text-center text-slate-400 text-xs">
-                Nenhum vigilante disponível encontrado.
-              </div>
-            )}
+                <div className="p-4 text-center text-slate-400 text-xs">
+                  Nenhum vigilante disponível encontrado.
+                </div>
+              )}
           </div>
         </div>
       </Modal>

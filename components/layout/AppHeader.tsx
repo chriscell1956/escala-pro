@@ -27,6 +27,7 @@ interface AppHeaderProps {
   handleExport: () => void;
   setIsLogModalOpen: (v: boolean) => void;
   setIsUserMgmtModalOpen: (v: boolean) => void;
+  setIsVigilanteManagerOpen: (v: boolean) => void;
   fileInputRef: React.RefObject<HTMLInputElement>;
   teamsStatus: Record<
     string,
@@ -61,6 +62,7 @@ const AppHeaderComponent: React.FC<AppHeaderProps> = (props) => {
     handleExport,
     setIsLogModalOpen,
     setIsUserMgmtModalOpen,
+    setIsVigilanteManagerOpen,
     fileInputRef,
     teamsStatus,
     handleSendToSupervision,
@@ -270,6 +272,20 @@ const AppHeaderComponent: React.FC<AppHeaderProps> = (props) => {
                     </span>
                   </Button>
                 </>
+              )}
+
+              {/* VIGILANTE MANAGER: Visible to Master AND Fiscal */}
+              {(isMaster || user.role === "FISCAL") && (
+                <Button
+                  className="!bg-white/10 !text-white border !border-white/30 hover:!bg-white/20 shadow-sm backdrop-blur-sm text-[10px] h-8 px-2 font-bold uppercase tracking-wide"
+                  onClick={() => setIsVigilanteManagerOpen(true)}
+                  title="Gerenciar Vigilantes (Global)"
+                >
+                  <span className="hidden md:inline">VIGILANTES</span>
+                  <span className="md:hidden">
+                    <Icons.UserPlus />
+                  </span>
+                </Button>
               )}
             </div>
           )}
