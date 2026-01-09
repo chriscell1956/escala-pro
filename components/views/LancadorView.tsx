@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { Vigilante, User, Team, DepartmentPreset } from "../../types";
 import { sectorPresets } from "../../presets";
 import { Button, Input, Select, Badge, Icons } from "../ui";
@@ -76,6 +76,7 @@ const LancadorViewComponent: React.FC<LancadorViewProps> = (props) => {
   } = props;
 
   // --- STATES FOR VIEW CONFIGURATION ---
+  const [expedienteShiftFilter, setExpedienteShiftFilter] = useState("ALL");
 
   // --- LÓGICA LOCAL DE EDIÇÃO (SEM SALVAR NO BANCO) ---
 
@@ -281,6 +282,28 @@ const LancadorViewComponent: React.FC<LancadorViewProps> = (props) => {
           </div>
 
           {/* New Filter: Turno (Only useful for EXPEDIENTE context usually, but good to have) */}
+          <div>
+            <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">
+              2. Filtrar Turno:
+            </label>
+            <Select
+              value={expedienteShiftFilter}
+              onChange={(e) => setExpedienteShiftFilter(e.target.value)}
+              className="bg-slate-700 text-white border-slate-600 shadow-sm"
+            >
+              <option value="ALL">-- Todos --</option>
+              {Object.entries(SHIFT_TYPES).map(([k, v]) => {
+                if (k.includes("12x36")) return null; // Too specific
+                return (
+                  <option key={k} value={k}>
+                    {v}
+                  </option>
+                );
+              })}
+              <option value="ECO1">Apenas Diurno (06:00+)</option>
+              <option value="ECO2">Apenas Noturno (18:00+)</option>
+            </Select>
+          </div>
 
           <div>
             <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">
