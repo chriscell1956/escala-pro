@@ -1189,6 +1189,114 @@ function AppContent() {
       }
     });
 
+    // --- DYNAMIC PRESET SYNC V3 (AUTO-HEAL) ---
+    // User Requirement: "Lançador completo igual estava antes" (Match DB exactly)
+    // Whenever we load data, we verify if presets cover all active sectors.
+    if (finalData && finalData.length > 0) {
+      // 1. Get current known presets (or empty if first load)
+      // We use a fresh load or existing state? Existing `presets` state might be stale if inside closure.
+      // Let's rely on api.loadPresets() again to be safe? No, too heavy.
+      // Let's build a Set of IDs from current 'presets' state (via ref or trusting flow).
+      // Actually, we can just rebuild the delta.
+
+      let cleanPresets = await api.loadPresets(); // Re-fetch current state of truth
+      if (!Array.isArray(cleanPresets)) cleanPresets = [];
+
+      const seenIds = new Set(cleanPresets.map((p) => p.id));
+      let changedPresets = false;
+
+      // 2. Scan loaded data for missing slots
+      finalData.forEach((vig) => {
+        if (
+          !vig.campus ||
+          !vig.setor ||
+          vig.campus === "AFASTADOS" ||
+          vig.campus === "SEM POSTO" ||
+          vig.setor === "AGUARDANDO" ||
+          vig.setor === "A DEFINIR" ||
+          vig.campus === "A DEFINIR"
+        )
+          return;
+
+        // Normalization Logic (Strict Unification)
+        let campus = vig.campus;
+        if (campus.includes("CAMPUS I") || campus.includes("CAMPUS II")) {
+          if (campus.includes("EXPEDIENTE")) {
+            if (campus.includes("CAMPUS I")) campus = "CAMPUS I - EXPEDIENTE";
+            else if (campus.includes("CAMPUS II"))
+              campus = "CAMPUS II - EXPEDIENTE";
+          }
+        }
+
+        // ID Generation
+        const paramId = `${campus}_${vig.setor.trim()}_${vig.mat}`
+          .replace(/[^A-Z0-9]/gi, "_")
+          .toUpperCase();
+
+        if (!seenIds.has(paramId)) {
+          // Create Missing Preset
+          let type = "12x36_DIURNO";
+          const h = vig.horario || "";
+          if (h.includes("18h") || h.includes("19h") || h.includes("NOTURNO"))
+            type = "12x36_NOTURNO";
+          else if (campus.includes("EXPEDIENTE")) {
+            if (vig.eq === "ECO1" || vig.eq === "E1") type = "ECO_1";
+            else if (vig.eq === "ECO2" || vig.eq === "E2") type = "ECO_2";
+            else if (h.includes("14h45")) type = "ECO_2";
+            else type = "ECO_1";
+          }
+
+          const newPreset: DepartmentPreset = {
+            id: paramId,
+            name: vig.setor,
+            campus: campus,
+            sector: vig.setor,
+            type,
+            horario: vig.horario || "",
+            refeicao: vig.refeicao || "",
+            timeStart: "06:00",
+            timeEnd: "18:00",
+            mealStart: "12:00",
+            mealEnd: "13:00",
+            team: vig.eq || "",
+          };
+
+          // Time Parse
+          if (vig.horario) {
+            const times = extractTimeInputs(vig.horario);
+            if (times.start) newPreset.timeStart = times.start;
+            if (times.end) newPreset.timeEnd = times.end;
+          }
+          if (vig.refeicao) {
+            const meals = extractTimeInputs(vig.refeicao);
+            if (meals.start) newPreset.mealStart = meals.start;
+            if (meals.end) newPreset.mealEnd = meals.end;
+          }
+
+          cleanPresets.push(newPreset);
+          seenIds.add(paramId);
+          changedPresets = true;
+        }
+      });
+
+      if (changedPresets) {
+        // Sort
+        cleanPresets.sort((a, b) => {
+          const c = (a.campus || "").localeCompare(b.campus || "");
+          if (c !== 0) return c;
+          const sec = (a.sector || "").localeCompare(b.sector || "");
+          if (sec !== 0) return sec;
+          return (a.name || "").localeCompare(b.name || "");
+        });
+
+        await api.savePresets(cleanPresets);
+        setPresets(cleanPresets);
+      } else {
+        // If no change, just ensure local state is fresh
+        setPresets(cleanPresets);
+      }
+    }
+
     setData(finalData);
     if (!isSilent) {
       setIsLoading(false);
