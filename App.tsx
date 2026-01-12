@@ -805,19 +805,6 @@ function AppContent() {
     }
   }, [isUserMgmtModalOpen]);
 
-  // AUTO-REFRESH (POLLING) - 10s
-  useEffect(() => {
-    // Only poll if online and not viewing a draft history (implicit check via month/viewingDraft would be good)
-    // We simply re-fetch current month data silently to keep sync
-    const intervalId = setInterval(() => {
-      if (!viewingDraft && !isSimulationMode && dbStatus.online) {
-        loadDataForMonth(month, true);
-      }
-    }, 10000); // 10 seconds
-
-    return () => clearInterval(intervalId);
-  }, [month, viewingDraft, isSimulationMode, dbStatus.online]);
-
   const loadUsers = async () => {
     const users = await api.getUsers();
     const fixedUsers = users.map((u) =>
