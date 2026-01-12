@@ -389,6 +389,7 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
                         "LABORATÓRIO",
                         "AMBULATÓRIO",
                         "SUPERVISÃO E ADMINISTRAÇÃO",
+                        "FÉRIAS",
                       ].map((c) => (
                         <option key={c} value={c}>
                           {c}

@@ -363,164 +363,113 @@ function AppContent() {
         s = [];
       }
 
-      // --- RECOVERY LOGIC ---
-      // Check if we are missing "Core" Operational Sectors (e.g., Portaria, Ronda)
-      // Even if we have Admin/Fiscal presets, we might have lost the operational ones.
-      const hasOperational = s.some(
-        (p) =>
-          p.sector.includes("PORTARIA") ||
-          p.sector.includes("RONDA") ||
-          p.sector.includes("BLOCO"),
-      );
+      // --- RECOVERY LOGIC V2 (STRICT SYNC + DYNAMIC LOAD) ---
+      // 1. Get Base Presets from Static File (Vacancies + Structure)
+      // 2. Scan Active Data (API) for ANY sector not in Base.
+      // 3. Merge and Save.
 
-      const isWiped =
-        loadError ||
-        s.length === 0 ||
-        (s.length === 1 && s[0].id === "POSTO-EXEMPLO-01") ||
-        !hasOperational;
+      const currentMonth =
+        new Date().getFullYear() * 100 + (new Date().getMonth() + 1);
+      const activeData = await api.loadData(currentMonth, false);
 
-      if (isWiped) {
-        console.log(
-          "Sistema: Presets operacionais ausentes. Iniciando recuperação...",
-        );
+      // Generate Base
+      let basePresets = generateDefaultPresets();
 
-        try {
-          const recoveredPresets: DepartmentPreset[] = [];
-          const seenKeys = new Set<string>();
+      // Dynamic Merge from Active Data
+      if (activeData && activeData.length > 0) {
+        console.log("Sistema: Sincronizando presets com a Escala Ativa...");
+        const seenIds = new Set(basePresets.map((p) => p.id));
 
-          // Helper to process a source
-          const processVigilanteSource = (v: any) => {
+        activeData.forEach((vig) => {
+          if (
+            !vig.campus ||
+            !vig.setor ||
+            vig.campus === "AFASTADOS" ||
+            vig.campus === "SEM POSTO" ||
+            vig.setor === "AGUARDANDO" ||
+            vig.setor === "A DEFINIR"
+          )
+            return;
+
+          // Normalization Logic (Must match presets.ts)
+          let campus = vig.campus;
+          if (campus.includes("CAMPUS I") || campus.includes("CAMPUS II")) {
+            if (campus.includes("EXPEDIENTE")) {
+              if (campus.includes("CAMPUS I")) campus = "CAMPUS I - EXPEDIENTE";
+              else if (campus.includes("CAMPUS II"))
+                campus = "CAMPUS II - EXPEDIENTE";
+            }
+          }
+
+          // Generate ID (Must match presets.ts)
+          // Note: We use Setor + Mat because simple Setor duplicates might be needed if multiple people are there.
+          // But wait, presets.ts uses `vig.mat`.
+          // If activeData comes from API, it has `mat`.
+          const id = `${campus}_${vig.setor.trim()}_${vig.mat}`
+            .replace(/[^A-Z0-9]/gi, "_")
+            .toUpperCase();
+
+          // Additional Check: Do we already have a slot for this person/sector?
+          if (!seenIds.has(id)) {
+            // Determine Type
+            let type = "12x36_DIURNO"; // Default
+            const h = vig.horario || "";
             if (
-              !v.campus ||
-              !v.setor ||
-              v.campus === "AFASTADOS" ||
-              v.campus === "SEM POSTO" ||
-              v.setor === "AGUARDANDO" ||
-              v.setor === "A DEFINIR"
-            )
-              return;
-
-            const key = `${v.campus}|${v.setor}`;
-            if (!seenKeys.has(key)) {
-              seenKeys.add(key);
-
-              let type: any = "12x36_DIURNO";
-              if (v.eq === "A" || v.eq === "B") type = "12x36_NOTURNO";
-              if (v.eq === "E1" || v.eq === "ECO1") type = "ECO_1";
-              if (v.eq === "E2" || v.eq === "ECO2") type = "ECO_2";
-
-              let hStart = "06:00";
-              let hEnd = "18:00";
-              if (v.horario) {
-                const m = v.horario.match(/(\d{1,2})[h:]/);
-                if (m) {
-                  const h = parseInt(m[1]);
-                  hStart = `${String(h).padStart(2, "0")}:00`;
-                  hEnd = `${String((h + 12) % 24).padStart(2, "0")}:00`;
-                }
-              }
-
-              recoveredPresets.push({
-                id: `REC-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
-                name: v.setor,
-                campus: v.campus,
-                sector: v.setor,
-                type: type,
-                horario: v.horario || "06h às 18h",
-                refeicao: v.refeicao || "1h",
-                timeStart: hStart,
-                timeEnd: hEnd,
-                mealStart: "12:00",
-                mealEnd: "13:00",
-                team: v.eq,
-              });
+              h.includes("18h") ||
+              h.includes("19h") ||
+              h.includes("NOTURNO")
+            ) {
+              type = "12x36_NOTURNO";
+            } else if (campus.includes("EXPEDIENTE")) {
+              if (vig.eq === "ECO1" || vig.eq === "E1") type = "ECO_1";
+              else if (vig.eq === "ECO2" || vig.eq === "E2") type = "ECO_2";
+              else if (h.includes("14h45")) type = "ECO_2";
+              else type = "ECO_1";
             }
-          };
 
-          // 1. RECOVERY FROM ACTIVE SCHEDULE (Current Month)
-          const currentMonth =
-            new Date().getFullYear() * 100 + (new Date().getMonth() + 1);
-          const activeData = await api.loadData(currentMonth, false);
+            // Create Preset
+            const newPreset: DepartmentPreset = {
+              id,
+              name: vig.setor,
+              campus: campus,
+              sector: vig.setor,
+              type,
+              horario: vig.horario || "",
+              refeicao: vig.refeicao || "",
+              timeStart: "06:00", // Basic default, utils will parse descriptive string
+              timeEnd: "18:00",
+              mealStart: "12:00",
+              mealEnd: "13:00",
+              team: vig.eq || "",
+            };
 
-          if (activeData && activeData.length > 0) {
-            activeData.forEach(processVigilanteSource);
-          }
-
-          // 2. RECOVERY FROM STATIC CONSTANTS (Deep Backup)
-          // Always try to merge these if we are in recovery mode
-          if (DECEMBER_2025_PRESET && DECEMBER_2025_PRESET.length > 0) {
-            console.log(
-              "Sistema: Lendo presets do backup estático (Dezembro)...",
-            );
-            DECEMBER_2025_PRESET.forEach(processVigilanteSource);
-          }
-
-          if (recoveredPresets.length > 0) {
-            const adminDefaults = generateDefaultPresets().filter(
-              (p) => p.campus === "SUPERVISÃO E ADMINISTRAÇÃO",
-            );
-
-            // Smart Merge: Keep existing items in 's' unless 'isWiped' was total.
-            // If we are recovering just because operational is missing, merge carefully.
-
-            const finalMerge: DepartmentPreset[] = [...s];
-            const existingKeys = new Set(
-              s.map((p) => `${p.campus}|${p.sector}`),
-            );
-
-            // Add recovered if not present
-            recoveredPresets.forEach((rec) => {
-              const k = `${rec.campus}|${rec.sector}`;
-              if (!existingKeys.has(k)) {
-                finalMerge.push(rec);
-                existingKeys.add(k);
-              }
-            });
-
-            // Ensure Admin defaults
-            adminDefaults.forEach((def) => {
-              const k = `${def.campus}|${def.sector}`;
-              if (!existingKeys.has(k)) {
-                finalMerge.push(def);
-                existingKeys.add(k);
-              }
-            });
-
-            s = finalMerge;
-
-            console.log("Sistema: Presets restaurados em memória: ", s.length);
-            showToast("Presets Operacionais Restaurados.", "success");
-
-            // Try explicit save
-            try {
-              await api.savePresets(s);
-            } catch (e) {
-              console.warn("Auto-save failed during recovery", e);
+            // Parse times for better default
+            if (vig.horario) {
+              const times = extractTimeInputs(vig.horario);
+              if (times.start) newPreset.timeStart = times.start;
+              if (times.end) newPreset.timeEnd = times.end;
             }
-          } else {
-            if (s.length === 0) s = generateDefaultPresets();
-          }
-        } catch (recError) {
-          console.error("Recovery failed:", recError);
-          // Preserve 's' if possible
-        }
-      } else {
-        // Normal Load Success Check
-        const hasNewAdminStructure = s.some(
-          (p) => p.campus === "SUPERVISÃO E ADMINISTRAÇÃO",
-        );
+            if (vig.refeicao) {
+              const meals = extractTimeInputs(vig.refeicao);
+              if (meals.start) newPreset.mealStart = meals.start;
+              if (meals.end) newPreset.mealEnd = meals.end;
+            }
 
-        if (!hasNewAdminStructure) {
-          console.log(
-            "Sistema: Estrutura de Supervisão ausente. Criando novos presets...",
-          );
-          const newPresets = generateDefaultPresets();
-          const merged = [...s, ...newPresets];
-          await api.savePresets(merged);
-          s = merged;
-          showToast("Novos postos criados.", "success");
-        }
+            basePresets.push(newPreset);
+            seenIds.add(id);
+          }
+        });
       }
+
+      // Always force update if length differs or we are in recovery
+      // Actually, since we want "Dynamic", we should pretty much always update if the resultant set is different from 's'.
+      // But 's' in `safeLoad` is the *locally stored* presets.
+      // If we just computed `basePresets` (Static + Dynamic), that is the "Truth".
+      // We should save that Truth.
+
+      s = basePresets;
+      await api.savePresets(s);
+      // log("Presets sincronizados com sucesso.");
 
       // GLOBAL STABLE SORT
       s.sort((a, b) => {
@@ -533,129 +482,7 @@ function AppContent() {
         return (a.id || "").localeCompare(b.id || "");
       });
 
-      // Integrity Checks
-      const seenIds = new Set();
-      let needsSave = false;
-
-      let processed = s.map((p) => {
-        if (seenIds.has(p.id)) {
-          needsSave = true;
-          return {
-            ...p,
-            id: `${p.id}_${Math.random().toString(36).substr(2, 5)}`,
-          };
-        }
-        seenIds.add(p.id);
-        return p;
-      });
-
-      const bySector: Record<string, typeof processed> = {};
-      processed.forEach((p) => {
-        const sKey = (p.sector || "UNKNOWN").toUpperCase();
-        if (!bySector[sKey]) bySector[sKey] = [];
-        bySector[sKey].push(p);
-      });
-
-      Object.entries(bySector).forEach(([secKey, group]) => {
-        if (group.length > 1) {
-          const names = new Set(group.map((p) => p.name));
-          if (names.size > 1) {
-            group.forEach((p) => {
-              const clean = (str: string) =>
-                str
-                  .toUpperCase()
-                  .replace(/\s*-\s*DIURNO/g, "")
-                  .replace(/\s*-\s*NOTURNO/g, "")
-                  .replace(/\s*12X36/g, "")
-                  .trim();
-
-              const baseName = clean(p.name);
-              if (clean(p.sector) !== baseName) {
-                p.sector = baseName;
-                needsSave = true;
-              }
-            });
-          }
-        }
-      });
-
-      // --- DATA RESTORATION LOGIC (Assignments) ---
-      // If we recovered presets, we might also need to recover the *assignments* of people to those presets.
-      // E.g. If 39 people are "A DEFINIR", we should put them back in "Portaria" if the backup says so.
-
-      const restoreAssignments = async (currentPresets: DepartmentPreset[]) => {
-        try {
-          // 1. Get current data (we already loaded it partially in activeData, but let's be safe)
-          const currentMonth =
-            new Date().getFullYear() * 100 + (new Date().getMonth() + 1);
-          const activeData = await api.loadData(currentMonth, false); // Reload fresh
-
-          if (!activeData || activeData.length === 0) return;
-
-          let dataChanged = false;
-
-          // 2. Map Backup Data for fast lookup
-          // Use MAT as key if available, else Name
-          const backupMap = new Map<string, (typeof DECEMBER_2025_PRESET)[0]>();
-          if (DECEMBER_2025_PRESET) {
-            DECEMBER_2025_PRESET.forEach((b) => {
-              backupMap.set(b.mat, b);
-            });
-          }
-
-          // 3. Update 'A DEFINIR' / 'SEM POSTO' people use Backup
-          const updatedData = activeData.map((v) => {
-            const isUnallocated =
-              !v.setor ||
-              v.setor === "A DEFINIR" ||
-              v.setor === "AGUARDANDO" ||
-              v.setor === "SEM POSTO";
-
-            if (isUnallocated && backupMap.has(v.mat)) {
-              const backup = backupMap.get(v.mat)!;
-              // Only restore if backup has a valid sector
-              if (backup.setor && backup.campus) {
-                dataChanged = true;
-                // Restore core fields
-                return {
-                  ...v,
-                  setor: backup.setor,
-                  campus: backup.campus,
-                  eq: backup.eq,
-                  horario: backup.horario,
-                  refeicao: backup.refeicao,
-                  // We don't overwrite 'dias' (schedule) to avoid erasing changes,
-                  // unless 'dias' is empty? No, safer to just set the Location.
-                };
-              }
-            }
-            return v;
-          });
-
-          if (dataChanged) {
-            console.log(
-              "Sistema: Restaurando alocação de vigilantes (Setores/Campus)...",
-            );
-            await api.saveData(currentMonth, updatedData);
-            // Force reload of interface data by triggering a refresh or just waiting for auto-refresh
-            showToast("Alocações de vigilantes restauradas.", "success");
-
-            // We can trying to update the local 'data' state if we could access 'setData',
-            // but safeLoad is closed. We depend on the next poll interval (10s) or manual reload.
-            // However, we can use window.location.reload() if we want to be aggressive, but that's bad UX.
-            // Let's assume the user will reload or the auto-refresh catches it.
-          }
-        } catch (e) {
-          console.error("Data assignment restoration failed:", e);
-        }
-      };
-
-      // Execute Data Restore if we did a Preset Wipe/Recovery
-      if (isWiped) {
-        restoreAssignments(s);
-      }
-
-      setPresets(processed);
+      setPresets(s);
     };
 
     safeLoad();
@@ -1363,6 +1190,24 @@ function AppContent() {
         return v;
       });
     }
+
+    // --- UI PATCH: UNIFY EXPEDIENTE SECTORS (Visual Fix) ---
+    // Force the UI to show unified "CAMPUS I - EXPEDIENTE" even if DB has old names
+    finalData.forEach((v) => {
+      if (v.campus && v.campus.includes("EXPEDIENTE")) {
+        if (
+          v.campus.includes("CAMPUS I") &&
+          (v.campus.includes("VIG") || v.campus.includes("C.A."))
+        ) {
+          v.campus = "CAMPUS I - EXPEDIENTE";
+        } else if (
+          v.campus.includes("CAMPUS II") &&
+          (v.campus.includes("VIG") || v.campus.includes("C.A."))
+        ) {
+          v.campus = "CAMPUS II - EXPEDIENTE";
+        }
+      }
+    });
 
     setData(finalData);
     if (!isSilent) {

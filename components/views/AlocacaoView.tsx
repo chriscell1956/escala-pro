@@ -246,6 +246,43 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
           shouldShow = true;
       }
 
+      // 5. Team Filter (Dropdown)
+      if (filterTeam !== "TODAS") {
+        const target = cleanString(filterTeam); // e.g. "A"
+
+        // Use helper to see what teams are allowed for this preset type
+        const compatible = getCompatibleTeams(type).map(cleanString);
+
+        // NORMALIZE ECO 1 / ECO 2 checks
+        // If I filter for "ECO 1", I should see anything that accepts "ECO 1" OR "ECO1"
+        // If I filter for "A", I should see anything that accepts "A"
+
+        // If the preset allows the selected filter team, SHOW IT.
+        // Exception: Explicit Team Presets rule (already handled above in 1.1? kind of).
+
+        let match = false;
+
+        if (target === "ECO1" || target === "E1" || target === "ECO 1") {
+          if (
+            compatible.includes("ECO1") ||
+            compatible.includes("E1") ||
+            compatible.includes("ECO 1")
+          )
+            match = true;
+        } else if (target === "ECO2" || target === "E2" || target === "ECO 2") {
+          if (
+            compatible.includes("ECO2") ||
+            compatible.includes("E2") ||
+            compatible.includes("ECO 2")
+          )
+            match = true;
+        } else {
+          if (compatible.includes(target)) match = true;
+        }
+
+        if (!match) shouldShow = false;
+      }
+
       if (shouldShow) {
         if (!groups[p.campus]) groups[p.campus] = [];
         groups[p.campus].push(p);
@@ -253,7 +290,7 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
     });
 
     return groups;
-  }, [presets, lancadorVisibleTeams, isMaster]);
+  }, [presets, lancadorVisibleTeams, isMaster, filterTeam]);
 
   const campusList = useMemo(
     () => Object.keys(groupedPresets).sort(),
@@ -618,12 +655,33 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
                       return (a.id || "").localeCompare(b.id || "");
                     })
                     .map((preset, idx) => {
+                      // HELPER: Loose matching for Campus names (handles Unification)
+                      const areCampusesEquivalent = (
+                        vigCampus: string,
+                        presetCampus: string,
+                      ) => {
+                        const vC = cleanString(vigCampus);
+                        const pC = cleanString(presetCampus);
+                        if (vC === pC) return true;
+
+                        // Handle Expediente Unification
+                        if (
+                          pC.includes("EXPEDIENTE") &&
+                          vC.includes("EXPEDIENTE")
+                        ) {
+                          // If preset is "CAMPUS II - EXPEDIENTE" and vig is "CAMPUS II - EXPEDIENTE VIG", match!
+                          // Logic: If the preset is the "Base/Short" version, and vig starts with it.
+                          if (vC.startsWith(pC)) return true;
+                        }
+                        return false;
+                      };
+
                       // Quem está neste posto?
                       const allOccupants = vigilantes
                         .filter(
                           (v) =>
-                            v.campus === preset.campus &&
-                            v.setor === preset.sector,
+                            areCampusesEquivalent(v.campus, preset.campus) &&
+                            cleanString(v.setor) === cleanString(preset.sector),
                         )
                         .sort((a, b) => a.nome.localeCompare(b.nome));
 
@@ -637,7 +695,28 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
                         // This prevents Team D members from "stealing" the Team C slot
                         // just because they appear earlier in the list.
                         if (preset.team) {
-                          return cleanString(v.eq) === cleanString(preset.team);
+                          const vTeam = cleanString(v.eq).replace(/\s+/g, ""); // Normalizes "ECO 1" to "ECO1"
+                          const pTeam = cleanString(preset.team).replace(
+                            /\s+/g,
+                            "",
+                          );
+
+                          // Direct compare after space removal
+                          if (vTeam === pTeam) return true;
+
+                          // Handle any residual aliases if needed (usually remove spaces handles ECO 1 vs ECO1)
+                          if (
+                            (vTeam === "E1" || vTeam === "ECO1") &&
+                            (pTeam === "E1" || pTeam === "ECO1")
+                          )
+                            return true;
+                          if (
+                            (vTeam === "E2" || vTeam === "ECO2") &&
+                            (pTeam === "E2" || pTeam === "ECO2")
+                          )
+                            return true;
+
+                          return false;
                         }
 
                         // If preset is generic (no team), take the first available
