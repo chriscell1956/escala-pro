@@ -721,42 +721,40 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
                         .sort((a, b) => a.nome.localeCompare(b.nome));
 
                       // Prioritize occupants matching the preset's team
-                      const availableOccupant = allOccupants.find((v) => {
+                      let availableOccupant = allOccupants.find((v) => {
                         if (displayedVigilantes.has(v.mat)) return false;
+                        if (!preset.team) return true;
 
-                        // STRICT MATCHING RULE:
-                        // If the preset belongs to a specific team (e.g. "C"),
-                        // ONLY allow occupants from that team.
-                        // This prevents Team D members from "stealing" the Team C slot
-                        // just because they appear earlier in the list.
-                        if (preset.team) {
-                          const vTeam = cleanString(v.eq).replace(/\s+/g, ""); // Normalizes "ECO 1" to "ECO1"
-                          const pTeam = cleanString(preset.team).replace(
-                            /\s+/g,
-                            "",
-                          );
+                        // Check Team Match
+                        const vTeam = cleanString(v.eq).replace(/\s+/g, "");
+                        const pTeam = cleanString(preset.team).replace(
+                          /\s+/g,
+                          "",
+                        );
 
-                          // Direct compare after space removal
-                          if (vTeam === pTeam) return true;
+                        if (vTeam === pTeam) return true;
+                        if (
+                          (vTeam === "E1" || vTeam === "ECO1") &&
+                          (pTeam === "E1" || pTeam === "ECO1")
+                        )
+                          return true;
+                        if (
+                          (vTeam === "E2" || vTeam === "ECO2") &&
+                          (pTeam === "E2" || pTeam === "ECO2")
+                        )
+                          return true;
 
-                          // Handle any residual aliases if needed (usually remove spaces handles ECO 1 vs ECO1)
-                          if (
-                            (vTeam === "E1" || vTeam === "ECO1") &&
-                            (pTeam === "E1" || pTeam === "ECO1")
-                          )
-                            return true;
-                          if (
-                            (vTeam === "E2" || vTeam === "ECO2") &&
-                            (pTeam === "E2" || pTeam === "ECO2")
-                          )
-                            return true;
-
-                          return false;
-                        }
-
-                        // If preset is generic (no team), take the first available
-                        return true;
+                        return false;
                       });
+
+                      // FALLBACK: If we didn't find a strict team match, but there ARE people in this sector,
+                      // take the first one who isn't displayed yet.
+                      // This fixes "Vago" when a Team A person is covering a Team D slot.
+                      if (!availableOccupant && allOccupants.length > 0) {
+                        availableOccupant = allOccupants.find(
+                          (v) => !displayedVigilantes.has(v.mat),
+                        );
+                      }
 
                       if (availableOccupant) {
                         displayedVigilantes.add(availableOccupant.mat);
