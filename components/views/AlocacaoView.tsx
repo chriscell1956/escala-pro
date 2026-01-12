@@ -118,8 +118,12 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
   const filteredVigilantes = useMemo(() => {
     return vigilantes.filter((v) => {
       // 1. Visible Teams Filter (Base Access)
-      const vTeam = cleanString(v.eq);
-      if (!lancadorVisibleTeams.map(cleanString).includes(vTeam)) return false;
+      // FIX: Master sees ALL, regardless of whether the team is in the explicit list (e.g. "SEM EQUIPE")
+      if (!isMaster) {
+        const vTeam = cleanString(v.eq);
+        if (!lancadorVisibleTeams.map(cleanString).includes(vTeam))
+          return false;
+      }
 
       // 2. Specific Filter (UI)
       if (filterTeam && filterTeam !== "TODAS") {

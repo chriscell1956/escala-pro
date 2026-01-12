@@ -1792,6 +1792,25 @@ function AppContent() {
       ) {
         groupKey = "RETORNO DE FÉRIAS";
       }
+
+      // CHANGE: Split Main Campuses into DIURNO / NOTURNO
+      if (groupKey === "CAMPUS I" || groupKey === "CAMPUS II") {
+        let isNoturno = false;
+        if (v.horario) {
+          const h = v.horario.toLowerCase();
+          if (h.includes("18h") || h.includes("19h") || h.includes("noturno")) {
+            isNoturno = true;
+          }
+          // Heuristic: Start time >= 18:00
+          const match = h.match(/(\d{1,2})[h:]/);
+          if (match) {
+            const hour = parseInt(match[1]);
+            if (hour >= 18) isNoturno = true;
+          }
+        }
+        groupKey = `${groupKey} - ${isNoturno ? "NOTURNO" : "DIURNO"}`;
+      }
+
       // Change: Move "A DEFINIR", "SEM POSTO", "AGUARDANDO" items to "CAMPUS DO EXPEDIENTE"
       const c = (v.campus || "").toUpperCase();
       const s = (v.setor || "").toUpperCase();
