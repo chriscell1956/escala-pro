@@ -590,17 +590,10 @@ function AppContent() {
         );
 
         // LÓGICA DE TRAVA 99%:
-        // Calcula a porcentagem real baseada no preenchimento
+        // REMOVIDO A PEDIDO DO USUÁRIO: Se completou, mostra 100% mesmo se não enviou.
+        // O status 'ready' controla a cor (Verde = Pronto/Enviado), mas a % reflete os dados reais.
         let percent = Math.round((filled / total) * 100);
 
-        // Se deu 100% matematicamente, mas o Fiscal NÃO clicou em "Enviar", trava em 99%
-        if (percent >= 100 && !isReady) {
-          percent = 99;
-        }
-
-        // ALTERAÇÃO: Se estiver pronto (Enviado), mantemos o status 'ready' como true (ficará Verde),
-        // mas NÃO forçamos a porcentagem para 100%. Mostramos a porcentagem real (ex: 74%)
-        // para que o Supervisor saiba exatamente quanto foi preenchido.
         status[team] = {
           ready: isReady,
           percent: percent,

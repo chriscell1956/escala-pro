@@ -122,16 +122,22 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
       if (!lancadorVisibleTeams.map(cleanString).includes(vTeam)) return false;
 
       // 2. Specific Filter (UI)
-      if (filterTeam !== "TODAS") {
-        const target = cleanString(filterTeam);
-        // Handle ECO 1 / ECO 2 normalization
-        if (target === "ECO1" || target === "E1") {
-          if (vTeam !== "ECO1" && vTeam !== "E1") return false;
-        } else if (target === "ECO2" || target === "E2") {
-          if (vTeam !== "ECO2" && vTeam !== "E2") return false;
-        } else {
-          if (vTeam !== target) return false;
-        }
+      if (filterTeam && filterTeam !== "TODAS") {
+        const target = cleanString(filterTeam); // e.g., "D", "ECO 1"
+
+        // Normalization for Comparison
+        // We want to ensure "ECO 1" matches "ECO1" or "E1"
+        const normalizeTeam = (t: string) => {
+          const c = cleanString(t).replace(/\s+/g, ""); // "ECO 1" -> "ECO1"
+          if (c === "E1") return "ECO1";
+          if (c === "E2") return "ECO2";
+          return c;
+        };
+
+        const vTeamNorm = normalizeTeam(vTeam);
+        const targetNorm = normalizeTeam(target);
+
+        if (vTeamNorm !== targetNorm) return false;
       }
 
       return true;
