@@ -302,13 +302,22 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
     return groups;
   }, [presets, lancadorVisibleTeams, isMaster, filterTeam]);
 
-  const campusList = useMemo(
-    () =>
-      Object.keys(groupedPresets)
-        .filter((c) => c !== "AFASTADOS")
-        .sort(),
-    [groupedPresets],
-  );
+  const campusList = useMemo(() => {
+    let list = Object.keys(groupedPresets)
+      .filter((c) => c !== "AFASTADOS")
+      .sort();
+
+    // UI CLEANUP Strategy:
+    // If we have "CAMPUS I - DIURNO" or "NOTURNO", hide the generic "CAMPUS I"
+    // to prevent duplication confusing the user.
+    const hasC1Refined = list.some((c) => c.includes("CAMPUS I -"));
+    if (hasC1Refined) list = list.filter((c) => c !== "CAMPUS I");
+
+    const hasC2Refined = list.some((c) => c.includes("CAMPUS II -"));
+    if (hasC2Refined) list = list.filter((c) => c !== "CAMPUS II");
+
+    return list;
+  }, [groupedPresets]);
 
   // --- ACTIONS (Modal Logic) ---
 
@@ -668,13 +677,16 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
                       return (a.id || "").localeCompare(b.id || "");
                     })
                     .map((preset, idx) => {
-                      // HELPER: Loose matching for Campus names (handles Unification)
+                      // HELPER: Loose matching for Campus names (handles Unification & Shift Splits)
                       const areCampusesEquivalent = (
                         vigCampus: string,
                         presetCampus: string,
                       ) => {
-                        const vC = cleanString(vigCampus);
-                        const pC = cleanString(presetCampus);
+                        const vC = cleanString(vigCampus).replace(/\s+/g, " ");
+                        const pC = cleanString(presetCampus).replace(
+                          /\s+/g,
+                          " ",
+                        );
                         if (vC === pC) return true;
 
                         // Handle Expediente Unification
@@ -682,10 +694,20 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
                           pC.includes("EXPEDIENTE") &&
                           vC.includes("EXPEDIENTE")
                         ) {
-                          // If preset is "CAMPUS II - EXPEDIENTE" and vig is "CAMPUS II - EXPEDIENTE VIG", match!
-                          // Logic: If the preset is the "Base/Short" version, and vig starts with it.
                           if (vC.startsWith(pC)) return true;
                         }
+
+                        // Handle DIURNO/NOTURNO Split vs Base Generics
+                        // Validates if P="CAMPUS I - DIURNO" and V="CAMPUS I"
+                        // But be careful not to match "CAMPUS II" with "CAMPUS I"
+                        if (
+                          (pC.includes("DIURNO") || pC.includes("NOTURNO")) &&
+                          !vC.includes("-")
+                        ) {
+                          // If P is "CAMPUS I - DIURNO" and V is "CAMPUS I", correct.
+                          if (pC.startsWith(vC)) return true;
+                        }
+
                         return false;
                       };
 

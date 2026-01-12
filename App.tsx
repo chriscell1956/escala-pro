@@ -1784,17 +1784,23 @@ function AppContent() {
       }
       let groupKey = v.campus;
 
-      // FIX: Merge "AFASTADOS" and "OUTROS" into single folder "RETORNO DE FÉRIAS" as per user request
+      // FIX: Merge "AFASTADOS" and "OUTROS" into single folder "FÉRIAS" as per user request
       if (
         groupKey === "AFASTADOS" ||
         groupKey === "OUTROS" ||
         groupKey === "RETORNO DE FÉRIAS"
       ) {
-        groupKey = "RETORNO DE FÉRIAS";
+        groupKey = "FÉRIAS";
       }
 
       // CHANGE: Split Main Campuses into DIURNO / NOTURNO
-      if (groupKey === "CAMPUS I" || groupKey === "CAMPUS II") {
+      // Using .trim() to catch "CAMPUS I " vs "CAMPUS I"
+      const cUpper = (groupKey || "").trim().toUpperCase();
+
+      const isC1 = cUpper === "CAMPUS I" || cUpper === "CAMPUS 1";
+      const isC2 = cUpper === "CAMPUS II" || cUpper === "CAMPUS 2";
+
+      if (isC1 || isC2) {
         let isNoturno = false;
         if (v.horario) {
           const h = v.horario.toLowerCase();
@@ -1808,7 +1814,8 @@ function AppContent() {
             if (hour >= 18) isNoturno = true;
           }
         }
-        groupKey = `${groupKey} - ${isNoturno ? "NOTURNO" : "DIURNO"}`;
+        const baseName = isC1 ? "CAMPUS I" : "CAMPUS II";
+        groupKey = `${baseName} - ${isNoturno ? "NOTURNO" : "DIURNO"}`;
       }
 
       // Change: Move "A DEFINIR", "SEM POSTO", "AGUARDANDO" items to "CAMPUS DO EXPEDIENTE"
