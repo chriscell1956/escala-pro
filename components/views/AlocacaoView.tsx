@@ -299,7 +299,10 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
   }, [presets, lancadorVisibleTeams, isMaster, filterTeam]);
 
   const campusList = useMemo(
-    () => Object.keys(groupedPresets).sort(),
+    () =>
+      Object.keys(groupedPresets)
+        .filter((c) => c !== "AFASTADOS")
+        .sort(),
     [groupedPresets],
   );
 
