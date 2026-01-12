@@ -720,6 +720,32 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
                         )
                         .sort((a, b) => a.nome.localeCompare(b.nome));
 
+                      if (preset.name.includes("ALFA 03")) {
+                        console.log("DEBUG: ALFA 03 Check", {
+                          presetCampus: preset.campus,
+                          presetSector: preset.sector,
+                          presetTeam: preset.team,
+                          allOccupantsCount: allOccupants.length,
+                        });
+                        const adeildo = vigilantes.find((v) =>
+                          v.nome.includes("ADEILDO"),
+                        );
+                        if (adeildo) {
+                          console.log("DEBUG: ADEILDO Data", {
+                            camp: adeildo.campus,
+                            set: adeildo.setor,
+                            eq: adeildo.eq,
+                            cleanSetMatch:
+                              cleanString(adeildo.setor) ===
+                              cleanString(preset.sector),
+                            campusEquiv: areCampusesEquivalent(
+                              adeildo.campus,
+                              preset.campus,
+                            ),
+                          });
+                        }
+                      }
+
                       // Prioritize occupants matching the preset's team
                       let availableOccupant = allOccupants.find((v) => {
                         if (displayedVigilantes.has(v.mat)) return false;
