@@ -1,0 +1,11 @@
+{
+    "name": "escala-pro-root",
+    "private": true,
+    "scripts": {
+        "install": "cd frontend && npm install && cd ../backend && npm install",
+        "build": "cd frontend && npm run build"
+    },
+    "engines": {
+        "node": "18.x"
+    }
+}
