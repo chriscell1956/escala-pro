@@ -1,0 +1,155 @@
+:root {
+  /* Dimensions - Command Center Layout */
+  --header-height: 48px;
+  --nav-height: 40px;
+  --radius: 4px;
+  --radius-sm: 2px;
+
+  /* Typography */
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  line-height: 1.4;
+  font-weight: 400;
+
+  /* UNOESTE Reference Palette */
+  --bg-app: #0f172a;
+  /* Deep Blue Background */
+  --bg-card: #1e293b;
+  /* Slightly lighter blue for panels */
+  --bg-header: #020617;
+  /* Very dark for top header */
+  --bg-nav: #1e293b;
+  /* Navigation bar background */
+
+  --primary: #10b981;
+  /* Emerald 500 (Green Actions) */
+  --primary-hover: #059669;
+  --accent: #f59e0b;
+  /* Amber 500 (Branding/Warnings) */
+
+  --text-main: #f1f5f9;
+  /* Slate 100 */
+  --text-secondary: #94a3b8;
+  /* Slate 400 */
+  --text-muted: #64748b;
+  /* Slate 500 */
+
+  --border-color: #334155;
+  /* Slate 700 */
+
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+
+  /* Status Colors */
+  --status-ok: #10b981;
+  --status-warning: #f59e0b;
+  --status-error: #ef4444;
+
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  background-color: var(--bg-app);
+  color: var(--text-main);
+  font-size: 0.8125rem;
+  /* 13px - Dense Operational Font */
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  /* App container handles scroll */
+}
+
+/* Reset & Utilities */
+* {
+  box-sizing: border-box;
+}
+
+a {
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  margin: 0;
+  font-weight: 700;
+  color: var(--text-main);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+h1 {
+  font-size: 1.25rem;
+}
+
+h2 {
+  font-size: 1.125rem;
+}
+
+h3 {
+  font-size: 1rem;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: inherit;
+}
+
+/* Inputs High Density */
+input,
+select,
+textarea {
+  font-family: 'Roboto Mono', monospace;
+  /* Monospace for operational data */
+  font-size: 0.8125rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+  background: #0f172a;
+  color: var(--accent);
+  /* Data entry in yellow/amber */
+  transition: all 0.2s;
+}
+
+input:focus,
+select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 1px var(--primary);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-app);
+}
+
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+/* Utility Classes */
+.text-primary {
+  color: var(--primary);
+}
+
+.text-accent {
+  color: var(--accent);
+}
+
+.text-muted {
+  color: var(--text-muted);
+}

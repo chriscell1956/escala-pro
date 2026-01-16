@@ -1,0 +1,168 @@
+.container {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background-color: #0f172a;
+    /* Slate 900 */
+    color: #cbd5e1;
+    /* Slate 300 */
+    overflow: hidden;
+}
+
+.header {
+    height: 60px;
+    border-bottom: 1px solid #1e293b;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    background-color: #0f172a;
+}
+
+.headerTitle {
+    display: flex;
+    flex-direction: column;
+}
+
+.titleMain {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: #f8fafc;
+}
+
+.titleSub {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.gridContainer {
+    flex: 1;
+    overflow: auto;
+    position: relative;
+    /* Custom Scrollbar styling if needed */
+}
+
+.table {
+    border-collapse: collapse;
+    width: max-content;
+    min-width: 100%;
+    font-size: 0.75rem;
+}
+
+/* Sticky Headers */
+.thVigilante {
+    position: sticky;
+    left: 0;
+    top: 0;
+    z-index: 30;
+    background-color: #1e293b;
+    /* Slate 800 */
+    color: #e2e8f0;
+    font-weight: 700;
+    text-transform: uppercase;
+    padding: 8px;
+    min-width: 250px;
+    border-right: 1px solid #334155;
+    border-bottom: 1px solid #334155;
+    text-align: left;
+}
+
+.thDay {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background-color: #1e293b;
+    color: #e2e8f0;
+    border-bottom: 1px solid #334155;
+    border-right: 1px solid #334155;
+    width: 32px;
+    height: 32px;
+    font-weight: 600;
+    text-align: center;
+}
+
+.thDay.weekend {
+    background-color: #334155;
+    /* Darker for weekend headers */
+    color: #94a3b8;
+}
+
+/* Rows */
+.tr:hover .tdVigilante,
+.tr:hover .tdDay {
+    background-color: #1e293b;
+    /* Highlight row */
+}
+
+.tdVigilante {
+    position: sticky;
+    left: 0;
+    z-index: 10;
+    background-color: #0f172a;
+    border-right: 1px solid #334155;
+    border-bottom: 1px solid #1e293b;
+    padding: 6px 10px;
+    font-weight: 500;
+    color: #cbd5e1;
+    font-size: 0.75rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 250px;
+}
+
+.tdDay {
+    border-right: 1px solid #1e293b;
+    /* Subtle separate */
+    border-bottom: 1px solid #1e293b;
+    text-align: center;
+    vertical-align: middle;
+    height: 32px;
+    width: 32px;
+    padding: 0;
+    cursor: default;
+}
+
+/* Cell States */
+.cellEmpty {
+    /* Folga / Empty */
+    background-color: transparent;
+}
+
+.cellWork {
+    background-color: #059669;
+    /* Emerald 600 - Default Work */
+    color: white;
+    font-weight: 700;
+    font-size: 0.7rem;
+    border-radius: 2px;
+}
+
+.cellWork.CN {
+    background-color: #f59e0b;
+    color: black;
+}
+
+/* Amber */
+.cellWork.PT {
+    background-color: #059669;
+}
+
+/* Emerald */
+.cellWork.RDA {
+    background-color: #3b82f6;
+}
+
+/* Blue */
+
+/* Loading / Error */
+.centerMsg {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    color: #94a3b8;
+    font-size: 1rem;
+}

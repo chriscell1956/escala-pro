@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CORS Test</title>
+</head>
+<body>
+    <h1>CORS Tester</h1>
+    <button onclick="testLogin()">Test Login</button>
+    <pre id="output"></pre>
+
+    <script>
+        async function testLogin() {
+            const output = document.getElementById('output');
+            output.textContent = 'Testing...';
+            
+            try {
+                const response = await fetch('http://localhost:3000/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ matricula: 'MASTER', senha: 'WRONG_PASSWORD' })
+                });
+                
+                const data = await response.json();
+                output.textContent = 'Success (Connected):\n' + JSON.stringify(data, null, 2);
+            } catch (error) {
+                output.textContent = 'Error (Failed to fetch):\n' + error.message;
+            }
+        }
+    </script>
+</body>
+</html>

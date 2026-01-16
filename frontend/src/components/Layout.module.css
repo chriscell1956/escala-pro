@@ -1,0 +1,261 @@
+/* Layout.module.css - Refined for "Vigilância Universitária" Look */
+
+.container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    width: 100vw;
+    background-color: #0c1220;
+    /* Deep Dark */
+    overflow: hidden;
+}
+
+/* HEADER: Dark Green/Black Panel with Yellow Branding */
+.header {
+    height: 50px;
+    background: linear-gradient(to bottom, #064e3b, #022c22);
+    /* Emerald Gradient from images */
+    border-bottom: 2px solid #f59e0b;
+    /* Yellow border strip? Or distinct separation */
+    display: flex;
+    align-items: center;
+    padding: 0 1rem;
+    gap: 1rem;
+    flex-shrink: 0;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    z-index: 50;
+    position: relative;
+}
+
+/* BRANDING */
+.brandArea {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.brandTitle {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.9rem;
+    line-height: 1.1;
+    font-weight: 900;
+    color: #f59e0b;
+    /* Amber-500 YELLOW */
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    display: flex;
+    flex-direction: column;
+}
+
+.brandSub {
+    font-size: 0.6rem;
+    color: #fbbf24;
+    opacity: 0.8;
+}
+
+/* METRICS BADGES (A: 100%, B: 100%...) */
+.progsContainer {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    margin-left: 1rem;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 4px;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.progBadge {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 28px;
+    border-radius: 2px;
+    background: #f97316;
+    /* Default Orange from image */
+    position: relative;
+    overflow: hidden;
+}
+
+.progBadge.green {
+    background: #ea580c;
+    /* Orange base? Image shows bright orange for 100%? No, usually Green is 100%. Let's use Orange as base from image 1 */
+}
+
+.progBadge.ok {
+    background: #f59e0b;
+}
+
+/* Gold/Orange */
+
+/* Text inside badges */
+.progBadge label {
+    font-size: 0.55rem;
+    color: rgba(255, 255, 255, 0.9);
+    font-weight: 800;
+    line-height: 1;
+    margin-top: 1px;
+}
+
+.progBadge span {
+    font-size: 0.7rem;
+    color: #fff;
+    font-weight: 800;
+    line-height: 1;
+}
+
+
+/* ACTIONS BUTTONS (AJUDA, EDITAR, IMPRIMIR) */
+.actionsArea {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    /* Tight gap */
+}
+
+.actionBtn {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: #fff;
+    padding: 0 0.75rem;
+    height: 28px;
+    border-radius: 3px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    transition: all 0.2s;
+}
+
+.actionBtn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: #fff;
+}
+
+.actionBtn.green {
+    background: transparent;
+    /* Or Filled? Image shows Green outline or fill */
+    border-color: #10b981;
+    color: #fff;
+}
+
+.actionBtn.green:hover {
+    background: #059669;
+    border-color: #059669;
+}
+
+/* USER BADGE (Right Side) */
+.userBadge {
+    display: flex;
+    align-items: center;
+    background: #064e3b;
+    border: 1px solid #10b981;
+    height: 28px;
+    padding: 0 0.75rem;
+    border-radius: 3px;
+    gap: 0.5rem;
+    margin-left: 0.5rem;
+}
+
+.vigenteTag {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.65rem;
+    font-weight: 800;
+    color: #fff;
+    background: #0284c7;
+    /* Blue pill inside */
+    padding: 1px 6px;
+    border-radius: 99px;
+}
+
+.userName {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #fff;
+    text-transform: uppercase;
+}
+
+
+/* NAV BAR (Horizontal Tabs) */
+.navBar {
+    height: 40px;
+    background: #111827;
+    /* Dark Grey/Blue */
+    display: flex;
+    align-items: center;
+    padding: 0 0.5rem;
+    gap: 2px;
+    border-bottom: 1px solid #1f2937;
+}
+
+.navItem {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    padding: 0 1rem;
+    background: transparent;
+    color: #94a3b8;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 3px solid transparent;
+    transition: all 0.1s;
+}
+
+.navItem:hover {
+    background: #1f2937;
+    color: #f1f5f9;
+}
+
+.navItemActive {
+    background: #1e3a8a;
+    /* Deep Blue Active Background */
+    color: #fff;
+    border-bottom-color: #60a5fa;
+    /* Blue Highlight */
+}
+
+.navItem.special {
+    /* Gestão de Férias - Orange/Yellow */
+    background: linear-gradient(to bottom, #f59e0b, #d97706);
+    color: #fff;
+    border-radius: 3px;
+    height: 26px;
+    margin-left: 1rem;
+    border: none;
+    box-shadow: 0 2px 4px rgba(245, 158, 11, 0.3);
+}
+
+.liveBadge {
+    margin-left: auto;
+    background: #16a34a;
+    /* Green */
+    color: #fff;
+    height: 26px;
+    padding: 0 1rem;
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.7rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    box-shadow: 0 0 10px rgba(22, 163, 74, 0.4);
+}
+
+.main {
+    flex: 1;
+    background: #0f172a;
+    /* Main Content Background */
+    overflow-y: auto;
+    position: relative;
+}
