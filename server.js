@@ -72,9 +72,22 @@ app.get("/api/health", (req, res) => {
 
 app.get("/api/users", async (req, res) => {
   try {
-    const { data, error } = await supabase.from("usuarios").select("*");
+    const { data: users, error } = await supabase.from("usuarios").select("*");
     if (error) throw error;
-    res.json(data || []);
+
+    // Workaround: 'usuarios' table missing 'nome' column. Fetch from 'vigilantes'.
+    const { data: vigs } = await supabase
+      .from("vigilantes")
+      .select("matricula, nome");
+    const vigMap = new Map();
+    if (vigs) vigs.forEach((v) => vigMap.set(v.matricula, v.nome));
+
+    const usersWithNames = users.map((u) => ({
+      ...u,
+      nome: u.nome || vigMap.get(u.matricula) || "Sem Nome",
+    }));
+
+    res.json(usersWithNames);
   } catch (err) {
     console.error("Erro users:", err);
     res.status(500).json({ error: "Erro ao ler usuários" });
@@ -90,10 +103,14 @@ app.post("/api/users", async (req, res) => {
     if (!Array.isArray(users))
       return res.status(400).json({ error: "Formato inválido" });
 
-    // Upsert based on Matricula
+    // Upsert based on Matricula. OMIT 'nome' as table lacks it.
+    const usersToUpsert = users.map((u) => {
+      const { nome, ...rest } = u;
+      return rest;
+    });
     const { error } = await supabase
       .from("usuarios")
-      .upsert(users, { onConflict: "matricula" });
+      .upsert(usersToUpsert, { onConflict: "matricula" });
 
     if (error) throw error;
     res.json({ success: true });
@@ -111,16 +128,16 @@ app.post("/api/seed-users", async (req, res) => {
     const ADMIN_MAT = "91611";
 
     // 1. Upsert Admin
-    const adminUser = {
+    const masterUser = {
       matricula: ADMIN_MAT,
-      nome: "CHRISTIANO R.G. DE OLIVEIRA",
+      // nome: "CHRISTIANO R.G. DE OLIVEIRA", // Removed
       role: "MASTER",
       senha: "123456",
       primeiro_acesso: true,
     };
     await supabase
       .from("usuarios")
-      .upsert(adminUser, { onConflict: "matricula" });
+      .upsert(masterUser, { onConflict: "matricula" });
 
     // 2. Batch others
     if (vigilantes && Array.isArray(vigilantes)) {
@@ -128,7 +145,7 @@ app.post("/api/seed-users", async (req, res) => {
         .filter((v) => v.mat !== ADMIN_MAT) // Skip admin duplicate
         .map((v) => ({
           matricula: v.mat,
-          nome: v.nome,
+          // nome: v.nome, // Removed
           role: v.eq === "ADM" ? "MASTER" : "USER",
           senha: "123456", // Default Password
           primeiro_acesso: true,
@@ -171,6 +188,16 @@ app.post("/api/login", async (req, res) => {
     const { password: _, ...safeUser } = user;
 
     // Normalize Role if needed? Frontend expects 'role' column which we have.
+
+    // Workaround: Fetch Name if missing
+    if (!safeUser.nome) {
+      const { data: vig } = await supabase
+        .from("vigilantes")
+        .select("nome")
+        .eq("matricula", mat)
+        .single();
+      if (vig && vig.nome) safeUser.nome = vig.nome;
+    }
 
     res.json({
       success: true,
