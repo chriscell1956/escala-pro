@@ -115,7 +115,7 @@ app.post("/api/seed-users", async (req, res) => {
       matricula: ADMIN_MAT,
       nome: "CHRISTIANO R.G. DE OLIVEIRA",
       role: "MASTER",
-      password: "123456",
+      senha: "123456",
       primeiro_acesso: true,
     };
     await supabase
@@ -130,7 +130,7 @@ app.post("/api/seed-users", async (req, res) => {
           matricula: v.mat,
           nome: v.nome,
           role: v.eq === "ADM" ? "MASTER" : "USER",
-          password: "123456", // Default Password
+          senha: "123456", // Default Password
           primeiro_acesso: true,
         }));
 
@@ -158,7 +158,7 @@ app.post("/api/login", async (req, res) => {
       .from("usuarios")
       .select("*")
       .eq("matricula", mat)
-      .eq("password", password) // MVP: Plain Text check (Replace with Hash comp later)
+      .eq("senha", password) // MVP: Plain Text check (Replace with Hash comp later)
       .single();
 
     if (error || !user) {
