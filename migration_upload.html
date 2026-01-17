@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Migração de Dados - Escala Pro</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+            line-height: 1.6;
+        }
+
+        h1 {
+            color: #333;
+        }
+
+        textarea {
+            width: 100%;
+            height: 400px;
+            margin-bottom: 1rem;
+            padding: 0.5rem;
+            font-family: monospace;
+        }
+
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            font-size: 1.1rem;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+
+        #status {
+            margin-top: 1rem;
+            font-weight: bold;
+        }
+
+        .error {
+            color: red;
+        }
+
+        .success {
+            color: green;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Importar Dados de Produção</h1>
+
+    <h1>Importar Dados de Produção</h1>
+
+    <div
+        style="background: #d4edda; padding: 1.5rem; margin-bottom: 2rem; border-radius: 8px; border: 1px solid #c3e6cb;">
+        <h2 style="color: #155724; margin-top:0;">🚀 Opção A: Migração Direta (Recomendado)</h2>
+        <p>O sistema detectou as credenciais do banco antigo. Clique abaixo para transferir os dados automaticamente.
+        </p>
+        <button onclick="migrateDirect()" style="background: #28a745;">Iniciar Migração Banco-a-Banco</button>
+    </div>
+
+    <div style="background: #e9ecef; padding: 1rem; margin-bottom: 2rem; border-radius: 8px;">
+        <h2>Opção B: Via Link (URL)</h2>
+        <p>Cole o link do seu site no Vercel (ex: <code>https://minha-escala.vercel.app</code>)</p>
+        <div style="display: flex; gap: 0.5rem;">
+            <input type="text" id="urlInput" placeholder="https://..." style="flex:1; padding: 0.5rem;">
+            <button onclick="migrateUrl()">Importar do Site</button>
+        </div>
+    </div>
+
+    <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px; border: 1px solid #dee2e6;">
+        <h2>Opção B: Manual (Colar JSON)</h2>
+        <p>Se o automático falhar, cole o conteúdo do <code>database.json</code> aqui:</p>
+        <textarea id="jsonInput" placeholder='{"vigilantes": [...], "schedules": {...}}'
+            style="height: 150px;"></textarea>
+        <button onclick="migrateJson()">Importar JSON Manual</button>
+    </div>
+
+    <div id="status"></div>
+
+    <script>
+        const statusEl = document.getElementById('status');
+
+        async function migrateDirect() {
+            statusEl.innerHTML = '⏳ Conectando ao banco antigo e transferindo dados...';
+            try {
+                const res = await fetch('/api/migration/direct', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                });
+                handleResponse(await res.json());
+            } catch (e) {
+                showError(e);
+            }
+        }
+
+        async function migrateUrl() {
+            const url = document.getElementById('urlInput').value.trim();
+            if (!url) return alert("Digite a URL!");
+
+            statusEl.innerHTML = '⏳ Baixando dados do site e migrando...';
+
+            try {
+                const res = await fetch('/api/migration/from-url', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url })
+                });
+                handleResponse(await res.json());
+            } catch (e) {
+                showError(e);
+            }
+        }
+
+        async function migrateJson() {
+            const input = document.getElementById('jsonInput').value;
+
+            try {
+                if (!input.trim()) return alert("Cole o JSON!");
+
+                statusEl.innerHTML = 'Validando JSON...';
+                const data = JSON.parse(input);
+
+                let payload = {};
+                if (Array.isArray(data)) payload = { vigilantes: data };
+                else if (data.vigilantes) payload = { vigilantes: data.vigilantes };
+                else payload = data;
+
+                statusEl.innerHTML = 'Enviando dados...';
+
+                const res = await fetch('/api/migration/upload', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                handleResponse(await res.json());
+
+            } catch (e) {
+                showError(e);
+            }
+        }
+
+        function handleResponse(result) {
+            if (result.success) {
+                statusEl.innerHTML = `<div class="success">
+                    <h3>✅ Sucesso!</h3>
+                    <p>${result.message}</p>
+                    <pre>${JSON.stringify(result.stats, null, 2)}</pre>
+                </div>`;
+            } else {
+                statusEl.innerHTML = `<span class="error">❌ Erro: ${result.error}</span>`;
+            }
+        }
+
+        function showError(e) {
+            console.error(e);
+            statusEl.innerHTML = `<span class="error">❌ Erro Técnico: ${e.message}</span>`;
+        }
+    </script>
+</body>
+
+</html>

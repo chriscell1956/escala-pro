@@ -1,4 +1,3 @@
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import {
   Vigilante,
   AuthResponse,
@@ -8,29 +7,17 @@ import {
   DepartmentPreset,
 } from "../types";
 
-// --- CONFIGURAÇÃO DO SUPABASE (NUVEM) ---
-const SUPABASE_URL = "https://tohwctqdhvppjggvxcqq.supabase.co";
-const SUPABASE_KEY = "sb_publishable_vwXbsj19SGdRdo2OChyJjA_Mq9g86Vw"; // Nova chave fornecida
-const TABLE = "escalas";
-const OVERRIDES_KEY = "unoeste_interval_overrides"; // Chave dedicada para prioridades
-
-// Inicializa o cliente Supabase
-let supabase: SupabaseClient | null = null;
-
-try {
-  supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-} catch (e) {
-  console.error("Erro fatal ao iniciar Supabase", e);
-  supabase = null;
-}
+// --- CONFIGURAÇÃO API (LOCAL ADAPTER) ---
+const API_URL = "http://localhost:3001/api";
 
 export const api = {
   updateConnection(url: string, key: string) {
+    // No-op for local adapter
     return true;
   },
 
   isConfigured() {
-    return !!supabase;
+    return true;
   },
 
   async getSystemStatus(): Promise<{
@@ -38,33 +25,16 @@ export const api = {
     message: string;
     code?: string;
   }> {
-    if (!supabase)
-      return { online: false, message: "Cliente Supabase não inicializado." };
     try {
-      // Tenta ler um registro para testar a conexão e a tabela
-      const { error } = await supabase.from(TABLE).select("nome").limit(1);
-
-      if (error) {
-        console.error("Erro Supabase:", error);
-        if (error.code === "42P01")
-          return {
-            online: false,
-            message: 'Tabela "escalas" não encontrada no Supabase.',
-            code: error.code,
-          };
-        if (error.message && error.message.includes("FetchError"))
-          return { online: false, message: "Sem internet.", code: "NET_ERR" };
-        return {
-          online: false,
-          message: `Erro API: ${error.message}`,
-          code: error.code,
-        };
-      }
-      return { online: true, message: "Conectado à Nuvem (Supabase)." };
+      const res = await fetch(`${API_URL}/health`);
+      if (!res.ok) throw new Error("Offline");
+      const data = await res.json();
+      return { online: true, message: "Conectado ao Servidor Local" };
     } catch (e: any) {
       return {
         online: false,
-        message: `Falha de Rede: ${e.message || "Desconhecida"}`,
+        message:
+          "Servidor Local Offline. Verifique se 'npm start' está rodando.",
       };
     }
   },
@@ -77,77 +47,37 @@ export const api = {
   // --- Auth & User Management ---
 
   async login(mat: string, password: string): Promise<AuthResponse> {
-    if (!supabase)
-      return { success: false, message: "Erro crítico: DB Offline." };
-
     try {
-      const { data, error } = await supabase
-        .from(TABLE)
-        .select("dados")
-        .eq("nome", "users")
-        .single();
-
-      // BACKDOOR 91611 (APENAS SE O BANCO FALHAR)
-      // Se houver erro de conexão, permite acesso de emergência.
-      // Se o banco estiver online, a senha deve ser verificada corretamente.
-      if (error && mat === "91611" && password === "123456") {
-        return {
-          success: true,
-          user: {
-            mat: "91611",
-            nome: "CHRISTIANO R.G. DE OLIVEIRA",
-            role: "MASTER",
-          },
-          message: "Acesso de Emergência (Offline)",
-        };
-      }
-
-      if (error)
-        return {
-          success: false,
-          message: "Erro ao conectar ou usuário não encontrado.",
-        };
-
-      const users: User[] = data?.dados || [];
-      // Normaliza a matrícula para busca
-      const matClean = String(mat).trim();
-
-      // Busca usuário correspondente
-      let user = users.find(
-        (u) => String(u.mat).trim() === matClean && u.password === password,
-      );
-
-      if (user) {
-        const { password: _, ...safeUser } = user;
-        return { success: true, user: safeUser as User };
-      }
-      return { success: false, message: "Credenciais inválidas." };
+      const res = await fetch(`${API_URL}/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mat, password }),
+      });
+      const data = await res.json();
+      return data;
     } catch (e) {
-      return { success: false, message: "Erro interno." };
+      return { success: false, message: "Erro de conexão ao fazer login." };
     }
   },
 
   async getUsers(): Promise<User[]> {
-    if (!supabase) return [];
     try {
-      const { data } = await supabase
-        .from(TABLE)
-        .select("dados")
-        .eq("nome", "users")
-        .single();
-      return data?.dados || [];
+      const res = await fetch(`${API_URL}/users`);
+      if (!res.ok) return [];
+      return await res.json();
     } catch (e) {
       return [];
     }
   },
 
   async saveUsers(users: User[]): Promise<boolean> {
-    if (!supabase) return false;
     try {
-      const { error } = await supabase
-        .from(TABLE)
-        .upsert({ nome: "users", dados: users }, { onConflict: "nome" });
-      return !error;
+      const res = await fetch(`${API_URL}/users`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(users),
+      });
+      return res.ok;
     } catch (e) {
       return false;
     }
@@ -172,105 +102,32 @@ export const api = {
   },
 
   async seedUsers(vigilantes: Vigilante[]): Promise<void> {
-    if (!supabase) return;
     try {
-      const { data } = await supabase
-        .from(TABLE)
-        .select("dados")
-        .eq("nome", "users")
-        .single();
-
-      let currentUsers: User[] = data?.dados || [];
-      let hasChanges = false;
-
-      // --- DEDUPLICAÇÃO E LIMPEZA ---
-      // Cria um mapa para garantir unicidade pela matrícula
-      const uniqueUsersMap = new Map<string, User>();
-
-      currentUsers.forEach((u) => {
-        const mat = String(u.mat).trim();
-        const existing = uniqueUsersMap.get(mat);
-
-        if (!existing) {
-          uniqueUsersMap.set(mat, u);
-        } else {
-          // Se já existe, mantém o que tem senha DIFERENTE de 123456 (prioriza senha alterada)
-          // Se ambos forem padrão ou ambos alterados, mantém o último (comportamento padrão do loop)
-          if (existing.password === "123456" && u.password !== "123456") {
-            uniqueUsersMap.set(mat, u);
-          }
-          // Se encontrou duplicata, marca que houve mudanças para salvar a lista limpa
-          hasChanges = true;
-        }
+      await fetch(`${API_URL}/seed-users`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ vigilantes }),
       });
-
-      // Reconstrói a lista limpa
-      currentUsers = Array.from(uniqueUsersMap.values());
-
-      const adminMat = "91611";
-      // Verifica se admin existe na lista limpa
-      let adminUser = uniqueUsersMap.get(adminMat);
-
-      if (!adminUser) {
-        const vigData = vigilantes.find(
-          (v) => String(v.mat).trim() === adminMat,
-        );
-        const newAdmin = {
-          mat: adminMat,
-          nome: vigData ? vigData.nome : "CHRISTIANO R.G. DE OLIVEIRA",
-          role: "MASTER",
-          password: "123456",
-        } as User;
-        currentUsers.push(newAdmin);
-        uniqueUsersMap.set(adminMat, newAdmin);
-        hasChanges = true;
-      }
-
-      // Adiciona novos vigilantes que não estão na lista
-      vigilantes.forEach((vig) => {
-        const vMat = String(vig.mat).trim();
-        if (vMat !== adminMat && !uniqueUsersMap.has(vMat)) {
-          const newUser = {
-            mat: vMat,
-            nome: vig.nome,
-            role: vig.eq === "ADM" ? "MASTER" : "USER",
-            password: "123456",
-          } as User;
-          currentUsers.push(newUser);
-          uniqueUsersMap.set(vMat, newUser);
-          hasChanges = true;
-        }
-      });
-
-      if (hasChanges) {
-        console.log("Sincronizando usuários e removendo duplicatas...");
-        await supabase
-          .from(TABLE)
-          .upsert(
-            { nome: "users", dados: currentUsers },
-            { onConflict: "nome" },
-          );
-      }
     } catch (e) {
-      console.error("Erro Seed:", e);
+      console.error("Seed Error:", e);
     }
   },
 
   // --- Escala (Data Persistence) ---
 
   async loadData(month: number, isDraft = false): Promise<Vigilante[] | null> {
-    if (!supabase) return null;
     try {
-      let key = `unoeste_pro_${month}`;
-      if (isDraft) key += "_draft";
-
-      const { data, error } = await supabase
-        .from(TABLE)
-        .select("dados")
-        .eq("nome", key)
-        .single();
-      if (error) return null;
-      return data?.dados || null;
+      const url = `${API_URL}/escala/${month}${isDraft ? "?type=draft" : ""}`;
+      const res = await fetch(url);
+      if (!res.ok) return null;
+      const json = await res.json();
+      // O Adapter retorna { dados: [...] } ou direto [...]?
+      // O server.js antigo (filesystem) retornava [...].
+      // O LegacyAdapterController.getEscala retorna { dados: [...] }.
+      // Vamos suportar ambos.
+      if (json && Array.isArray(json.dados)) return json.dados;
+      if (Array.isArray(json)) return json;
+      return null;
     } catch (e) {
       return null;
     }
@@ -281,20 +138,17 @@ export const api = {
     data: Vigilante[],
     isDraft = false,
   ): Promise<boolean> {
-    if (!supabase) return false;
     try {
-      let key = `unoeste_pro_${month}`;
-      if (isDraft) key += "_draft";
-
-      const { error } = await supabase
-        .from(TABLE)
-        .upsert({ nome: key, dados: data }, { onConflict: "nome" });
-      if (error) {
-        console.error("Erro Supabase Save:", error);
-        return false;
-      }
-      return true;
+      const url = `${API_URL}/escala/${month}${isDraft ? "?type=draft" : ""}`;
+      // Importante: Enviar { dados: data } para corresponder ao esperado pelo Adapter
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dados: data }),
+      });
+      return res.ok;
     } catch (e) {
+      console.error("Save Error:", e);
       return false;
     }
   },
@@ -302,48 +156,35 @@ export const api = {
   // --- Audit Logs ---
 
   async loadLogs(month: number): Promise<AuditLog[]> {
-    if (!supabase) return [];
     try {
-      const key = `unoeste_logs_${month}`;
-      const { data } = await supabase
-        .from(TABLE)
-        .select("dados")
-        .eq("nome", key)
-        .single();
-      return data?.dados || [];
+      const res = await fetch(`${API_URL}/logs/${month}`);
+      if (!res.ok) return [];
+      return await res.json();
     } catch (e) {
       return [];
     }
   },
 
   async addLog(month: number, log: AuditLog): Promise<void> {
-    if (!supabase) return;
     try {
-      const currentLogs = await this.loadLogs(month);
-      const newLogs = [log, ...currentLogs].slice(0, 200);
-      const key = `unoeste_logs_${month}`;
-      await supabase
-        .from(TABLE)
-        .upsert({ nome: key, dados: newLogs }, { onConflict: "nome" });
+      await fetch(`${API_URL}/logs/${month}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(log),
+      });
     } catch (e) {
-      console.error("Erro log:", e);
+      console.error("Log error:", e);
     }
   },
 
   // --- NEW: Interval Overrides ---
 
   async loadIntervalOverrides(): Promise<Record<string, IntervalPriority>> {
-    if (!supabase) return {};
     try {
-      const { data, error } = await supabase
-        .from(TABLE)
-        .select("dados")
-        .eq("nome", OVERRIDES_KEY)
-        .single();
-      if (error || !data) return {};
-      return data.dados || {};
+      const res = await fetch(`${API_URL}/overrides`);
+      if (!res.ok) return {};
+      return await res.json();
     } catch (e) {
-      console.error("Erro ao carregar prioridades de intervalo:", e);
       return {};
     }
   },
@@ -351,21 +192,14 @@ export const api = {
   async saveIntervalOverrides(
     overrides: Record<string, IntervalPriority>,
   ): Promise<boolean> {
-    if (!supabase) return false;
     try {
-      const { error } = await supabase
-        .from(TABLE)
-        .upsert(
-          { nome: OVERRIDES_KEY, dados: overrides },
-          { onConflict: "nome" },
-        );
-      if (error) {
-        console.error("Erro ao salvar prioridades de intervalo:", error);
-        return false;
-      }
-      return true;
+      const res = await fetch(`${API_URL}/overrides`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(overrides),
+      });
+      return res.ok;
     } catch (e) {
-      console.error("Erro ao salvar prioridades de intervalo:", e);
       return false;
     }
   },
@@ -373,35 +207,24 @@ export const api = {
   // --- NEW: Presets Management ---
 
   async loadPresets(): Promise<DepartmentPreset[]> {
-    if (!supabase) return [];
     try {
-      const key = "unoeste_presets";
-      const { data } = await supabase
-        .from(TABLE)
-        .select("dados")
-        .eq("nome", key)
-        .single();
-      return data?.dados || [];
+      const res = await fetch(`${API_URL}/presets`);
+      if (!res.ok) return [];
+      return await res.json();
     } catch (e) {
-      console.error("Erro ao carregar presets:", e);
       return [];
     }
   },
 
   async savePresets(presets: DepartmentPreset[]): Promise<boolean> {
-    if (!supabase) return false;
     try {
-      const key = "unoeste_presets";
-      const { error } = await supabase
-        .from(TABLE)
-        .upsert({ nome: key, dados: presets }, { onConflict: "nome" });
-      if (error) {
-        console.error("Erro ao salvar presets:", error);
-        return false;
-      }
-      return true;
+      const res = await fetch(`${API_URL}/presets`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(presets),
+      });
+      return res.ok;
     } catch (e) {
-      console.error("Erro ao salvar presets:", e);
       return false;
     }
   },

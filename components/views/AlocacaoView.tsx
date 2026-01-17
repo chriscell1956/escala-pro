@@ -141,6 +141,9 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
         const vTeamNorm = normalizeTeam(vTeam);
         const targetNorm = normalizeTeam(target);
 
+        // UX IMPROVEMENT: Always show "A DEFINIR" so they can be assigned
+        if (vTeam === "ADEFINIR" || v.eq === "A DEFINIR") return true;
+
         if (vTeamNorm !== targetNorm) return false;
       }
 
@@ -468,9 +471,7 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
           <h2 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">
             Alocação de Postos
           </h2>
-          <div className="text-xs text-slate-400">
-            {currentLabel} • Filtro de Equipes & Cruzamento
-          </div>
+          <div className="text-xs text-slate-400">{currentLabel}</div>
         </div>
 
         {/* CONTROLS */}
@@ -876,6 +877,17 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
                                     <div className="flex items-center justify-between mb-2">
                                       <div className="flex items-center gap-3">
                                         <Badge team={occ.eq} />
+                                        {/* CRUZAMENTO CHECK */}
+                                        {preset.team &&
+                                          cleanString(preset.team) !==
+                                            cleanString(occ.eq) && (
+                                            <span
+                                              className="text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/50 px-1.5 py-0.5 rounded font-bold uppercase tracking-widest"
+                                              title={`Vigilante da Equipe ${occ.eq} alocado em posto da Equipe ${preset.team}`}
+                                            >
+                                              ⚠️ CRUZAMENTO
+                                            </span>
+                                          )}
                                         <div>
                                           <div className="font-bold text-sm text-white flex items-center gap-2 group-hover:text-blue-300 transition-colors">
                                             {occ.nome}

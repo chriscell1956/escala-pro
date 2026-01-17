@@ -3178,7 +3178,30 @@ function AppContent() {
   };
 
   const handleUpdateVigilante = (mat: string, changes: Partial<Vigilante>) => {
-    const targetVig = data.find((v) => v.mat === mat); // FIX: Define targetVig
+    const targetVig = data.find((v) => v.mat === mat);
+
+    // --- FIRST ALLOCATION RULE (UX IMPROVEMENT) ---
+    // If vigilante is "A DEFINIR" and is receiving a location (First Allocation),
+    // automatically set their team to the context (Selected Filter or User Team).
+    if (targetVig && changes.campus) {
+      const currentTeam = cleanString(targetVig.eq || "ADEFINIR");
+      if (currentTeam === "ADEFINIR" || !targetVig.eq) {
+        let newTeam = "A"; // Default fallback
+
+        // 1. Context: Selected Filter
+        if (selectedLancadorTeam && selectedLancadorTeam !== "TODAS") {
+          newTeam = selectedLancadorTeam;
+        }
+        // 2. Context: User's Team (if Fiscal)
+        else if (user && user.role !== "MASTER") {
+          newTeam = user.eq || "A";
+        }
+        // 3. Fallback: If Master and "TODAS", keep 'A' or use context if relevant
+
+        changes.eq = newTeam;
+        changes.tipo = newTeam; // Ensure internal consistency
+      }
+    }
 
     const newData = data.map((v) => {
       if (v.mat === mat) {
@@ -3196,7 +3219,7 @@ function AppContent() {
     if (targetVig && changes.campus) {
       registerLog(
         "ALOCACAO",
-        `Alocado em ${changes.campus} - ${changes.setor || ""}`,
+        `Alocado em ${changes.campus} - ${changes.setor || ""} (Eq: ${changes.eq || targetVig.eq})`,
         targetVig.nome,
       );
     }

@@ -1,0 +1,714 @@
+{
+  "users": [
+    {
+      "mat": "91611",
+      "nome": "CHRISTIANO R.G. DE OLIVEIRA",
+      "role": "MASTER",
+      "password": "123456"
+    },
+    {
+      "mat": "60931",
+      "nome": "FABIO FELIX DE LIMA",
+      "role": "MASTER",
+      "password": "123456"
+    },
+    {
+      "mat": "72911",
+      "nome": "MARCIO R. S. PIVARO",
+      "role": "MASTER",
+      "password": "123456"
+    },
+    {
+      "mat": "76154",
+      "nome": "JOÃO CARLOS GALVÃO",
+      "role": "MASTER",
+      "password": "123456"
+    },
+    {
+      "mat": "100497",
+      "nome": "MARCOS AURÉLIO M. SILVÉRIO",
+      "role": "MASTER",
+      "password": "123456"
+    },
+    {
+      "mat": "79707",
+      "nome": "GABRIEL A. G. FERREIRA",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "96515",
+      "nome": "EDERSON NUNES FONSECA",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "92335",
+      "nome": "MARCOS DOS SANTOS SABINO",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "55022",
+      "nome": "ANTÔNIO MARCOS GONÇALVES",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "86186",
+      "nome": "LEANDRO RODRIGO DOS SANTOS",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "61921",
+      "nome": "CLAUDINEIS GOMES SOARES",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "61655",
+      "nome": "CLAUDECIR DA ASSUMPÇÃO",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "94524",
+      "nome": "FERNANDO C. DE MOURA",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "88848",
+      "nome": "FERNANDO DOS SANTOS",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "90938",
+      "nome": "ELTON E. GARCIA",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "73745",
+      "nome": "FABIO JUNIOR A. CARDOSO",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "95681",
+      "nome": "MARCELO ROSA DA SILVA",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "82963",
+      "nome": "ELIAS JUNIOR DE JESUS",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "83216",
+      "nome": "WILSON A. NETO",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "82391",
+      "nome": "GEORGE SANTOS",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "100178",
+      "nome": "FERNANDO DE OLIVEIRA SANTANA",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "91279",
+      "nome": "RODRIGO DE PAULO",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "85823",
+      "nome": "THIAGO PEPATO",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "90751",
+      "nome": "OSWALDO PICIULA FILHO",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "82358",
+      "nome": "ADALBERTO CALIXTO",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "102841",
+      "nome": "DAIANE C. MARTINS F. TAKESHITA",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "98055",
+      "nome": "MARCEL P. GONÇALVES",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "76431",
+      "nome": "JOHN OCANHA",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "94381",
+      "nome": "JOÃO CARLOS BARRETO",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "101883",
+      "nome": "LUCAS SILVA LEONARDO",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "101234",
+      "nome": "JOSÉ CARLOS DA SILVA",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "87871",
+      "nome": "RODOLFO H. MORENO",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "87066",
+      "nome": "EVERTON HUBER DE CARVALHO",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "104226",
+      "nome": "ADEILDO ROSA ARAÚJO",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "91061",
+      "nome": "ALEXANDRO HATTORI",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "100871",
+      "nome": "DANUBIO DE SOUZA LIMA",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "98506",
+      "nome": "DANILO C. DOMINGOS DE SOUZA",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "92214",
+      "nome": "RENATO DE SOUZA TURATTI",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "103314",
+      "nome": "AGNALDO DE SOUZA SANTOS",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "110342",
+      "nome": "RODRIGO PAULINO PORTO",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "112905",
+      "nome": "IVAN NOGUEIRA DE SÁ",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "112608",
+      "nome": "MARIA JANIZETE DA SILVA ALMEIDA",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "112267",
+      "nome": "BRUNO CESAR DE LIRA CASTRO",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "108111",
+      "nome": "ODNILTON APARECIDO ESTEVES",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "111531",
+      "nome": "JUNIOR JOSE DA SILVA",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "100629",
+      "nome": "MARCELO DOS SANTOS COSTA",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "101949",
+      "nome": "STEPHANY S. BEZERRA",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "99353",
+      "nome": "ELISÂNGELA MATIAS RIBEIRO",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "86307",
+      "nome": "EDUARDO TOSTA",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "98462",
+      "nome": "UBIRAJARA CAETANO",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "85867",
+      "nome": "WALLACE DA SILVA CAZUMBÁ",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "92032",
+      "nome": "CRISTIANO A. DE OLIVEIRA",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "79432",
+      "nome": "HENRIQUE DE LIMA",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "93931",
+      "nome": "JULIO FARIAS",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "95888",
+      "nome": "SERGIO ANTONIO",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "93226",
+      "nome": "REINALDO AP. PEREIRA",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "81412",
+      "nome": "JOSE MARCELO ZUCHINI",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "91181",
+      "nome": "FABIO FUCHI CARVALHO",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "91554",
+      "nome": "DEVANIL FERREIRA MENDES",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "95691",
+      "nome": "JOILSON ROCHA NOVAIS",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "79993",
+      "nome": "WAGNER FRANÇA",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "91543",
+      "nome": "RODRIGO A. C. PETINARI",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "81137",
+      "nome": "IVANILDO MONTEIRO",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "100915",
+      "nome": "LUCAS H. HILÁRIO",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "101355",
+      "nome": "MARCIO G. DA SILVA",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "106461",
+      "nome": "RAFAEL H. BARCELLOS",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "106745",
+      "nome": "MARCELO RODRIGUES PERATELLI",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "81171",
+      "nome": "CAIO MURILO",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "95361",
+      "nome": "DOUGLAS ALVES BENTO",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "96891",
+      "nome": "SEBASTIÃO AMAURILIO",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "90179",
+      "nome": "FERNANDO BARBOSA KOL",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "103566",
+      "nome": "MARCELO AP DA SILVA",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "89288",
+      "nome": "EDISON ALVES RIBAS",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "105392",
+      "nome": "CLEBER PELEGRINO",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "52756",
+      "nome": "SIDNEY RIBEIRO DA SILVA",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "105623",
+      "nome": "MARCIO MIRANDA",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "82985",
+      "nome": "WILLIAN DA SILVA BARROS",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "105766",
+      "nome": "EDILSON NEGREIRO MARTINS",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "104281",
+      "nome": "CLAUDINEI GUILLETTI",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "112113",
+      "nome": "WANDERSON DE SOUZA ROBLES",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "108561",
+      "nome": "JOSE VALDIR RAMOS",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "112014",
+      "nome": "ENDERSON RODRIGUES DE SOUZA",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "109363",
+      "nome": "ROSIANI CALDEIRA DA S. APRILI",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "112916",
+      "nome": "JESSIKA DAYANE SALA",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "108231",
+      "nome": "NELSON KAZUO ONISHI",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "110353",
+      "nome": "MARLON VICTOR OLIVEIRA",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "55321",
+      "nome": "JOÃO TOMÉ",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "101301",
+      "nome": "FRANK DOUGLAS",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "59972",
+      "nome": "EDGARD DE SOUZA",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "54197",
+      "nome": "ADRIANO JOSÉ DA SILVA",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "98737",
+      "nome": "MANOEL MESSIAS",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "85702",
+      "nome": "ROGÉRIO SURIANI POLILO",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "96791",
+      "nome": "MARCELO APARECIDO BERNARDO",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "61446",
+      "nome": "ROBERTO DACOME",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "61380",
+      "nome": "MARCELO DOS SANTOS",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "10961",
+      "nome": "WESLEY A. DE JESUS MOURA",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "88431",
+      "nome": "EDILSON DE OLIVEIRA BONINSEGNA",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "97032",
+      "nome": "MOACIR FERREIRA DE SOUZA",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "82974",
+      "nome": "ANDERSON GALLI CORDEIRO",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "91171",
+      "nome": "LAUDELINO DO NASCIMENTO LEITE",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "84789",
+      "nome": "ADRIANO CANDUCCI",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "101597",
+      "nome": "FERNANDO ABDALA",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "102213",
+      "nome": "GEISA AP DA SILVA",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "74526",
+      "nome": "CLAUDINEY BISPO PEREIRA",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "102543",
+      "nome": "JOSENETH INACIA DA SILVA",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "95822",
+      "nome": "LUIS CARLOS DOS SANTOS",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "105612",
+      "nome": "FABIO AP DA SILVA",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "78541",
+      "nome": "RODRIGO MAGNEZI",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "64446",
+      "nome": "JOSÉ PEDRO ELIAS MANFRÉ",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "72062",
+      "nome": "SIDNEI FRANCISCO XAVIER",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "82633",
+      "nome": "WEBERSON ALMEIDA DOS SANTOS",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "90784",
+      "nome": "MARCELO SOARES DE SOUZA",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "80257",
+      "nome": "JOSINEI FERNANDES SIQUEIRA",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "81148",
+      "nome": "THIAGO HENRIQUE DE OLIVEIRA",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "90731",
+      "nome": "ROGERIO PEREIRA DA SILVA",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "58553",
+      "nome": "EVANILDO BISPO",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "87715",
+      "nome": "ADRIANO JOSÉ TRAVASSOS",
+      "role": "USER",
+      "password": "123456"
+    },
+    {
+      "mat": "85757",
+      "nome": "DIEGO TEBAR DEPIERI",
+      "role": "USER",
+      "password": "123456"
+    }
+  ],
+  "schedules": {},
+  "logs": {}
+}

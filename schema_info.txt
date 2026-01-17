@@ -1,0 +1,9 @@
+SCHEMA REPORT:
+✅ vigilantes: mat, nome, equipe, ativo, inicio_padrao, fim_padrao, created_at
+✅ setores: id, nome, campus, tipo_base, inicio_padrao, fim_padrao, equipe_padrao, created_at, regra_segunda
+❌ alocacoes: Could not find the table 'public.alocacoes' in the schema cache (Code: PGRST205)
+❌ jornadas: Could not find the table 'public.jornadas' in the schema cache (Code: PGRST205)
+❌ setor_jornada: Could not find the table 'public.setor_jornada' in the schema cache (Code: PGRST205)
+⚠️ afastamentos: Exists but EMPTY. Cannot infer columns.
+✅ logs: id, timestamp, action, user_matricula, user_name, details, target_item_id
+❌ usuarios: Could not find the table 'public.usuarios' in the schema cache (Code: PGRST205)
