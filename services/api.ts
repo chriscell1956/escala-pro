@@ -8,7 +8,12 @@ import {
 } from "../types";
 
 // --- CONFIGURAÇÃO API (LOCAL ADAPTER) ---
-const API_URL = "http://localhost:3001/api";
+// --- CONFIGURAÇÃO API (LOCAL ADAPTER) ---
+// Em produção (Vercel), usa caminhos relativos "/api"
+// Em desenvolvimento, usa localhost:3001
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  (import.meta.env.PROD ? "/api" : "http://localhost:3001/api");
 
 export const api = {
   updateConnection(url: string, key: string) {
