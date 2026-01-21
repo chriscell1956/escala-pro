@@ -11,7 +11,13 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-const DB_FILE = path.join(__dirname, "database.json");
+
+// VERCEL FIX: Use /tmp for database.json if in production/read-only environment
+// This allows the app to start even if it cannot write to the source directory.
+const isVercel = process.env.VERCEL === "1";
+const DB_FILE = isVercel
+  ? path.join("/tmp", "database.json")
+  : path.join(__dirname, "database.json");
 
 // --- SUPABASE CLIENT (AUTH & DATA) ---
 const SUPABASE_URL =
@@ -41,25 +47,26 @@ async function readDB() {
     }
     return JSON.parse(data);
   } catch (err) {
-    if (
-      err.code === "ENOENT" ||
-      err instanceof SyntaxError ||
-      err.message === "Empty file"
-    ) {
-      console.log(
-        "⚠️ Banco de dados novo ou corrompido. Recriando database.json...",
-      );
-      // Only keeping logs and non-critical local storage here if needed.
-      const initialDB = { schedules: {}, logs: {}, presets: [], overrides: {} };
+    // If file missing or error, return default without cracking
+    // On Vercel /tmp might be empty initially.
+    const initialDB = { schedules: {}, logs: {}, presets: [], overrides: {} };
+
+    // Attempt to write, but don't crash if fails
+    try {
       await fs.writeFile(DB_FILE, JSON.stringify(initialDB, null, 2));
-      return initialDB;
+    } catch (e) {
+      console.warn("⚠️ Could not write to DB_FILE (Read-Only?):", e.message);
     }
-    throw err;
+    return initialDB;
   }
 }
 
 async function saveDB(data) {
-  await fs.writeFile(DB_FILE, JSON.stringify(data, null, 2));
+  try {
+    await fs.writeFile(DB_FILE, JSON.stringify(data, null, 2));
+  } catch (e) {
+    console.warn("⚠️ SaveDB failed (Read-Only FS?):", e.message);
+  }
 }
 
 // --- Rotas de Sistema ---
