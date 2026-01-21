@@ -38,6 +38,10 @@ router.get("/health", (req, res) => {
   res.json({ status: "online", mode: "production_memory_db" });
 });
 
+router.get("/test/:id", (req, res) => {
+  res.json({ id: req.params.id, url: req.url });
+});
+
 // --- Auth & User Management ---
 
 router.get("/users", async (req, res) => {
