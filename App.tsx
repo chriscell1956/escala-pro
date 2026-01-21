@@ -94,8 +94,13 @@ const getVisibleTeams = (fiscalTeam: string, isMaster: boolean) => {
 };
 
 // HELPER NOVA: Visibilidade restrita para o LANÇADOR (Pedido do usuário)
-const getLancadorVisibleTeams = (fiscalTeam: string, isMaster: boolean) => {
-  // Master sees EVERYONE, including ADM and SUPERVISORS
+// Helper to determine visible teams for "Lancador" mode
+const getLancadorVisibleTeams = (
+  fiscalTeam: string,
+  isMaster: boolean,
+  permissions?: VisibilityPermission[],
+) => {
+  // Master sees EVERYONE
   if (isMaster)
     return [
       "A",
@@ -113,6 +118,36 @@ const getLancadorVisibleTeams = (fiscalTeam: string, isMaster: boolean) => {
       "SEM POSTO",
     ];
 
+  // 1. Explicit Permissions (Priority)
+  // If user has specific permissions configured, use them to derive visibility
+  if (permissions && permissions.length > 0) {
+    const allowed = new Set<string>();
+    allowed.add("ADM"); // Always allow seeing ADM presets/users if needed
+
+    permissions.forEach((p) => {
+      // If permission grants view access (or edit access, which implies view)
+      if (p.canView || p.canEdit) {
+        const t = cleanString(p.team);
+        allowed.add(t);
+
+        // Auto-include related Shift resources based on the Team
+        // Night Teams (A, B) -> see ECO2
+        if (t === "A" || t === "B") {
+          allowed.add("ECO2");
+          allowed.add("ECO 2");
+        }
+        // Day Teams (C, D) -> see ECO1
+        if (t === "C" || t === "D") {
+          allowed.add("ECO1");
+          allowed.add("ECO 1");
+        }
+      }
+    });
+
+    return Array.from(allowed);
+  }
+
+  // 2. Fallback: Derived from User's "Fiscal Team" (Legacy)
   const t = cleanString(fiscalTeam);
 
   // Equipes Noturnas -> Própria + ECO2 + ADM
@@ -123,8 +158,14 @@ const getLancadorVisibleTeams = (fiscalTeam: string, isMaster: boolean) => {
   if (t === "C") return ["C", "ECO1", "ECO 1", "ADM"];
   if (t === "D") return ["D", "ECO1", "ECO 1", "ADM"];
 
-  // Default: sees own team + ADM
-  return [t, "ADM"];
+  // Default: Return ONLY "ADM" or empty to prevent leaking "Team A" info
+  // Previously this defaulted to [t, "ADM"], but if 't' was invalid it might have caused issues or defaulted to 'A' elsewhere.
+  // Now we are safer.
+  if (t && t !== "SEM EQUIPE") {
+    return [t, "ADM"];
+  }
+
+  return ["ADM"];
 };
 
 function AppContent() {
@@ -1412,10 +1453,12 @@ function AppContent() {
     }
 
     if (user?.role === "FISCAL") {
-      const userTeam = currentUserVig ? cleanString(currentUserVig.eq) : "";
-      if (!currentUserVig) return [userTeam]; // If fiscal but no current vig data, return just their (empty) team
-
-      return getVisibleTeams(currentUserVig.eq, isMaster);
+      // 2. Fallback: Vigilante Record
+      if (currentUserVig) {
+        return getVisibleTeams(currentUserVig.eq, isMaster);
+      }
+      // 3. Last Resort: Default to "A" (Night) so the app isn't empty
+      return getVisibleTeams("A", isMaster);
     }
     return TEAM_OPTIONS;
   }, [user, data, isMaster, filterEq, currentUserVig]);
@@ -2231,6 +2274,14 @@ function AppContent() {
     const success = await api.saveUsers(updatedList);
     if (success) {
       setAllUsers(updatedList);
+
+      // FIX: If we edited the currently logged-in user, update the session immediately
+      if (user && user.mat === updatedUser.mat) {
+        setUser(updatedUser);
+        localStorage.setItem("uno_user", JSON.stringify(updatedUser));
+        showToast("Seu perfil foi atualizado!");
+      }
+
       cancelEditUser();
       setIsUserMgmtModalOpen(false);
       showToast("Usuário atualizado com sucesso!");
@@ -4132,8 +4183,9 @@ function AppContent() {
             toggleSectorExpansion={toggleSectorExpansion}
             onUpdateVigilante={handleUpdateVigilante}
             lancadorVisibleTeams={getLancadorVisibleTeams(
-              currentUserVig?.eq || "A",
+              currentUserVig?.eq || "",
               isMaster,
+              user?.permissions,
             )}
             isMaster={isMaster}
             month={month}
@@ -4173,10 +4225,9 @@ function AppContent() {
             handleSmartSuggest={handleSmartSuggest}
             month={month}
             lancadorVisibleTeams={getLancadorVisibleTeams(
-              user?.role === "FISCAL" && currentUserVig
-                ? currentUserVig.eq
-                : "A",
+              currentUserVig?.eq || "",
               isMaster,
+              user?.permissions,
             )}
             expandedSectors={expandedSectors}
             toggleSectorExpansion={toggleSectorExpansion}
