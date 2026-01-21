@@ -109,6 +109,8 @@ const getLancadorVisibleTeams = (fiscalTeam: string, isMaster: boolean) => {
       "ADM",
       "SUPERVISOR",
       "AFASTADOS",
+      "A DEFINIR",
+      "SEM POSTO",
     ];
 
   const t = cleanString(fiscalTeam);
@@ -683,6 +685,9 @@ function AppContent() {
 
   // --- AUTO-UPDATE (POLLING) ---
   // Verifica atualizações no banco a cada 10 segundos
+  // --- AUTO-UPDATE (POLLING) ---
+  // REMOVED: Auto-refresh causing usability issues.
+  /*
   useEffect(() => {
     if (
       !user ||
@@ -694,7 +699,7 @@ function AppContent() {
     )
       return;
 
-    const intervalId = setInterval(() => {
+     const intervalId = setInterval(() => {
       // Chama o carregamento em modo silencioso (sem spinner)
       loadDataForMonth(month, true);
     }, 10000); // 10 segundos
@@ -709,6 +714,7 @@ function AppContent() {
     isNewVigModalOpen,
     isVigilanteManagerOpen,
   ]);
+  */
 
   const checkSystemStatus = async () => {
     setDbStatus({ online: false, message: "Testando conexão..." });
@@ -5635,7 +5641,7 @@ function AppContent() {
               {allUsers
                 .filter(
                   (u) =>
-                    u.nome.includes(userSearch.toUpperCase()) ||
+                    u.nome.toUpperCase().includes(userSearch.toUpperCase()) ||
                     u.mat.includes(userSearch),
                 )
                 .map((u) => (

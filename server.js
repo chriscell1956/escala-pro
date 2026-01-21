@@ -253,6 +253,23 @@ app.post("/api/logs/:month", async (req, res) => {
   }
 });
 
+// --- MAINTENANCE ROUTES ---
+app.post("/api/maintenance/wipe-schedule", async (req, res) => {
+  try {
+    console.log("🧹 LIMPEZA TOTAL DA ESCALA INICIADA...");
+    // Deleta TODAS as alocações (permite zerar o banco para reiniciar)
+    const { error } = await supabase.from("alocacoes").delete().neq("id", 0); // Hack para deletar tudo (id != 0 sempre verdade se ids > 0)
+
+    if (error) throw error;
+
+    console.log("✅ Tabela alocacoes limpa com sucesso.");
+    res.json({ success: true, message: "Escala zerada com sucesso." });
+  } catch (e) {
+    console.error("Erro ao limpar escala:", e);
+    res.status(500).json({ error: "Erro ao limpar escala" });
+  }
+});
+
 // --- Presets & Overrides (Local JSON for config persistence simplicity for now) ---
 // Ideally move to Supabase 'config' table in Phase 5
 app.get("/api/presets", async (req, res) => {

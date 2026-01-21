@@ -119,6 +119,12 @@ export const LegacyAdapterController = {
           }
         });
 
+        // FALLBACK EQUIPE (ERS FIX):
+        // Se não tem alocação (A DEFINIR), usa a equipe do cadastro do vigilante.
+        if (inferredTeam === "A DEFINIR" && v.equipe) {
+          inferredTeam = v.equipe;
+        }
+
         // Resolve nome do setor
         let setorNome = "AGUARDANDO";
         let campusNome = "SEM POSTO";
