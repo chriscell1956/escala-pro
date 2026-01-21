@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import { LegacyAdapterController } from "./controllers/LegacyAdapterController.js";
 
 const app = express();
+const router = express.Router();
 const PORT = process.env.PORT || 3001;
 
 // --- SUPABASE CLIENT (AUTH & DATA) ---
@@ -15,8 +16,7 @@ const SUPABASE_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVpcWVscWd1cm1jem1yc2RlaXBuIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODQzMDI1NiwiZXhwIjoyMDg0MDA2MjU2fQ.dq58zyZmqObEZfTUi_Z4xTjBPaX0JYTxWq8-Y_i7aZY";
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// --- IN-MEMORY STORAGE (Volatile - Reset on Deploy) ---
-// Substitui o antigo database.json para evitar erros de leitura/escrita na Vercel (ReadOnly)
+// --- IN-MEMORY STORAGE ---
 const memoryDB = {
   presets: [],
   overrides: {},
@@ -25,27 +25,26 @@ const memoryDB = {
 // --- Middlewares ---
 app.use(
   cors({
-    origin: "*", // Permite qualquer origem (frontend)
+    origin: "*",
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
   }),
 );
 app.use(express.json({ limit: "50mb" }));
 
-// --- Rotas de Sistema ---
+// --- ROUTER DEFINITION (Prefix Agnostic) ---
 
-app.get("/api/health", (req, res) => {
+router.get("/health", (req, res) => {
   res.json({ status: "online", mode: "production_memory_db" });
 });
 
-// --- Auth & User Management (VIA SUPABASE) ---
+// --- Auth & User Management ---
 
-app.get("/api/users", async (req, res) => {
+router.get("/users", async (req, res) => {
   try {
     const { data: users, error } = await supabase.from("usuarios").select("*");
     if (error) throw error;
 
-    // Workaround: 'usuarios' table missing 'nome' column. Fetch from 'vigilantes'.
     const { data: vigs } = await supabase
       .from("vigilantes")
       .select("matricula, nome");
@@ -64,13 +63,12 @@ app.get("/api/users", async (req, res) => {
   }
 });
 
-app.post("/api/users", async (req, res) => {
+router.post("/users", async (req, res) => {
   try {
     const users = req.body;
     if (!Array.isArray(users))
       return res.status(400).json({ error: "Formato inválido" });
 
-    // Upsert based on Matricula. OMIT 'nome' as table lacks it.
     const usersToUpsert = users.map((u) => {
       const { nome, ...rest } = u;
       return rest;
@@ -87,14 +85,12 @@ app.post("/api/users", async (req, res) => {
   }
 });
 
-app.post("/api/seed-users", async (req, res) => {
+router.post("/seed-users", async (req, res) => {
   try {
     const { vigilantes } = req.body;
     console.log("Seeding Users from Vigilantes list...");
-
     const ADMIN_MAT = "91611";
 
-    // 1. Upsert Admin
     const masterUser = {
       matricula: ADMIN_MAT,
       role: "MASTER",
@@ -105,14 +101,13 @@ app.post("/api/seed-users", async (req, res) => {
       .from("usuarios")
       .upsert(masterUser, { onConflict: "matricula" });
 
-    // 2. Batch others
     if (vigilantes && Array.isArray(vigilantes)) {
       const rows = vigilantes
-        .filter((v) => v.mat !== ADMIN_MAT) // Skip admin duplicate
+        .filter((v) => v.mat !== ADMIN_MAT)
         .map((v) => ({
           matricula: v.mat,
           role: v.eq === "ADM" ? "MASTER" : "USER",
-          senha: "123456", // Default Password
+          senha: "123456",
           primeiro_acesso: true,
         }));
 
@@ -131,7 +126,7 @@ app.post("/api/seed-users", async (req, res) => {
   }
 });
 
-app.post("/api/login", async (req, res) => {
+router.post("/login", async (req, res) => {
   try {
     const { mat, password } = req.body;
     const { data: user, error } = await supabase
@@ -169,16 +164,13 @@ app.post("/api/login", async (req, res) => {
   }
 });
 
-// --- Schedule Routes (RELATIONAL ADAPTER) ---
-// GET /api/escala/:month - Busca do Supabase Relacional e monta JSON legado
-app.get("/api/escala/:month", LegacyAdapterController.getEscala);
-// POST /api/escala/:month - Salva no Supabase Relacional (Upsert dias)
-app.post("/api/escala/:month", LegacyAdapterController.saveEscala);
+// --- Schedule Routes ---
+router.get("/escala/:month", LegacyAdapterController.getEscala);
+router.post("/escala/:month", LegacyAdapterController.saveEscala);
 
-// --- Logs Routes (MIGRATED TO SUPABASE) ---
-app.get("/api/logs/:month", async (req, res) => {
+// --- Logs Routes ---
+router.get("/logs/:month", async (req, res) => {
   try {
-    // Just fetching latest logs 200
     const { data, error } = await supabase
       .from("logs")
       .select("*")
@@ -205,11 +197,10 @@ app.get("/api/logs/:month", async (req, res) => {
   }
 });
 
-app.post("/api/logs/:month", async (req, res) => {
+router.post("/logs/:month", async (req, res) => {
   try {
     const newLog = req.body;
     // Frontend: { id, timestamp, user, action, details, targetName }
-
     const dbLog = {
       action: newLog.action,
       user_name: newLog.user,
@@ -229,7 +220,7 @@ app.post("/api/logs/:month", async (req, res) => {
 });
 
 // --- MAINTENANCE ROUTES ---
-app.post("/api/maintenance/wipe-schedule", async (req, res) => {
+router.post("/maintenance/wipe-schedule", async (req, res) => {
   try {
     console.log("🧹 LIMPEZA TOTAL DA ESCALA INICIADA...");
     const { error } = await supabase
@@ -247,19 +238,18 @@ app.post("/api/maintenance/wipe-schedule", async (req, res) => {
   }
 });
 
-// --- Presets & Overrides (IN-MEMORY NOW) ---
-app.get("/api/presets", async (req, res) => {
+// --- Presets & Overrides ---
+router.get("/presets", async (req, res) => {
   try {
     if (memoryDB.presets && memoryDB.presets.length > 0) {
       return res.json(memoryDB.presets);
     }
-    // Fallback: Gerar dinâmico se a memória estiver vazia
     return await LegacyAdapterController.getDynamicPresets(req, res);
   } catch (e) {
     res.status(500).json({ error: "Erro presets" });
   }
 });
-app.post("/api/presets", async (req, res) => {
+router.post("/presets", async (req, res) => {
   try {
     memoryDB.presets = req.body;
     res.json({ success: true });
@@ -268,10 +258,10 @@ app.post("/api/presets", async (req, res) => {
   }
 });
 
-app.get("/api/overrides", async (req, res) => {
+router.get("/overrides", async (req, res) => {
   res.json(memoryDB.overrides || {});
 });
-app.post("/api/overrides", async (req, res) => {
+router.post("/overrides", async (req, res) => {
   try {
     memoryDB.overrides = req.body;
     res.json({ success: true });
@@ -281,22 +271,20 @@ app.post("/api/overrides", async (req, res) => {
 });
 
 // --- LEGACY ADAPTER ROUTES ---
-app.get("/api/vigilantes", LegacyAdapterController.getVigilantes);
-app.post("/api/save", LegacyAdapterController.saveSchedule);
+router.get("/vigilantes", LegacyAdapterController.getVigilantes);
+router.post("/save", LegacyAdapterController.saveSchedule);
 
 // Migrations
-app.post("/api/migration/upload", LegacyAdapterController.importMigration);
+router.post("/migration/upload", LegacyAdapterController.importMigration);
+
+// --- MOUNT ROUTER ---
+// Mount at /api for Local/Standard calls
+app.use("/api", router);
+// Mount at / (root) for Vercel calls where 'api' might be stripped
+app.use("/", router);
 
 app.listen(PORT, () => {
-  console.log(`
-    🚀 SERVIDOR BACKEND RODANDO!
-    -----------------------------------
-    📡 API:     http://localhost:${PORT}
-    🔑 Auth:    Supabase ('usuarios')
-    📂 Storage: Supabase ('logs', 'alocacoes') + Memória (Presets)
-    ❌ JSON:    Desativado (database.json removido)
-    -----------------------------------
-    `);
+  console.log(`🚀 Server running on port ${PORT}`);
 });
 
 export default app;
