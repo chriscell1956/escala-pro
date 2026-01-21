@@ -1708,6 +1708,7 @@ function AppContent() {
     ) {
       displayList.push(currentUserVig);
     }
+
     if (!displayList.length)
       return {} as Record<
         string,
@@ -1723,7 +1724,6 @@ function AppContent() {
         const vMat = String(v.mat || "").trim();
         return uMat === vMat;
       }
-
       // 2. Fiscal: Exclui ADMs específicos
       if (user?.role === "FISCAL" && EXCLUDED_ADM_MATS.includes(v.mat)) {
         return false;
@@ -1732,7 +1732,8 @@ function AppContent() {
       // --- CORREÇÃO DE VISIBILIDADE DO FISCAL ---
       // Fiscal só vê EXATAMENTE a sua equipe na tabela principal.
       // Impede ver outros fiscais ou outras equipes.
-      if (user?.role === "FISCAL" && currentUserVig) {
+      // FIX: Apply rule even if currentUserVig is missing (using permissions/default)
+      if (user?.role === "FISCAL") {
         // CORREÇÃO: Usar a lista de equipes visíveis calculada (que respeita Permissões Explícitas)
         // em vez da lógica hardcoded legada.
         const targetEq = cleanString(v.eq);
