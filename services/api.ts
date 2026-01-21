@@ -109,6 +109,10 @@ export const api = {
   },
 
   async seedUsers(vigilantes: Vigilante[]): Promise<void> {
+    // DISABLED: Auto-seeding overwrites user roles (reverting Fiscal to User).
+    // We only want to seed users manually or if the DB is truly empty.
+    // Making this a no-op for now to preserve manual role assignments.
+    /*
     try {
       await fetch(`${API_URL}/seed-users`, {
         method: "POST",
@@ -118,6 +122,7 @@ export const api = {
     } catch (e) {
       console.error("Seed Error:", e);
     }
+    */
   },
 
   // --- Escala (Data Persistence) ---

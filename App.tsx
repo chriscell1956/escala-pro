@@ -1437,31 +1437,14 @@ function AppContent() {
   }, [data, month, filterEq, isFutureMonth]);
 
   const visibleTeamsForFilter = useMemo(() => {
-    // 1. Explicit Permissions
-    if (user?.permissions && user.permissions.length > 0) {
-      const teams = user.permissions
-        .filter((p) => p.canView)
-        .map((p) => cleanString(p.team));
-      // Normalize to ensure compatibility
-      if (teams.includes("ECO1")) teams.push("ECO 1");
-      if (teams.includes("ECO2")) teams.push("ECO 2");
-      if (teams.includes("ECO 1") && !teams.includes("ECO1"))
-        teams.push("ECO1");
-      if (teams.includes("ECO 2") && !teams.includes("ECO2"))
-        teams.push("ECO2");
-      return teams;
-    }
-
-    if (user?.role === "FISCAL") {
-      // 2. Fallback: Vigilante Record
-      if (currentUserVig) {
-        return getVisibleTeams(currentUserVig.eq, isMaster);
-      }
-      // 3. Last Resort: Default to "A" (Night) so the app isn't empty
-      return getVisibleTeams("A", isMaster);
-    }
-    return TEAM_OPTIONS;
-  }, [user, data, isMaster, filterEq, currentUserVig]);
+    // UNIFIED LOGIC: Reuse getLancadorVisibleTeams to ensure consistency
+    // This handles Permissions -> Fallback -> Safe Default (ADM)
+    return getLancadorVisibleTeams(
+      currentUserVig?.eq || "",
+      isMaster,
+      user?.permissions,
+    );
+  }, [user, currentUserVig, isMaster]);
 
   const lancadorList = useMemo(() => {
     let filtered = data.filter((v) => v.campus !== "AFASTADOS");
