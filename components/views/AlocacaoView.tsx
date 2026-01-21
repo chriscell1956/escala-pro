@@ -779,8 +779,10 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
                             v.setor === preset.sector;
                           if (isAlreadyHere) return false;
 
-                          // Shift Check
-                          if (!shiftTeams.includes(vTeam)) return false;
+                          // Shift Check - Master bypasses this to allow cross-coverage
+                          if (!isMaster) {
+                            if (!shiftTeams.includes(vTeam)) return false;
+                          }
                           return true;
                         })
                         .sort((a, b) => {

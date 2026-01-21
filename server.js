@@ -57,6 +57,7 @@ router.get("/users", async (req, res) => {
 
     const usersWithNames = users.map((u) => ({
       ...u,
+      mat: u.matricula, // Map DB 'matricula' to frontend 'mat'
       nome: u.nome || vigMap.get(u.matricula) || "Sem Nome",
     }));
 
@@ -74,8 +75,12 @@ router.post("/users", async (req, res) => {
       return res.status(400).json({ error: "Formato inválido" });
 
     const usersToUpsert = users.map((u) => {
-      const { nome, ...rest } = u;
-      return rest;
+      // FIX: Map frontend 'mat' to database 'matricula' and exclude UI-only fields
+      const { nome, mat, ...rest } = u;
+      return {
+        matricula: mat, // Explicit mapping
+        ...rest,
+      };
     });
     const { error } = await supabase
       .from("usuarios")
