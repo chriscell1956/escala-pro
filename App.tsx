@@ -2243,6 +2243,10 @@ function AppContent() {
     }
   };
   const handleToggleRole = async (targetUser: User) => {
+    if (!targetUser.mat) {
+      alert("Erro: Usuário inválido (sem matrícula). Recarregue a página.");
+      return;
+    }
     if (targetUser.mat === SUPER_ADMIN_MAT)
       return alert("Não é possível alterar o Super Admin.");
     let newRole: UserRole = "USER";
@@ -2266,6 +2270,7 @@ function AppContent() {
     if (success) showToast("Senha resetada com sucesso!");
   };
   const handleDeleteUser = async (targetUser: User) => {
+    if (!targetUser.mat) return alert("Erro: Matrícula inválida.");
     if (targetUser.mat === SUPER_ADMIN_MAT)
       return alert("Não é possível remover o Super Admin.");
     if (!confirm(`Tem certeza que deseja remover ${targetUser.nome}?`)) return;
