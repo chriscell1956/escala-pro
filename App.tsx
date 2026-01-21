@@ -5641,7 +5641,9 @@ function AppContent() {
               {allUsers
                 .filter(
                   (u) =>
-                    u.nome.toUpperCase().includes(userSearch.toUpperCase()) ||
+                    (u.nome || "")
+                      .toUpperCase()
+                      .includes(userSearch.toUpperCase()) ||
                     u.mat.includes(userSearch),
                 )
                 .map((u) => (

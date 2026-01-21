@@ -69,7 +69,7 @@ export const api = {
 
   async getUsers(): Promise<User[]> {
     try {
-      const res = await fetch(`${API_URL}/users`);
+      const res = await fetch(`${API_URL}/users`, { cache: "no-store" });
       if (!res.ok) return [];
       return await res.json();
     } catch (e) {
