@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Icons } from "../ui";
+import { Icons } from "./Icons";
 
 interface Option {
   value: string;
@@ -72,9 +72,8 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
           }
         }}
         disabled={disabled}
-        className={`w-full flex items-center justify-between bg-slate-800 border border-slate-700 hover:border-slate-500 rounded px-3 py-2 text-xs text-slate-200 transition-colors ${
-          disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
-        }`}
+        className={`w-full flex items-center justify-between bg-slate-800 border border-slate-700 hover:border-slate-500 rounded px-3 py-2 text-xs text-slate-200 transition-colors ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
+          }`}
       >
         <span className="truncate">
           {selectedOption ? selectedOption.label : placeholder}
@@ -113,11 +112,10 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
                     setIsOpen(false);
                     setSearch("");
                   }}
-                  className={`w-full text-left px-3 py-2 text-xs rounded hover:bg-slate-800 transition-colors flex items-center justify-between ${
-                    value === opt.value
+                  className={`w-full text-left px-3 py-2 text-xs rounded hover:bg-slate-800 transition-colors flex items-center justify-between ${value === opt.value
                       ? "bg-slate-800/50 text-blue-400 font-bold"
                       : "text-slate-300"
-                  }`}
+                    }`}
                 >
                   <span className="block truncate">{opt.label}</span>
                   {opt.subLabel && (

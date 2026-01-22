@@ -10,6 +10,7 @@ import {
   Request,
   Team,
   DepartmentPreset,
+  VisibilityPermission,
 } from "./types";
 import {
   INITIAL_DB,
@@ -51,6 +52,7 @@ import { AppHeader } from "./components/layout/AppHeader";
 import { EscalaView } from "./components/views/EscalaView";
 import { AlocacaoView } from "./components/views/AlocacaoView";
 import { PresetManager } from "./components/views/PresetManager";
+import { ConfigView } from "./components/views/ConfigView";
 import { VigilanteManager } from "./components/views/VigilanteManager";
 // Nota: CalendarGrid agora é usado internamente pelo LancadorView, não precisa importar aqui
 
@@ -261,6 +263,18 @@ const getLancadorVisibleTeams = (
 };
 
 function AppContent() {
+  // --- CACHE BUSTER (Post-Database Wipe) ---
+  useEffect(() => {
+    const EXPECTED_VERSION = "WIPE_V3_FINAL";
+    const current = localStorage.getItem("app_version_tag");
+    if (current !== EXPECTED_VERSION) {
+      console.warn("🧹 BUSTING CACHE: Database was wiped. clearing local storage.");
+      localStorage.clear();
+      localStorage.setItem("app_version_tag", EXPECTED_VERSION);
+      window.location.reload();
+    }
+  }, []);
+
   // --- Config State ---
   const [expandedSectors, setExpandedSectors] = useState<Set<string>>(
     new Set(),
@@ -1794,7 +1808,12 @@ function AppContent() {
     Record<
       string,
       (Vigilante & {
-        displayStatus?: { active: boolean; status: string; variant: string };
+        displayStatus?: {
+          active: boolean;
+          status?: string;
+          variant?: string;
+          location?: string;
+        } | null;
       })[]
     >
   >(() => {
@@ -1811,7 +1830,12 @@ function AppContent() {
       return {} as Record<
         string,
         (Vigilante & {
-          displayStatus?: { active: boolean; status: string; variant: string };
+          displayStatus?: {
+            active: boolean;
+            status?: string;
+            variant?: string;
+            location?: string;
+          } | null;
         })[]
       >;
 
@@ -1896,7 +1920,12 @@ function AppContent() {
     const groups: Record<
       string,
       (Vigilante & {
-        displayStatus?: { active: boolean; status: string; variant: string };
+        displayStatus?: {
+          active: boolean;
+          status?: string;
+          variant?: string;
+          location?: string;
+        } | null;
       })[]
     > = {};
     filtered.forEach((v) => {
@@ -1904,8 +1933,9 @@ function AppContent() {
         ...v,
         displayStatus: null as {
           active: boolean;
-          status: string;
-          variant: string;
+          status?: string;
+          variant?: string;
+          location?: string;
         } | null,
       };
       if (filterDay && view === "escala") {
@@ -2058,7 +2088,7 @@ function AppContent() {
 
       // BUG FIX: Determine effectiveSector based on REAL-TIME status
       const isActivelyCovering =
-        status.status.includes("COBERTURA") && coversToday;
+        status.status?.includes("COBERTURA") && coversToday;
       const finalSector = isActivelyCovering
         ? `${coversToday.local} (COBERTURA)`
         : v.setor;
@@ -2121,8 +2151,8 @@ function AppContent() {
       intervalCategory === "TODOS"
         ? rawList
         : rawList.filter(
-            (v) => getCategory(v.effectiveCampus) === intervalCategory,
-          );
+          (v) => getCategory(v.effectiveCampus) === intervalCategory,
+        );
 
     const grouped: Record<string, IntervalVigilante[]> = {};
     list.forEach((v) => {
@@ -2292,7 +2322,6 @@ function AppContent() {
         canViewLogs: false,
         canPrint: false,
         canSimulate: false,
-        canSimulate: false,
         canViewCFTV: false,
         permissions: [],
       });
@@ -2316,7 +2345,6 @@ function AppContent() {
       canViewLogs: !!userToEdit.canViewLogs,
       canPrint: !!userToEdit.canPrint,
       canSimulate: !!userToEdit.canSimulate,
-      canSimulate: !!userToEdit.canSimulate,
       canViewCFTV: !!(userToEdit as { canViewCFTV?: boolean }).canViewCFTV,
       permissions: userToEdit.permissions || [],
     });
@@ -2329,7 +2357,6 @@ function AppContent() {
       canManageIntervals: false,
       canViewLogs: false,
       canPrint: false,
-      canSimulate: false,
       canSimulate: false,
       canViewCFTV: false,
       permissions: [],
@@ -3343,7 +3370,6 @@ function AppContent() {
         // 3. Fallback: If Master and "TODAS", keep 'A' or use context if relevant
 
         changes.eq = newTeam;
-        changes.tipo = newTeam; // Ensure internal consistency
       }
     }
 
@@ -4074,10 +4100,10 @@ function AppContent() {
         handleLogout={handleLogout}
         setIsHelpModalOpen={setIsHelpModalOpen}
         setIsPasswordModalOpen={setIsPasswordModalOpen}
-        canEnterSimulation={canEnterSimulation}
-        canPrint={canPrint}
-        isMaster={isMaster}
-        canViewLogs={canViewLogs}
+        canEnterSimulation={!!canEnterSimulation}
+        canPrint={!!canPrint}
+        isMaster={!!isMaster}
+        canViewLogs={!!canViewLogs}
         handleExport={handleExport}
         setIsLogModalOpen={setIsLogModalOpen}
         setIsUserMgmtModalOpen={setIsUserMgmtModalOpen}
@@ -4236,9 +4262,9 @@ function AppContent() {
             conflicts={conflicts}
             user={user}
             isUser={isUser}
-            isFiscal={isFiscal}
-            isMaster={isMaster}
-            currentUserVig={currentUserVig}
+            isFiscal={!!isFiscal}
+            isMaster={!!isMaster}
+            currentUserVig={currentUserVig || undefined}
             currentLabel={currentLabel}
             searchTerm={searchTerm}
             setSearchTerm={setSearchTerm}
@@ -4521,7 +4547,7 @@ function AppContent() {
                         // FISCAL FILTER: Show only requests from OWN TEAM. Master sees ALL.
                         if (user?.role === "FISCAL" && currentUserVig) {
                           const myEq = cleanString(currentUserVig.eq);
-                          const visibleTeams = getVisibleTeams(myEq);
+                          const visibleTeams = getVisibleTeams(myEq, !!isMaster);
                           return visibleTeams.includes(cleanString(v.eq));
                         }
                         return true;
@@ -5221,7 +5247,7 @@ function AppContent() {
                 // Team Visibility Check
                 if (user?.role === "FISCAL" && currentUserVig) {
                   const myEq = cleanString(currentUserVig.eq);
-                  const visibleTeams = getVisibleTeams(myEq);
+                  const visibleTeams = getVisibleTeams(myEq, !!isMaster);
                   return visibleTeams.includes(cleanString(v.eq));
                 }
                 // Master sees all
@@ -5277,10 +5303,10 @@ function AppContent() {
                   filterTime,
                 ).status !== "INTERVALO",
             ).length === 0 && (
-              <div className="p-4 text-center text-slate-400 text-xs">
-                Nenhum vigilante disponível encontrado.
-              </div>
-            )}
+                <div className="p-4 text-center text-slate-400 text-xs">
+                  Nenhum vigilante disponível encontrado.
+                </div>
+              )}
           </div>
         </div>
       </Modal>

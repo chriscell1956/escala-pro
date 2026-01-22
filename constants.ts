@@ -40,7 +40,8 @@ export type ShiftType =
   | "12x36_NOTURNO"
   | "EXP_ADM"
   | "ECO_1"
-  | "ECO_2";
+  | "ECO_2"
+  | "5x2_EXPEDIENTE";
 
 export const SHIFT_TYPES: Record<
   ShiftType,
@@ -51,24 +52,11 @@ export const SHIFT_TYPES: Record<
   EXP_ADM: { label: "Exp. Administrativo (Seg-Sex)", worksSaturday: false },
   ECO_1: { label: "ECO 1 (Manhã/Tarde - Sáb)", worksSaturday: true },
   ECO_2: { label: "ECO 2 (Tarde/Noite - Seg-Sex)", worksSaturday: false },
+  "5x2_EXPEDIENTE": { label: "5x2 Expediente (Seg-Sex)", worksSaturday: false },
 };
 
-// DADOS DEZEMBRO 2025 JÁ PROCESSADOS (PRESET)
+// DADOS DEZEMBRO 2025 JÁ PROCESSADOS (PRESET) - REMOVIDO PARA EVITAR FANTASMAS
 export const DECEMBER_2025_PRESET: Omit<Vigilante, "vacation">[] = [
-  {
-    nome: "FABIO FELIX DE LIMA",
-    mat: "60931",
-    eq: "ADM",
-    setor: "SUP. SEGURANÇA",
-    campus: "SUPERVISÃO E ADMINISTRAÇÃO",
-    horario: "Expediente",
-    refeicao: "***",
-    dias: [1, 2, 3, 4, 5, 8, 9, 10, 11, 12, 15, 16, 17, 18, 19],
-    manualLock: false,
-    status: "PENDENTE",
-    folgasGeradas: [],
-    coberturas: [],
-  },
   {
     nome: "MARCIO R. S. PIVARO",
     mat: "72911",

@@ -1,0 +1,34 @@
+components/views/AlocacaoView.tsx(158,41): error TS2304: Cannot find name 'vTeam'.
+components/views/AlocacaoView.tsx(162,13): error TS2304: Cannot find name 'vTeam'.
+components/views/AlocacaoView.tsx(901,37): error TS2322: Type '{ size: number; className: string; }' is not assignable to type 'IntrinsicAttributes & { className?: string | undefined; }'.
+  Property 'size' does not exist on type 'IntrinsicAttributes & { className?: string | undefined; }'.
+components/views/AlocacaoView.tsx(1096,48): error TS2345: Argument of type '"edit_info"' is not assignable to parameter of type 'SetStateAction<"vacation" | "days" | "falta" | "partial">'.
+components/views/AlocacaoView.tsx(1097,95): error TS2367: This comparison appears to be unintentional because the types '"vacation" | "days" | "falta" | "partial"' and '"edit_info"' have no overlap.
+components/views/AlocacaoView.tsx(1143,18): error TS2367: This comparison appears to be unintentional because the types '"vacation" | "days" | "falta" | "partial"' and '"edit_info"' have no overlap.
+components/views/AlocacaoView.tsx(1256,11): error TS2322: Type '{ children: Element; isOpen: true; onClose: () => void; title: string; className: string; }' is not assignable to type 'IntrinsicAttributes & { title: string; isOpen: boolean; onClose: () => void; children: ReactNode; }'.
+  Property 'className' does not exist on type 'IntrinsicAttributes & { title: string; isOpen: boolean; onClose: () => void; children: ReactNode; }'.
+components/views/AlocacaoView.tsx(1286,23): error TS18048: 'managingPreset.horario' is possibly 'undefined'.
+components/views/AlocacaoView.tsx(1297,25): error TS18048: 'managingPreset.horario' is possibly 'undefined'.
+components/views/AlocacaoView.tsx(1317,23): error TS18048: 'managingPreset.horario' is possibly 'undefined'.
+components/views/AlocacaoView.tsx(1328,25): error TS18048: 'managingPreset.horario' is possibly 'undefined'.
+components/views/EscalaView.tsx(311,60): error TS2322: Type '{ size: number; }' is not assignable to type 'IntrinsicAttributes & { className?: string | undefined; }'.
+  Property 'size' does not exist on type 'IntrinsicAttributes & { className?: string | undefined; }'.
+components/views/EscalaView.tsx(368,60): error TS2339: Property 'Delete' does not exist on type '{ Calendar: ({ className }: { className?: string | undefined; }) => Element; Users: ({ className }: { className?: string | undefined; }) => Element; UserPlus: ({ className }: { className?: string | undefined; }) => Element; ... 22 more ...; AlertTriangle: ({ className }: { ...; }) => Element; }'.
+components/views/LancadorView.tsx(215,45): error TS2322: Type '"5x2_EXPEDIENTE"' is not assignable to type 'ShiftType'.
+components/views/LancadorView.tsx(217,44): error TS2322: Type '"5x2_EXPEDIENTE"' is not assignable to type 'ShiftType'.
+components/views/LancadorView.tsx(307,21): error TS2322: Type '{ label: string; worksSaturday: boolean; }' is not assignable to type 'ReactNode'.
+components/views/LancadorView.tsx(614,21): error TS2304: Cannot find name 'setSelectedDay'.
+components/views/LancadorView.tsx(614,37): error TS7006: Parameter 'prev' implicitly has an 'any' type.
+components/views/LancadorView.tsx(621,20): error TS2304: Cannot find name 'selectedDay'.
+components/views/LancadorView.tsx(625,21): error TS2304: Cannot find name 'setSelectedDay'.
+components/views/LancadorView.tsx(625,37): error TS7006: Parameter 'prev' implicitly has an 'any' type.
+components/views/LancadorView.tsx(720,27): error TS2322: Type 'false | void[]' is not assignable to type 'ReactNode'.
+  Type 'void[]' is not assignable to type 'ReactNode'.
+    Type 'void[]' is not assignable to type 'Iterable<ReactNode>'.
+      The types returned by '[Symbol.iterator]().next(...)' are incompatible between these types.
+        Type 'IteratorResult<void, undefined>' is not assignable to type 'IteratorResult<ReactNode, any>'.
+          Type 'IteratorYieldResult<void>' is not assignable to type 'IteratorResult<ReactNode, any>'.
+            Type 'IteratorYieldResult<void>' is not assignable to type 'IteratorYieldResult<ReactNode>'.
+              Type 'void' is not assignable to type 'ReactNode'.
+components/views/PresetManager.tsx(315,19): error TS2322: Type '"outline"' is not assignable to type '"success" | "primary" | "secondary" | "danger" | "ghost" | undefined'.
+components/views/PresetManager.tsx(323,19): error TS2322: Type '"outline"' is not assignable to type '"success" | "primary" | "secondary" | "danger" | "ghost" | undefined'.

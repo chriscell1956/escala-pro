@@ -36,6 +36,7 @@ interface AppHeaderProps {
   handleSendToSupervision: () => void;
   handleAddNextYear: () => void;
   isSilentUpdating: boolean;
+  onNavigate?: (view: string) => void;
 }
 
 const AppHeaderComponent: React.FC<AppHeaderProps> = (props) => {
@@ -70,6 +71,7 @@ const AppHeaderComponent: React.FC<AppHeaderProps> = (props) => {
     isSilentUpdating,
     setIsPresetManagerOpen,
     conflicts = [],
+    onNavigate,
   } = props;
 
   return (
@@ -266,11 +268,11 @@ const AppHeaderComponent: React.FC<AppHeaderProps> = (props) => {
                     onClick={() => setIsPresetManagerOpen(true)}
                     title="Gerenciar Postos"
                   >
-                    <span className="hidden md:inline">POSTOS</span>
                     <span className="md:hidden">
                       <Icons.Settings />
                     </span>
                   </Button>
+
                 </>
               )}
 
@@ -339,7 +341,7 @@ const AppHeaderComponent: React.FC<AppHeaderProps> = (props) => {
             title="Alterar Senha"
           >
             <span className="text-xs font-bold text-white leading-tight">
-              {user.nome.split(" ")[0]}
+              {(user.nome || "").split(" ")[0]}
             </span>
             <span className="bg-black/30 px-1 rounded text-[9px] uppercase mt-0.5">
               {user.role}

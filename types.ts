@@ -65,6 +65,7 @@ export interface User {
   nome: string;
   role: UserRole; // MASTER = Gestor, FISCAL = Operacional, USER = Visualização
   password?: string;
+  eq?: string; // Equipe associada (e.g. para Fiscais)
   // Granular Permissions
   canManageIntervals?: boolean;
   canPrint?: boolean;
@@ -93,14 +94,15 @@ export interface AuditLog {
   timestamp: number;
   user: string; // Nome do supervisor que fez a ação
   action:
-    | "EDICAO"
-    | "COBERTURA"
-    | "IMPORTACAO"
-    | "RESET"
-    | "SISTEMA"
-    | "FOLGAS"
-    | "FERIAS"
-    | "SOLICITACAO";
+  | "EDICAO"
+  | "COBERTURA"
+  | "IMPORTACAO"
+  | "RESET"
+  | "SISTEMA"
+  | "FOLGAS"
+  | "FERIAS"
+  | "SOLICITACAO"
+  | "ALOCACAO";
   details: string;
   targetName?: string; // Nome do vigilante afetado (opcional)
 }

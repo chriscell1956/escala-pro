@@ -27,3 +27,7 @@ pnpm-debug.log*
 # OS-specific files
 .DS_Store
 Thumbs.db
+.vercel
+
+# Local Database (Supabase replacement)
+database.json

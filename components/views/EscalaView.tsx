@@ -308,7 +308,7 @@ const EscalaViewComponent: React.FC<EscalaViewProps> = (props) => {
                                             }
                                             className="flex items-center gap-1 bg-slate-700 hover:bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded transition-all shadow-sm"
                                           >
-                                            <Icons.History size={10} /> Retornar
+                                            <Icons.History className="w-2.5 h-2.5" /> Retornar
                                           </button>
                                         )}
                                       </div>
@@ -365,7 +365,7 @@ const EscalaViewComponent: React.FC<EscalaViewProps> = (props) => {
                                                     className="ml-1 hover:text-white transition-colors"
                                                     title="Remover Cobertura"
                                                   >
-                                                    <Icons.Delete size={10} />
+                                                    <Icons.Trash className="w-2.5 h-2.5" />
                                                   </button>
                                                 </span>
                                               </div>

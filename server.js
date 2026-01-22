@@ -12,8 +12,8 @@ const SUPABASE_URL =
   process.env.SUPABASE_URL || "https://uiqelqgurmczmrsdeipn.supabase.co";
 const SUPABASE_KEY =
   process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  process.env.SUPABASE_KEY ||
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVpcWVscWd1cm1jem1yc2RlaXBuIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODQzMDI1NiwiZXhwIjoyMDg0MDA2MjU2fQ.dq58zyZmqObEZfTUi_Z4xTjBPaX0JYTxWq8-Y_i7aZY";
+// Removed process.env.SUPABASE_KEY backup because it is usually optimal (Anon) which fails Delete ops.
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // --- IN-MEMORY STORAGE ---
@@ -244,6 +244,69 @@ router.post("/maintenance/wipe-schedule", async (req, res) => {
   } catch (e) {
     console.error("Erro ao limpar escala:", e);
     res.status(500).json({ error: "Erro ao limpar escala" });
+  }
+});
+
+router.post("/maintenance/wipe-all-vigilantes", async (req, res) => {
+  try {
+    console.log("🧨 LIMPEZA TOTAL (VIGILANTES + ESCALA) INICIADA...");
+
+    // 1. Delete Dependencies first (Foreign Keys)
+    await supabase.from("alocacoes").delete().not("id", "is", null);
+    await supabase.from("solicitacoes_folga").delete().not("id", "is", null);
+    await supabase.from("ferias").delete().not("id", "is", null);
+
+    // 2. Delete Vigilantes
+    const { error } = await supabase
+      .from("vigilantes")
+      .delete()
+      .not("id", "is", null);
+
+    if (error) throw error;
+
+    console.log("✅ Tabela vigilantes (e dependencias) limpa com sucesso.");
+    res.json({
+      success: true,
+      message: "Base de dados (Vigilantes + Escala) zerada com sucesso.",
+    });
+  } catch (e) {
+    console.error("Erro ao limpar vigilantes:", e);
+    res.status(500).json({ error: "Erro ao limpar vigilantes total" });
+  }
+});
+
+
+router.post("/maintenance/restore-master", async (req, res) => {
+  try {
+    console.log("👑 RESTAURANDO MASTER USER...");
+
+    // 1. Restore User (Login Access)
+    const masterUser = {
+      matricula: "91611",
+      role: "MASTER",
+      senha: "123456",
+      primeiro_acesso: true,
+      nome: "CRISTIANO R.G. DE OLIVEIRA",
+    };
+    await supabase
+      .from("usuarios")
+      .upsert(masterUser, { onConflict: "matricula" });
+
+    // 2. Restore Vigilante (Person Record)
+    // Needs to exist to be a "Fiscal" or visible in lists
+    await supabase.from("vigilantes").upsert(
+      {
+        matricula: "91611",
+        nome: "CRISTIANO R.G. DE OLIVEIRA",
+      },
+      { onConflict: "matricula" },
+    );
+
+    console.log("✅ Master restaurado.");
+    res.json({ success: true, message: "Usuário Master restaurado." });
+  } catch (e) {
+    console.error("Erro restore master:", e);
+    res.status(500).json({ error: "Erro restore master" });
   }
 });
 

@@ -312,7 +312,7 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
               </div>
               <div className="flex gap-2 ml-4">
                 <Button
-                  variant="outline"
+                  variant="secondary"
                   className="h-8 w-8 !p-0"
                   onClick={() => handleDuplicate(preset)}
                   title="Duplicar"
@@ -320,7 +320,7 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
                   📑
                 </Button>
                 <Button
-                  variant="outline"
+                  variant="secondary"
                   className="h-8 w-8 !p-0"
                   onClick={() => handleEdit(preset)}
                   title="Editar"
