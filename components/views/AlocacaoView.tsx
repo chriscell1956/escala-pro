@@ -5,7 +5,11 @@ import {
   VisibilityPermission,
   User,
 } from "../../types";
-import { cleanString, calculateDaysForTeam } from "../../utils";
+import {
+  cleanString,
+  calculateDaysForTeam,
+  normalizeTeamCode,
+} from "../../utils";
 import { TEAM_OPTIONS } from "../../constants";
 import {
   Icons,
@@ -131,9 +135,13 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
       // 1. Visible Teams Filter (Base Access)
       // FIX: Master sees ALL, regardless of whether the team is in the explicit list (e.g. "SEM EQUIPE")
       if (!isMaster) {
-        const vTeam = cleanString(v.eq);
-        if (!lancadorVisibleTeams.map(cleanString).includes(vTeam))
-          return false;
+        // ROBUST MATCHING: "C (CHARLIE)" must match "C"
+        // lancadorVisibleTeams are already normalized to ["C", "ECO1", "ADM"] by App.tsx
+        // but we double-normalize to be safe.
+        const vTeam = normalizeTeamCode(v.eq);
+        const allowed = lancadorVisibleTeams.map(normalizeTeamCode);
+
+        if (!allowed.includes(vTeam)) return false;
       }
 
       // 2. Specific Filter (UI)

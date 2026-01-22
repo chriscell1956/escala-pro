@@ -21,6 +21,41 @@ export const cleanString = (str: any) => {
     .toUpperCase();
 };
 
+export const normalizeTeamCode = (raw: string): string => {
+  const t = cleanString(raw);
+  if (
+    t === "A" ||
+    t.startsWith("A ") ||
+    t.includes("ALFA") ||
+    t.includes("(ALFA)")
+  )
+    return "A";
+  if (
+    t === "B" ||
+    t.startsWith("B ") ||
+    t.includes("BRAVO") ||
+    t.includes("(BRAVO)")
+  )
+    return "B";
+  if (
+    t === "C" ||
+    t.startsWith("C ") ||
+    t.includes("CHARLIE") ||
+    t.includes("(CHARLIE)")
+  )
+    return "C";
+  if (
+    t === "D" ||
+    t.startsWith("D ") ||
+    t.includes("DELTA") ||
+    t.includes("(DELTA)")
+  )
+    return "D";
+  if (t === "ECO1" || t === "E1" || t === "ECO 1") return "ECO1";
+  if (t === "ECO2" || t === "E2" || t === "ECO 2") return "ECO2";
+  return t;
+};
+
 // FUNÇÃO CRÍTICA: Calcula dias de trabalho com continuidade 12x36
 // Base: DEZEMBRO 2025 (202512).
 export const calculateDaysForTeam = (
@@ -257,12 +292,12 @@ export const getVigilanteStatus = (
 export interface AvailabilityStatus {
   available: boolean;
   type:
-  | "EXTRA"
-  | "REMANEJAMENTO"
-  | "OCUPADO"
-  | "FERIAS"
-  | "AFASTADO"
-  | "ACUMULO";
+    | "EXTRA"
+    | "REMANEJAMENTO"
+    | "OCUPADO"
+    | "FERIAS"
+    | "AFASTADO"
+    | "ACUMULO";
   label: string;
   color: string;
 }
@@ -399,7 +434,12 @@ export const analyzeConflicts = (
   const map: Record<string, Record<string, Vigilante[]>> = {};
 
   data.forEach((v) => {
-    if (v.campus === "AFASTADOS" || v.campus === "OUTROS" || v.campus === "RETORNO DE FÉRIAS") return;
+    if (
+      v.campus === "AFASTADOS" ||
+      v.campus === "OUTROS" ||
+      v.campus === "RETORNO DE FÉRIAS"
+    )
+      return;
     if (!map[v.campus]) map[v.campus] = {};
     if (!map[v.campus][v.eq]) map[v.campus][v.eq] = [];
     map[v.campus][v.eq].push(v);
