@@ -1529,13 +1529,19 @@ function AppContent() {
   }, [data, month, filterEq, isFutureMonth]);
 
   const visibleTeamsForFilter = useMemo(() => {
-    // UNIFIED LOGIC: Reuse getLancadorVisibleTeams to ensure consistency
-    // This handles Permissions -> Fallback -> Safe Default (ADM)
-    return getLancadorVisibleTeams(
+    // DEBUG LOGGING
+    console.log("DEBUG: Computing visibleTeamsForFilter");
+    console.log("DEBUG: User:", user);
+    console.log("DEBUG: CurrentUserVig:", currentUserVig);
+    console.log("DEBUG: isMaster:", isMaster);
+
+    const result = getLancadorVisibleTeams(
       currentUserVig?.eq || "",
       isMaster,
       user?.permissions,
     );
+    console.log("DEBUG: Resulting Visible Teams:", result);
+    return result;
   }, [user, currentUserVig, isMaster]);
 
   const lancadorList = useMemo(() => {
