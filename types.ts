@@ -94,15 +94,15 @@ export interface AuditLog {
   timestamp: number;
   user: string; // Nome do supervisor que fez a ação
   action:
-  | "EDICAO"
-  | "COBERTURA"
-  | "IMPORTACAO"
-  | "RESET"
-  | "SISTEMA"
-  | "FOLGAS"
-  | "FERIAS"
-  | "SOLICITACAO"
-  | "ALOCACAO";
+    | "EDICAO"
+    | "COBERTURA"
+    | "IMPORTACAO"
+    | "RESET"
+    | "SISTEMA"
+    | "FOLGAS"
+    | "FERIAS"
+    | "SOLICITACAO"
+    | "ALOCACAO";
   details: string;
   targetName?: string; // Nome do vigilante afetado (opcional)
 }
@@ -113,7 +113,8 @@ export type ViewMode =
   | "intervalos"
   | "solicitacoes"
   | "cftv"
-  | "alocacao";
+  | "alocacao"
+  | "config";
 
 export type IntervalPriority = "RED" | "ORANGE" | "YELLOW" | "GREEN";
 

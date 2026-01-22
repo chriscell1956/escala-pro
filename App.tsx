@@ -4278,6 +4278,9 @@ function AppContent() {
           />
         )}
 
+        {/* --- CONFIG VIEW --- */}
+        {view === "config" && <ConfigView />}
+
         {/* --- LANÇADOR VIEW --- */}
         {view === "lancador" && (
           <LancadorView

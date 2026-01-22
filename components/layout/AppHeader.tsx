@@ -268,11 +268,19 @@ const AppHeaderComponent: React.FC<AppHeaderProps> = (props) => {
                     onClick={() => setIsPresetManagerOpen(true)}
                     title="Gerenciar Postos"
                   >
+                    <span className="md:hidden"></span>
+                  </Button>
+
+                  <Button
+                    className="!bg-white/10 !text-white border !border-white/30 hover:!bg-white/20 shadow-sm backdrop-blur-sm text-[10px] h-8 px-2 font-bold uppercase tracking-wide hidden sm:flex"
+                    onClick={() => onNavigate && onNavigate("config")}
+                    title="Manutenção e Configurações"
+                  >
                     <span className="md:hidden">
                       <Icons.Settings />
                     </span>
+                    <span className="hidden md:inline">MANUTENÇÃO</span>
                   </Button>
-
                 </>
               )}
 
