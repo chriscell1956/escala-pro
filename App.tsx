@@ -4086,6 +4086,7 @@ function AppContent() {
         setIsVigilanteManagerOpen={setIsVigilanteManagerOpen}
         isSilentUpdating={isSilentUpdating}
         conflicts={conflicts}
+        onNavigate={setView}
       />
 
       <div className="bg-slate-900 border-b border-slate-700 p-2 flex flex-col md:flex-row gap-4 print:hidden shadow-sm items-center">
