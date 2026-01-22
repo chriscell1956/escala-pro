@@ -4177,6 +4177,8 @@ function AppContent() {
             onUpdatePreset={handleUpdatePreset}
             onCreateVigilante={() => setIsNewVigModalOpen(true)}
             onDeleteVigilante={handleDeleteVigilante}
+            user={user}
+            currentUserVig={currentUserVig}
           />
         )}
 

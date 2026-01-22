@@ -1,5 +1,10 @@
 import React, { useMemo, useState } from "react";
-import { Vigilante, DepartmentPreset, VisibilityPermission } from "../../types";
+import {
+  Vigilante,
+  DepartmentPreset,
+  VisibilityPermission,
+  User,
+} from "../../types";
 import { cleanString, calculateDaysForTeam } from "../../utils";
 import { TEAM_OPTIONS } from "../../constants";
 import {
@@ -29,7 +34,10 @@ interface AlocacaoViewProps {
   ) => void;
   onCreateVigilante?: () => void;
   onDeleteVigilante?: (vig: Vigilante) => void;
+  onDeleteVigilante?: (vig: Vigilante) => void;
   userPermissions?: VisibilityPermission[];
+  user?: User | null;
+  currentUserVig?: Vigilante | null;
 }
 
 // Helper to determine compatible teams based on preset type
@@ -65,7 +73,10 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
   onUpdatePreset,
   onCreateVigilante,
   onDeleteVigilante,
+  onDeleteVigilante,
   userPermissions,
+  user,
+  currentUserVig,
 }) => {
   // --- STATE ---
   const [filterTeam, setFilterTeam] = useState<string>("TODAS"); // TODAS | ECO1 | ECO2 | specific team
@@ -520,6 +531,58 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {/* DIAGNOSTIC ALERT FOR FISCALS WITH ZERO VISIBILITY */}
+        {!isMaster && filteredVigilantes.length === 0 && (
+          <div className="bg-red-900/40 border border-red-700 p-4 rounded-xl text-red-200 text-xs space-y-2">
+            <h3 className="font-bold flex items-center gap-2 text-sm text-red-100">
+              <Icons.AlertTriangle className="w-4 h-4" />
+              Diagnóstico de Visibilidade (Suporte)
+            </h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <span className="opacity-50 block uppercase text-[10px]">
+                  Usuário Logado
+                </span>
+                <span className="font-mono bg-black/30 px-1 rounded">
+                  {user?.nome} ({user?.mat})
+                </span>
+              </div>
+              <div>
+                <span className="opacity-50 block uppercase text-[10px]">
+                  Vínculo Vigilante
+                </span>
+                <span
+                  className={`font-mono px-1 rounded ${
+                    currentUserVig
+                      ? "bg-emerald-900/50 text-emerald-300"
+                      : "bg-red-900/50 text-red-300 font-bold"
+                  }`}
+                >
+                  {currentUserVig
+                    ? `OK (Eq: ${currentUserVig.eq})`
+                    : "⚠️ NÃO ENCONTRADO"}
+                </span>
+              </div>
+              <div className="col-span-2">
+                <span className="opacity-50 block uppercase text-[10px]">
+                  Equipes Visíveis (Calculado)
+                </span>
+                <span className="font-mono bg-black/30 px-1 rounded break-all">
+                  {lancadorVisibleTeams.join(", ") || "(Nenhuma)"}
+                </span>
+              </div>
+            </div>
+            {!currentUserVig && (
+              <p className="border-t border-red-800 pt-2 mt-2">
+                <b>Ação Necessária:</b> A matrícula do usuário ({user?.mat}) não
+                corresponde a nenhum vigilante ativo na escala deste mês.
+                Verifique se a matrícula no cadastro de usuário é EXATAMENTE a
+                mesma do cadastro de equipe.
+              </p>
+            )}
+          </div>
+        )}
+
         {/* SEÇÃO A DEFINIR / PENDENTES */}
         <div className="bg-slate-800 rounded-xl shadow-sm border border-slate-700 overflow-hidden">
           <div
