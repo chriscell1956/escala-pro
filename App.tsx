@@ -268,7 +268,9 @@ function AppContent() {
     const EXPECTED_VERSION = "WIPE_V3_FINAL";
     const current = localStorage.getItem("app_version_tag");
     if (current !== EXPECTED_VERSION) {
-      console.warn("🧹 BUSTING CACHE: Database was wiped. clearing local storage.");
+      console.warn(
+        "🧹 BUSTING CACHE: Database was wiped. clearing local storage.",
+      );
       localStorage.clear();
       localStorage.setItem("app_version_tag", EXPECTED_VERSION);
       window.location.reload();
@@ -1159,53 +1161,23 @@ function AppContent() {
         if (user?.role !== "USER")
           showToast("Base gerada a partir do mês anterior.", "info");
       } else {
+        // DISABLE AUTO-SEEDING (Requested by User: "Queria tudo zerado")
+        // Previously: Loaded INITIAL_DB or DECEMBER_2025_PRESET
+        finalData = [];
+        /* 
         if (m === 202512) {
           finalData = DECEMBER_2025_PRESET.map(
             (v) => ({ ...v, dias: v.dias || [] }) as Vigilante,
           );
         } else {
           finalData = INITIAL_DB.map((v) => {
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            const { vacation, ...baseVig } = v; // Destructure to remove vacation
-
-            // FIX: Correção forçada da matrícula do Claudecir (de 61665 para 61655)
-            if (String(baseVig.mat).trim() === "61665") baseVig.mat = "61655";
-
-            let standardDays: number[] = [];
-            const teamClean = cleanString(baseVig.eq);
-
-            if (baseVig.campus === "AFASTADOS") {
-              standardDays = [];
-            } else if (["ECO1", "E1", "ECO2", "E2"].includes(teamClean)) {
-              // Lógica ECO para meses sem histórico (Base Inicial)
-              const y = Math.floor(m / 100);
-              const mon = (m % 100) - 1;
-              const dInM = new Date(y, mon + 1, 0).getDate();
-              for (let d = 1; d <= dInM; d++) {
-                const dw = new Date(y, mon, d).getDay();
-                // ECO 1 (6x1) -> Seg a Sab (0=Dom)
-                if (teamClean === "ECO1" || teamClean === "E1") {
-                  if (dw !== 0) standardDays.push(d);
-                } else {
-                  // ECO 2 (5x2) -> Seg a Sex
-                  if (dw >= 1 && dw <= 5) standardDays.push(d);
-                }
-              }
-            } else {
-              standardDays = calculateDaysForTeam(baseVig.eq, m);
-            }
-
-            const finalDays = standardDays.filter(
-              (d) => !(baseVig.folgasGeradas || []).includes(d),
-            );
-            return {
-              ...baseVig,
-              eq: cleanString(baseVig.eq),
-              dias: finalDays,
-              status: "PENDENTE",
-            } as Vigilante;
+            // ... (restoration logic commented out) ...
+             // eslint-disable-next-line @typescript-eslint/no-unused-vars
+             const { vacation, ...baseVig } = v;
+             return { ...baseVig, dias: [] } as any; // Simplified for comment
           });
         }
+        */
       }
     }
 
@@ -2151,8 +2123,8 @@ function AppContent() {
       intervalCategory === "TODOS"
         ? rawList
         : rawList.filter(
-          (v) => getCategory(v.effectiveCampus) === intervalCategory,
-        );
+            (v) => getCategory(v.effectiveCampus) === intervalCategory,
+          );
 
     const grouped: Record<string, IntervalVigilante[]> = {};
     list.forEach((v) => {
@@ -4547,7 +4519,10 @@ function AppContent() {
                         // FISCAL FILTER: Show only requests from OWN TEAM. Master sees ALL.
                         if (user?.role === "FISCAL" && currentUserVig) {
                           const myEq = cleanString(currentUserVig.eq);
-                          const visibleTeams = getVisibleTeams(myEq, !!isMaster);
+                          const visibleTeams = getVisibleTeams(
+                            myEq,
+                            !!isMaster,
+                          );
                           return visibleTeams.includes(cleanString(v.eq));
                         }
                         return true;
@@ -5303,10 +5278,10 @@ function AppContent() {
                   filterTime,
                 ).status !== "INTERVALO",
             ).length === 0 && (
-                <div className="p-4 text-center text-slate-400 text-xs">
-                  Nenhum vigilante disponível encontrado.
-                </div>
-              )}
+              <div className="p-4 text-center text-slate-400 text-xs">
+                Nenhum vigilante disponível encontrado.
+              </div>
+            )}
           </div>
         </div>
       </Modal>
