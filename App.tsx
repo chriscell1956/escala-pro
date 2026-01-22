@@ -265,7 +265,7 @@ const getLancadorVisibleTeams = (
 function AppContent() {
   // --- CACHE BUSTER (Post-Database Wipe) ---
   useEffect(() => {
-    const EXPECTED_VERSION = "WIPE_V3_FINAL";
+    const EXPECTED_VERSION = "WIPE_V4_REAL_FINAL";
     const current = localStorage.getItem("app_version_tag");
     if (current !== EXPECTED_VERSION) {
       console.warn(
