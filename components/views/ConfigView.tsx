@@ -39,6 +39,32 @@ export const ConfigView = () => {
         }
     };
 
+    const handleFullWipe = async () => {
+        if (!confirm("⚠️ PERIGO: ISSO APAGARÁ TUDO!\n\nVocê vai perder todos os vigilantes cadastrados, escalas, férias e solicitações.\n\nDeseja continuar?")) return;
+
+        const confirm2 = prompt("Para confirmar, digite APAGAR TUDO em maiúsculas:");
+        if (confirm2 !== "APAGAR TUDO") return alert("Ação cancelada.");
+
+        setLoading(true);
+        setStatus("Apagando banco de dados...");
+        try {
+            const res = await fetch("/api/maintenance/wipe-all-vigilantes", {
+                method: "POST",
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert("BANCO DE DADOS ZERADO COM SUCESSO!\n\nO sistema será recarregado.");
+                window.location.reload();
+            } else {
+                alert("Erro: " + (data.error || "Desconhecido"));
+            }
+        } catch (e) {
+            alert("Erro de conexão ao tentar limpar banco.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleSeedUsers = async () => {
         if (!confirm("Isso criará usuários (Login) para todos os vigilantes da escala atual que ainda não têm acesso. Deseja continuar?")) return;
 
@@ -128,7 +154,7 @@ export const ConfigView = () => {
                                 </h3>
                                 <p className="text-sm text-blue-300/70 mt-1">
                                     Cria automaticamente contas de acesso (Login) para todos os vigilantes
-                                    presentes na escala deste mês. A senha padrão será "123456".
+                                    presentes na escala deste mês. A senha padrão será &quot;123456&quot;.
                                 </p>
                             </div>
                             <Button
@@ -137,6 +163,33 @@ export const ConfigView = () => {
                                 disabled={loading}
                             >
                                 {loading ? "Processando..." : "CRIAR USUÁRIOS"}
+                            </Button>
+                        </div>
+                    </div>
+                </Card>
+
+                {/* SUPER DANGER ZONE: WIPE ALL */}
+                <Card className="p-6 border-red-950/50 bg-black/40 col-span-1 md:col-span-2">
+                    <div className="flex items-center gap-4">
+                        <div className="bg-red-600 p-4 rounded-full text-white animate-pulse">
+                            <Icons.AlertTriangle className="w-8 h-8" />
+                        </div>
+                        <div className="space-y-4 flex-1">
+                            <div>
+                                <h3 className="text-xl font-black text-red-500 uppercase tracking-widest">
+                                    LIMPEZA TOTAL (RESET DE FÁBRICA)
+                                </h3>
+                                <p className="text-sm text-red-400 mt-1">
+                                    Isso apagará <b>TODOS</b> os dados do banco: Alocações, Solicitações, Férias e <b>TODOS OS VIGILANTES CADASTRADOS</b>. O sistema voltará ao estado zero.
+                                </p>
+                            </div>
+                            <Button
+                                variant="danger"
+                                className="w-full py-4 text-lg font-black bg-red-700 hover:bg-red-600 border-2 border-red-500"
+                                onClick={handleFullWipe}
+                                disabled={loading}
+                            >
+                                {loading ? "APAGANDO TUDO..." : "☢️ APAGAR TUDO (ZERAR BANCO) ☢️"}
                             </Button>
                         </div>
                     </div>
