@@ -78,7 +78,38 @@ const CORINGA_MATS = ["76154", "72911"]; // João Galvão e Marcio Pivaro
 const getVisibleTeams = (fiscalTeam: string, isMaster: boolean) => {
   if (isMaster) return ["A", "B", "C", "D", "ECO1", "ECO2", "ADM"];
 
-  const t = cleanString(fiscalTeam);
+  let t = cleanString(fiscalTeam);
+
+  // Normalize Variations (Fix for "C (CHARLIE)", "A (ALFA)", etc.)
+  if (
+    t === "A" ||
+    t.startsWith("A ") ||
+    t.includes("ALFA") ||
+    t.includes("(ALFA)")
+  )
+    t = "A";
+  else if (
+    t === "B" ||
+    t.startsWith("B ") ||
+    t.includes("BRAVO") ||
+    t.includes("(BRAVO)")
+  )
+    t = "B";
+  else if (
+    t === "C" ||
+    t.startsWith("C ") ||
+    t.includes("CHARLIE") ||
+    t.includes("(CHARLIE)")
+  )
+    t = "C";
+  else if (
+    t === "D" ||
+    t.startsWith("D ") ||
+    t.includes("DELTA") ||
+    t.includes("(DELTA)")
+  )
+    t = "D";
+
   // ADM included for everyone so Fiscals can see/schedule ADM staff
   // STRICT SEPARATION: Noturno sees ECO 2, Diurno sees ECO 1
   if (t === "A") return ["A", "ECO2", "ECO 2", "ADM"];
@@ -127,7 +158,37 @@ const getLancadorVisibleTeams = (
     permissions.forEach((p) => {
       // If permission grants view access (or edit access, which implies view)
       if (p.canView || p.canEdit) {
-        const t = cleanString(p.team);
+        let t = cleanString(p.team);
+        // Normalize Variations in Permissions too
+        if (
+          t === "A" ||
+          t.startsWith("A ") ||
+          t.includes("ALFA") ||
+          t.includes("(ALFA)")
+        )
+          t = "A";
+        else if (
+          t === "B" ||
+          t.startsWith("B ") ||
+          t.includes("BRAVO") ||
+          t.includes("(BRAVO)")
+        )
+          t = "B";
+        else if (
+          t === "C" ||
+          t.startsWith("C ") ||
+          t.includes("CHARLIE") ||
+          t.includes("(CHARLIE)")
+        )
+          t = "C";
+        else if (
+          t === "D" ||
+          t.startsWith("D ") ||
+          t.includes("DELTA") ||
+          t.includes("(DELTA)")
+        )
+          t = "D";
+
         allowed.add(t);
 
         // Auto-include related Shift resources based on the Team
@@ -148,7 +209,37 @@ const getLancadorVisibleTeams = (
   }
 
   // 2. Fallback: Derived from User's "Fiscal Team" (Legacy)
-  const t = cleanString(fiscalTeam);
+  let t = cleanString(fiscalTeam);
+
+  // Normalize Variations (Fix for "C (CHARLIE)", "A (ALFA)", etc.)
+  if (
+    t === "A" ||
+    t.startsWith("A ") ||
+    t.includes("ALFA") ||
+    t.includes("(ALFA)")
+  )
+    t = "A";
+  else if (
+    t === "B" ||
+    t.startsWith("B ") ||
+    t.includes("BRAVO") ||
+    t.includes("(BRAVO)")
+  )
+    t = "B";
+  else if (
+    t === "C" ||
+    t.startsWith("C ") ||
+    t.includes("CHARLIE") ||
+    t.includes("(CHARLIE)")
+  )
+    t = "C";
+  else if (
+    t === "D" ||
+    t.startsWith("D ") ||
+    t.includes("DELTA") ||
+    t.includes("(DELTA)")
+  )
+    t = "D";
 
   // Equipes Noturnas -> Própria + ECO2 + ADM
   if (t === "A") return ["A", "ECO2", "ECO 2", "ADM"];
