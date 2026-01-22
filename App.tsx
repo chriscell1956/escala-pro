@@ -4027,7 +4027,7 @@ function AppContent() {
           </form>
         </div>
         <div className="absolute bottom-4 text-white/20 text-xs font-bold tracking-widest">
-          UNOESTE SEGURANÇA PRO © 2025
+          UNOESTE SEGURANÇA PRO © 2026 - vFinal.Wipe
         </div>
       </div>
     );
