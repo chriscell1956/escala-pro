@@ -69,7 +69,9 @@ export const api = {
 
   async getUsers(): Promise<User[]> {
     try {
-      const res = await fetch(`${API_URL}/users`, { cache: "no-store" });
+      const res = await fetch(`${API_URL}/users?t=${Date.now()}`, {
+        cache: "no-store",
+      });
       if (!res.ok) return [];
       return await res.json();
     } catch (e) {
@@ -124,8 +126,8 @@ export const api = {
 
   async loadData(month: number, isDraft = false): Promise<Vigilante[] | null> {
     try {
-      const url = `${API_URL}/escala/${month}${isDraft ? "?type=draft" : ""}`;
-      const res = await fetch(url);
+      const url = `${API_URL}/escala/${month}${isDraft ? "?type=draft" : ""}&t=${Date.now()}`;
+      const res = await fetch(url, { cache: "no-store" });
       if (!res.ok) return null;
       const json = await res.json();
       // O Adapter retorna { dados: [...] } ou direto [...]?

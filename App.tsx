@@ -4024,24 +4024,6 @@ function AppContent() {
                 </div>
               )}
             </div>
-
-            <button
-              type="button"
-              onClick={() => {
-                if (
-                  confirm(
-                    "Isso vai limpar dados salvos no navegador e corrigir erros de visualização. Continuar?",
-                  )
-                ) {
-                  localStorage.clear();
-                  sessionStorage.clear();
-                  window.location.reload();
-                }
-              }}
-              className="w-full text-xs text-slate-500 hover:text-slate-300 underline py-2"
-            >
-              Está vendo dados antigos? Clique aqui para limpar o cache.
-            </button>
           </form>
         </div>
         <div className="absolute bottom-4 text-white/20 text-xs font-bold tracking-widest">
