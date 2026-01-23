@@ -181,6 +181,7 @@ router.post("/login", async (req, res) => {
       success: true,
       user: {
         ...safeUser,
+        mat: safeUser.matricula, // FIX: Frontend expects 'mat', DB has 'matricula'
         // Ensure permissions are mapped for the session user too (Português DB -> App English)
         canManageIntervals: safeUser.pode_gerenciar_intervalos,
         canViewLogs: safeUser.pode_ver_logs,
