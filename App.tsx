@@ -4251,6 +4251,7 @@ function AppContent() {
             filterEq={filterEq}
             setFilterEq={setFilterEq}
             filterDay={filterDay}
+            filterDay={filterDay}
             handleOpenCoverage={handleOpenCoverage}
             handleReturnFromAway={handleReturnFromAway}
             handleRemoveCoverage={handleRemoveCoverage}
@@ -4258,6 +4259,7 @@ function AppContent() {
             expandedSectors={expandedSectors}
             toggleSectorCollapse={toggleSectorExpansion}
             month={month}
+            presets={presets} // Pass presets for Code lookup
           />
         )}
 

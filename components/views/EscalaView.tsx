@@ -1,5 +1,4 @@
-import React from "react";
-import { Vigilante, User, Conflict } from "../../types";
+import { Vigilante, User, Conflict, DepartmentPreset } from "../../types";
 import { Icons, Badge } from "../ui";
 
 interface EscalaViewProps {
@@ -23,6 +22,7 @@ interface EscalaViewProps {
   expandedSectors: Set<string>;
   toggleSectorCollapse: (sector: string) => void;
   month?: number;
+  presets?: DepartmentPreset[]; // Optional to avoid breaking
 }
 
 const EscalaViewComponent: React.FC<EscalaViewProps> = (props) => {
@@ -45,6 +45,7 @@ const EscalaViewComponent: React.FC<EscalaViewProps> = (props) => {
     visibleTeams,
     expandedSectors,
     toggleSectorCollapse,
+    presets = [], // Default empty
   } = props;
 
   return (
@@ -149,9 +150,8 @@ const EscalaViewComponent: React.FC<EscalaViewProps> = (props) => {
                   </h3>
                   <div className="ml-auto p-1 rounded-full transition-colors">
                     <div
-                      className={`transform transition-transform duration-200 ${
-                        !isExpanded ? "rotate-0" : "rotate-180"
-                      }`}
+                      className={`transform transition-transform duration-200 ${!isExpanded ? "rotate-0" : "rotate-180"
+                        }`}
                     >
                       <span className="text-slate-400 text-xs">▼</span>
                     </div>
@@ -263,12 +263,34 @@ const EscalaViewComponent: React.FC<EscalaViewProps> = (props) => {
                                 >
                                   <td className="px-6 py-4 align-top">
                                     <div className="flex flex-col">
-                                      <span className="font-bold text-slate-200 text-base group-hover:text-white transition-colors">
-                                        {vig.nome}
-                                      </span>
-                                      <span className="text-xs text-slate-500 uppercase tracking-wide font-medium mt-1 group-hover:text-slate-400">
-                                        {vig.setor}
-                                      </span>
+                                      {(() => {
+                                        // Lookup preset for code
+                                        const preset = presets.find(
+                                          (p) =>
+                                            (p.sector || "").toLowerCase() ===
+                                            (vig.setor || "").toLowerCase() &&
+                                            (p.campus || "").toLowerCase() ===
+                                            (vig.campus || "").toLowerCase(),
+                                        );
+                                        const code = preset?.code;
+
+                                        return (
+                                          <>
+                                            <span className="font-bold text-slate-200 text-base group-hover:text-white transition-colors">
+                                              {code ? code : vig.setor}
+                                            </span>
+                                            {code ? (
+                                              <span className="text-xs text-slate-500 uppercase tracking-wide font-medium mt-1 group-hover:text-slate-400">
+                                                {vig.setor} • {vig.nome}
+                                              </span>
+                                            ) : (
+                                              <span className="text-xs text-slate-500 uppercase tracking-wide font-medium mt-1 group-hover:text-slate-400">
+                                                {vig.nome}
+                                              </span>
+                                            )}
+                                          </>
+                                        );
+                                      })()}
                                     </div>
                                   </td>
 

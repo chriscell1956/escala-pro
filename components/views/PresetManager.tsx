@@ -29,6 +29,7 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
 
   // Form State
   const [name, setName] = useState("");
+  const [code, setCode] = useState(""); // Código Rádio
   const [campus, setCampus] = useState("CAMPUS I");
   const [sector, setSector] = useState("");
   const [shiftType, setShiftType] = useState<ShiftType>("12x36_DIURNO");
@@ -40,6 +41,7 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
 
   const resetForm = () => {
     setName("");
+    setCode("");
     setCampus("CAMPUS I");
     setSector("");
     setShiftType("12x36_DIURNO");
@@ -54,6 +56,7 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
   const handleEdit = (preset: DepartmentPreset) => {
     setEditingPreset(preset);
     setName(preset.name);
+    setCode(preset.code || ""); // Load code
     setCampus(preset.campus);
     setSector(preset.sector);
     // Default to DIURNO if type is missing (legacy data)
@@ -69,6 +72,7 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
   const handleDuplicate = (preset: DepartmentPreset) => {
     // Pre-fill form with existing data
     setName(preset.name + " (Cópia)");
+    setCode(preset.code || ""); // Duplicates code too
     setCampus(preset.campus);
     setSector(preset.sector + " (Cópia)");
     setShiftType((preset.type as ShiftType) || "12x36_DIURNO");
@@ -167,6 +171,7 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
     if (editingPreset && onUpdatePreset) {
       const updates: Partial<DepartmentPreset> = {
         name,
+        code, // SAVE CODE
         campus,
         sector,
         type: shiftType,
@@ -189,6 +194,7 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
     const newPreset: DepartmentPreset = {
       id: editingPreset ? editingPreset.id : crypto.randomUUID(),
       name,
+      code, // SAVE CODE
       campus,
       sector,
       type: shiftType,
@@ -225,7 +231,8 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
       return (
         (p.name || "").toLowerCase().includes(lower) ||
         (p.sector || "").toLowerCase().includes(lower) ||
-        (p.campus || "").toLowerCase().includes(lower)
+        (p.campus || "").toLowerCase().includes(lower) ||
+        (p.code || "").toLowerCase().includes(lower)
       );
     })
     .sort((a, b) => {
@@ -263,7 +270,7 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
           <div className="relative">
             <Icons.Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <Input
-              placeholder="Buscar por nome, setor ou campus..."
+              placeholder="Buscar por nome, setor, código ou campus..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-9"
@@ -288,6 +295,12 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
             >
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
+                  {/* DISPLAY CODE IF EXISTS */}
+                  {preset.code && (
+                    <span className="text-xs bg-slate-700 text-white px-1.5 py-0.5 rounded border border-slate-600 font-mono font-bold tracking-wider">
+                      {preset.code}
+                    </span>
+                  )}
                   <span className="font-bold text-slate-200">
                     {preset.name}
                   </span>
@@ -297,6 +310,7 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
                     </span>
                   )}
                 </div>
+                {/* ... existing details ... */}
                 <div className="text-xs text-slate-400 grid grid-cols-2 gap-x-4 gap-y-1">
                   <span>📍 {preset.campus}</span>
                   <span>📌 {preset.sector}</span>
@@ -357,17 +371,36 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
               </div>
 
               <div className="p-6 overflow-y-auto space-y-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-400 mb-1">
-                    Nome do Posto (Identificador)
-                  </label>
-                  <Input
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Ex: Portaria Principal - Manhã"
-                    className="w-full"
-                  />
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="col-span-2">
+                    <label className="block text-xs font-bold text-slate-400 mb-1">
+                      Nome do Posto (Ex: Portaria Principal)
+                    </label>
+                    <Input
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Nome do Posto"
+                      className="w-full"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-400 mb-1">
+                      Cód. Rádio
+                    </label>
+                    <Input
+                      value={code}
+                      onChange={(e) => setCode(e.target.value.toUpperCase())}
+                      placeholder="Ex: ALFA 01"
+                      className="w-full font-mono text-center uppercase"
+                    />
+                  </div>
                 </div>
+
+                {/* ... Rest of form ... */}
+                {/* DO NOT DELETE REST OF FORM, just patching the top part for now. 
+                    Wait, I replaced a huge chunk including handleSave which was correct.
+                    I need to be careful with the remaining JSX. The replacement chunks must be precise.
+                */}
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
