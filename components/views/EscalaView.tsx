@@ -1,3 +1,4 @@
+import React from "react";
 import { Vigilante, User, Conflict, DepartmentPreset } from "../../types";
 import { Icons, Badge } from "../ui";
 
@@ -150,8 +151,9 @@ const EscalaViewComponent: React.FC<EscalaViewProps> = (props) => {
                   </h3>
                   <div className="ml-auto p-1 rounded-full transition-colors">
                     <div
-                      className={`transform transition-transform duration-200 ${!isExpanded ? "rotate-0" : "rotate-180"
-                        }`}
+                      className={`transform transition-transform duration-200 ${
+                        !isExpanded ? "rotate-0" : "rotate-180"
+                      }`}
                     >
                       <span className="text-slate-400 text-xs">▼</span>
                     </div>
@@ -268,9 +270,9 @@ const EscalaViewComponent: React.FC<EscalaViewProps> = (props) => {
                                         const preset = presets.find(
                                           (p) =>
                                             (p.sector || "").toLowerCase() ===
-                                            (vig.setor || "").toLowerCase() &&
+                                              (vig.setor || "").toLowerCase() &&
                                             (p.campus || "").toLowerCase() ===
-                                            (vig.campus || "").toLowerCase(),
+                                              (vig.campus || "").toLowerCase(),
                                         );
                                         const code = preset?.code;
 
