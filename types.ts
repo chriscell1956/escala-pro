@@ -63,7 +63,7 @@ export type UserRole = "MASTER" | "FISCAL" | "USER";
 export interface User {
   mat: string;
   nome: string;
-  role: UserRole; // MASTER = Gestor, FISCAL = Operacional, USER = Visualização
+  perfil: UserRole; // MASTER = Gestor, FISCAL = Operacional, USER = Visualização
   password?: string;
   eq?: string; // Equipe associada (e.g. para Fiscais)
   // Granular Permissions

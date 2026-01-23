@@ -159,7 +159,7 @@ const AppHeaderComponent: React.FC<AppHeaderProps> = (props) => {
               >
                 <Icons.Cloud /> <span>SALVAR RASCUNHO</span>
               </Button>
-              {user.role === "FISCAL" && (
+              {user.perfil === "FISCAL" && (
                 <Button
                   className="!py-2 !px-3 text-[10px] font-bold uppercase tracking-wide border-none flex items-center gap-2 shadow-xl transition-all active:scale-95 !bg-blue-600 hover:!bg-blue-700 text-white"
                   onClick={handleSendToSupervision}
@@ -274,7 +274,7 @@ const AppHeaderComponent: React.FC<AppHeaderProps> = (props) => {
               )}
 
               {/* VIGILANTE MANAGER: Visible to Master AND Fiscal */}
-              {(isMaster || user.role === "FISCAL") && (
+              {(isMaster || user.perfil === "FISCAL") && (
                 <Button
                   className="!bg-white/10 !text-white border !border-white/30 hover:!bg-white/20 shadow-sm backdrop-blur-sm text-[10px] h-8 px-2 font-bold uppercase tracking-wide"
                   onClick={() => setIsVigilanteManagerOpen(true)}
@@ -341,7 +341,7 @@ const AppHeaderComponent: React.FC<AppHeaderProps> = (props) => {
               {(user.nome || "").split(" ")[0]}
             </span>
             <span className="bg-black/30 px-1 rounded text-[9px] uppercase mt-0.5">
-              {user.role}
+              {user.perfil}
             </span>
           </div>
           <button

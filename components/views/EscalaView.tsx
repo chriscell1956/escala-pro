@@ -128,7 +128,7 @@ const EscalaViewComponent: React.FC<EscalaViewProps> = (props) => {
             let currentConflictsForCampus = conflicts.filter(
               (c) => c.campus === campus,
             );
-            if (user?.role === "FISCAL" && currentUserVig) {
+            if (user?.perfil === "FISCAL" && currentUserVig) {
               currentConflictsForCampus = currentConflictsForCampus.filter(
                 (c) => c.equipe === currentUserVig.eq,
               );
@@ -149,8 +149,9 @@ const EscalaViewComponent: React.FC<EscalaViewProps> = (props) => {
                   </h3>
                   <div className="ml-auto p-1 rounded-full transition-colors">
                     <div
-                      className={`transform transition-transform duration-200 ${!isExpanded ? "rotate-0" : "rotate-180"
-                        }`}
+                      className={`transform transition-transform duration-200 ${
+                        !isExpanded ? "rotate-0" : "rotate-180"
+                      }`}
                     >
                       <span className="text-slate-400 text-xs">▼</span>
                     </div>
@@ -308,7 +309,8 @@ const EscalaViewComponent: React.FC<EscalaViewProps> = (props) => {
                                             }
                                             className="flex items-center gap-1 bg-slate-700 hover:bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded transition-all shadow-sm"
                                           >
-                                            <Icons.History className="w-2.5 h-2.5" /> Retornar
+                                            <Icons.History className="w-2.5 h-2.5" />{" "}
+                                            Retornar
                                           </button>
                                         )}
                                       </div>

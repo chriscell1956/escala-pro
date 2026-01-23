@@ -19,7 +19,7 @@ export default async function handler(req, res) {
           db.users.push({
             mat: vig.mat,
             nome: vig.nome,
-            role: vig.eq === "ADM" ? "ADMIN" : "USER",
+            perfil: vig.eq === "ADM" ? "ADMIN" : "USER",
             password: "123456", // Senha padrão
           });
           added++;

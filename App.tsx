@@ -2279,7 +2279,7 @@ function AppContent() {
     const newUser: User = {
       mat: formUserMat,
       nome: formUserNome.toUpperCase(),
-      role: "USER",
+      perfil: "USER",
       password: "123456",
       ...formPermissions,
     } as User;
@@ -2382,10 +2382,10 @@ function AppContent() {
     if (targetUser.mat === SUPER_ADMIN_MAT)
       return alert("Não é possível alterar o Super Admin.");
     let newRole: UserRole = "USER";
-    if (targetUser.role === "USER") newRole = "FISCAL";
-    else if (targetUser.role === "FISCAL") newRole = "MASTER";
+    if (targetUser.perfil === "USER") newRole = "FISCAL";
+    else if (targetUser.perfil === "FISCAL") newRole = "MASTER";
     else newRole = "USER";
-    const updatedUser: User = { ...targetUser, role: newRole };
+    const updatedUser: User = { ...targetUser, perfil: newRole };
     const updatedList = allUsers.map((u) =>
       u.mat === targetUser.mat ? updatedUser : u,
     );
@@ -2452,11 +2452,12 @@ function AppContent() {
       typedUser.mat = String(typedUser.mat).trim();
       if (typedUser.mat === "91611")
         typedUser.nome = "CHRISTIANO R.G. DE OLIVEIRA";
-      if (!typedUser.role)
-        typedUser.role = typedUser.mat === SUPER_ADMIN_MAT ? "MASTER" : "USER";
+      if (!typedUser.perfil)
+        typedUser.perfil =
+          typedUser.mat === SUPER_ADMIN_MAT ? "MASTER" : "USER";
       setUser(typedUser);
       localStorage.setItem("uno_user", JSON.stringify(typedUser));
-      if (typedUser.role === "USER") setSearchTerm(typedUser.nome);
+      if (typedUser.perfil === "USER") setSearchTerm(typedUser.nome);
     } else {
       setAuthError(res.message || "Erro ao entrar");
     }
@@ -3336,7 +3337,7 @@ function AppContent() {
           newTeam = selectedLancadorTeam;
         }
         // 2. Context: User's Team (if Fiscal)
-        else if (user && user.role !== "MASTER") {
+        else if (user && user.perfil !== "MASTER") {
           newTeam = user.eq || "A";
         }
         // 3. Fallback: If Master and "TODAS", keep 'A' or use context if relevant
@@ -5806,7 +5807,7 @@ function AppContent() {
                         )}
                       </div>
                       <div className="text-[10px] text-slate-400 font-mono">
-                        {u.mat} • {u.role}
+                        {u.mat} • {u.perfil}
                       </div>
                       <div className="flex gap-1 mt-1">
                         {u.canManageIntervals && (

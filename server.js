@@ -59,6 +59,13 @@ router.get("/users", async (req, res) => {
       ...u,
       mat: u.matricula, // Map DB 'matricula' to frontend 'mat'
       nome: u.nome || vigMap.get(u.matricula) || "Sem Nome",
+      // Map Permissoes (DB Portuguese) -> (App English)
+      canManageIntervals: u.pode_gerenciar_intervalos,
+      canViewLogs: u.pode_ver_logs,
+      canPrint: u.pode_imprimir,
+      canSimulate: u.pode_simular,
+      canViewCFTV: u.pode_ver_cftv,
+      permissions: u.permissoes, // JSONB column
     }));
 
     res.json(usersWithNames);
@@ -76,9 +83,17 @@ router.post("/users", async (req, res) => {
 
     const usersToUpsert = users.map((u) => {
       // FIX: Map frontend 'mat' to database 'matricula' and exclude UI-only fields
-      const { nome, mat, ...rest } = u;
+      // Also explicitly exclude 'role' if it exists legacy-wise
+      const { nome, mat, role, ...rest } = u;
       return {
         matricula: mat, // Explicit mapping
+        perfil: u.perfil, // Explicit mapping for clarity
+        pode_gerenciar_intervalos: rest.canManageIntervals,
+        pode_ver_logs: rest.canViewLogs,
+        pode_imprimir: rest.canPrint,
+        pode_simular: rest.canSimulate,
+        pode_ver_cftv: rest.canViewCFTV,
+        permissoes: rest.permissions, // JSONB
         ...rest,
       };
     });
@@ -102,7 +117,7 @@ router.post("/seed-users", async (req, res) => {
 
     const masterUser = {
       matricula: ADMIN_MAT,
-      role: "MASTER",
+      perfil: "MASTER",
       senha: "123456",
       primeiro_acesso: true,
     };
@@ -115,7 +130,7 @@ router.post("/seed-users", async (req, res) => {
         .filter((v) => v.mat !== ADMIN_MAT)
         .map((v) => ({
           matricula: v.mat,
-          role: v.eq === "ADM" ? "MASTER" : "USER",
+          perfil: v.eq === "ADM" ? "MASTER" : "USER",
           senha: "123456",
           primeiro_acesso: true,
         }));
@@ -164,7 +179,16 @@ router.post("/login", async (req, res) => {
 
     res.json({
       success: true,
-      user: safeUser,
+      user: {
+        ...safeUser,
+        // Ensure permissions are mapped for the session user too (Português DB -> App English)
+        canManageIntervals: safeUser.pode_gerenciar_intervalos,
+        canViewLogs: safeUser.pode_ver_logs,
+        canPrint: safeUser.pode_imprimir,
+        canSimulate: safeUser.pode_simular,
+        canViewCFTV: safeUser.pode_ver_cftv,
+        permissions: safeUser.permissoes,
+      },
       message: "Login realizado com sucesso",
     });
   } catch (err) {
@@ -275,7 +299,6 @@ router.post("/maintenance/wipe-all-vigilantes", async (req, res) => {
   }
 });
 
-
 router.post("/maintenance/restore-master", async (req, res) => {
   try {
     console.log("👑 RESTAURANDO MASTER USER...");
@@ -283,7 +306,7 @@ router.post("/maintenance/restore-master", async (req, res) => {
     // 1. Restore User (Login Access)
     const masterUser = {
       matricula: "91611",
-      role: "MASTER",
+      perfil: "MASTER",
       senha: "123456",
       primeiro_acesso: true,
       nome: "CRISTIANO R.G. DE OLIVEIRA",
