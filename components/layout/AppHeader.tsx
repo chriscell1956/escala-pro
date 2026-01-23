@@ -102,9 +102,10 @@ const AppHeaderComponent: React.FC<AppHeaderProps> = (props) => {
               <span>Atualizando...</span>
             </div>
           )}
-          {/* BARRA DE PROGRESSO (TERMÔMETRO) - Sempre visível para Master */}
+          <div className="text-[9px] bg-white/20 px-1 rounded text-white font-mono opacity-50 mr-2" title="Versão Atual">v2.5</div>
+          {/* BARRA DE PROGRESSO (TERMÔMETRO) - Agora visível em telas menores (lg) */}
           {isMaster && (
-            <div className="hidden xl:flex items-center gap-2 bg-white/10 px-3 h-8 rounded-lg border border-white/30 mr-2 backdrop-blur-sm shadow-sm">
+            <div className="hidden lg:flex items-center gap-2 bg-white/10 px-3 h-8 rounded-lg border border-white/30 mr-2 backdrop-blur-sm shadow-sm">
               <span
                 className={`text-[10px] uppercase font-bold tracking-wider ${isFutureMonth || viewingDraft ? "text-red-200" : "text-gold-200"}`}
               >
@@ -114,7 +115,7 @@ const AppHeaderComponent: React.FC<AppHeaderProps> = (props) => {
                 (t) => t !== "ADM" && t !== "SUPERVISOR",
               ).map((t) => {
                 const st = teamsStatus[t];
-                if (!st) return null; // FIX: Não renderizar se o status da equipe não existir
+                if (!st) return null;
 
                 const colorClass = st.ready
                   ? "bg-green-500 text-white shadow-[0_0_10px_rgba(34,197,94,0.6)]"
@@ -254,7 +255,7 @@ const AppHeaderComponent: React.FC<AppHeaderProps> = (props) => {
               {isMaster && (
                 <>
                   <Button
-                    className="!bg-white/10 !text-white border !border-white/30 hover:!bg-white/20 shadow-sm backdrop-blur-sm text-[10px] h-8 px-2 font-bold uppercase tracking-wide hidden sm:flex"
+                    className="!bg-white/10 !text-white border !border-white/30 hover:!bg-white/20 shadow-sm backdrop-blur-sm text-[10px] h-8 px-2 font-bold uppercase tracking-wide flex"
                     onClick={() => setIsUserMgmtModalOpen(true)}
                     title="Gestão de Usuários"
                   >
@@ -264,7 +265,7 @@ const AppHeaderComponent: React.FC<AppHeaderProps> = (props) => {
                     </span>
                   </Button>
                   <Button
-                    className="!bg-white/10 !text-white border !border-white/30 hover:!bg-white/20 shadow-sm backdrop-blur-sm text-[10px] h-8 px-2 font-bold uppercase tracking-wide hidden sm:flex"
+                    className="!bg-white/10 !text-white border !border-white/30 hover:!bg-white/20 shadow-sm backdrop-blur-sm text-[10px] h-8 px-2 font-bold uppercase tracking-wide flex"
                     onClick={() => setIsPresetManagerOpen(true)}
                     title="Gerenciar Postos"
                   >

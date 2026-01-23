@@ -663,9 +663,11 @@ function AppContent() {
   */
 
   // --- DERIVED PERMISSIONS & HELPERS ---
-  const isMaster = user?.role === "MASTER";
-  const isFiscal = user?.role === "FISCAL" || isMaster || user?.canSimulate; // "isFiscal" here implies "Has Fiscal Capabilities or higher"
-  const isUser = user?.role === "USER";
+  // FIX: Use 'perfil' instead of legacy 'role'
+  const isMaster = user?.perfil === "MASTER";
+  const isFiscal = // @ts-ignore
+    user?.perfil === "FISCAL" || isMaster || user?.canSimulate;
+  const isUser = user?.perfil === "USER";
 
   const canPrint = user?.canPrint ?? (isMaster || isFiscal);
   const canViewLogs = user?.canViewLogs ?? isMaster;
@@ -2123,8 +2125,8 @@ function AppContent() {
       intervalCategory === "TODOS"
         ? rawList
         : rawList.filter(
-            (v) => getCategory(v.effectiveCampus) === intervalCategory,
-          );
+          (v) => getCategory(v.effectiveCampus) === intervalCategory,
+        );
 
     const grouped: Record<string, IntervalVigilante[]> = {};
     list.forEach((v) => {
@@ -2455,6 +2457,10 @@ function AppContent() {
       if (!typedUser.perfil)
         typedUser.perfil =
           typedUser.mat === SUPER_ADMIN_MAT ? "MASTER" : "USER";
+
+      // FIX: Polyfill 'role' for legacy cache compatibility
+      // @ts-ignore
+      typedUser.role = typedUser.perfil;
       setUser(typedUser);
       localStorage.setItem("uno_user", JSON.stringify(typedUser));
       if (typedUser.perfil === "USER") setSearchTerm(typedUser.nome);
@@ -5283,10 +5289,10 @@ function AppContent() {
                   filterTime,
                 ).status !== "INTERVALO",
             ).length === 0 && (
-              <div className="p-4 text-center text-slate-400 text-xs">
-                Nenhum vigilante disponível encontrado.
-              </div>
-            )}
+                <div className="p-4 text-center text-slate-400 text-xs">
+                  Nenhum vigilante disponível encontrado.
+                </div>
+              )}
           </div>
         </div>
       </Modal>
