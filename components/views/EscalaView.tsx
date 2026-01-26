@@ -45,7 +45,7 @@ const EscalaViewComponent: React.FC<EscalaViewProps> = (props) => {
     handleRemoveCoverage,
     expandedSectors,
     toggleSectorCollapse,
-    toggleSectorCollapse,
+
     presets = [],
     visibleTeams = [], // FIX: Destructure visibleTeams (default to empty array)
   } = props;
