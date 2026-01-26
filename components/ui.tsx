@@ -64,7 +64,9 @@ export const Select: React.FC<
     <select
       className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent text-sm shadow-sm bg-slate-700 text-white border-slate-600 ${className}`}
       {...props}
-    />
+    >
+      {children}
+    </select>
   );
 };
 
@@ -133,7 +135,9 @@ export const Modal: React.FC<{
   if (!isOpen) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm transition-all">
-      <div className={`bg-slate-800 rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto animate-fade-in border border-slate-700 ${className}`}>
+      <div
+        className={`bg-slate-800 rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto animate-fade-in border border-slate-700 ${className}`}
+      >
         <div className="flex items-center justify-between p-4 border-b border-slate-700 bg-slate-900/50 rounded-t-xl">
           <h3 className="text-lg font-bold text-slate-200 tracking-tight">
             {title}
