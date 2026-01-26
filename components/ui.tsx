@@ -136,7 +136,7 @@ export const Modal: React.FC<{
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm transition-all">
       <div
-        className={`bg-slate-800 rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto animate-fade-in border border-slate-700 ${className}`}
+        className={`bg-slate-800 rounded-xl shadow-2xl w-full md:max-w-2xl max-h-[90vh] overflow-y-auto animate-fade-in border border-slate-700 ${className}`}
       >
         <div className="flex items-center justify-between p-4 border-b border-slate-700 bg-slate-900/50 rounded-t-xl">
           <h3 className="text-lg font-bold text-slate-200 tracking-tight">
