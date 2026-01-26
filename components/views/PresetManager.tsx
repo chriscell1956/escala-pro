@@ -371,37 +371,44 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
               </div>
 
               <div className="p-6 overflow-y-auto space-y-4">
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="col-span-2">
-                    <label className="block text-xs font-bold text-slate-400 mb-1">
-                      Nome do Posto (Ex: Portaria Principal)
-                    </label>
-                    <Input
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder="Nome do Posto"
-                      className="w-full"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-400 mb-1">
-                      Cód. Rádio
-                    </label>
-                    <Input
-                      value={code}
-                      onChange={(e) => setCode(e.target.value.toUpperCase())}
-                      placeholder="Ex: ALFA 01"
-                      className="w-full font-mono text-center uppercase"
-                    />
-                  </div>
+
+                {/* 1. CÓDIGO RÁDIO (Main Identifier) */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 mb-1">
+                    Cód. Rádio (Principal Identifier)
+                  </label>
+                  <Input
+                    value={code}
+                    onChange={(e) => setCode(e.target.value.toUpperCase())}
+                    placeholder="Ex: ALFA 01"
+                    className="w-full font-mono text-center uppercase text-lg tracking-wider"
+                    autoFocus
+                  />
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    Este é o código que aparecerá em destaque na escala (Ex: ALFA 01).
+                  </p>
                 </div>
 
-                {/* ... Rest of form ... */}
-                {/* DO NOT DELETE REST OF FORM, just patching the top part for now. 
-                    Wait, I replaced a huge chunk including handleSave which was correct.
-                    I need to be careful with the remaining JSX. The replacement chunks must be precise.
-                */}
+                {/* 2. NOME DO SETOR (Description) */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 mb-1">
+                    Nome do Setor (Bloco / Local)
+                  </label>
+                  <Input
+                    value={name}
+                    onChange={(e) => {
+                      setName(e.target.value);
+                      // Sync "sector" field for backward compatibility
+                      if (!editingPreset || sector === name) {
+                        setSector(e.target.value);
+                      }
+                    }}
+                    placeholder="Ex: BLOCO A - TÉRREO"
+                    className="w-full"
+                  />
+                </div>
 
+                {/* 3. CAMPUS & TEAM */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-bold text-slate-400 mb-1">
@@ -432,7 +439,49 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-slate-400 mb-1">
-                      Setor
+                      Definição de Equipe (Tag)
+                    </label>
+                    <Select
+                      value={team || ""}
+                      onChange={(e) => setTeam(e.target.value)}
+                      className="w-full font-bold text-slate-200"
+                    >
+                      <option value="">-- Sem Tag (Rotativo) --</option>
+                      <option value="A">Equipe A</option>
+                      <option value="B">Equipe B</option>
+                      <option value="C">Equipe C</option>
+                      <option value="D">Equipe D</option>
+                      <option value="ECO 1">Equipe ECO 1</option>
+                      <option value="ECO 2">Equipe ECO 2</option>
+                    </Select>
+                    <p className="text-[9px] text-slate-500 mt-1 leading-tight">
+                      Define a qual equipe este posto pertence na escala (Ex: Se for ALFA 01 da Equipe A, selecione A).
+                    </p>
+                  </div>
+                </div>
+
+                {/* 4. DETAILS (Shift Type & Sector Group) */}
+                <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-800">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-400 mb-1">
+                      Tipo de Turno / Escala
+                    </label>
+                    <Select
+                      value={shiftType || "12x36_DIURNO"}
+                      onChange={(e) => setShiftType(e.target.value as ShiftType)}
+                      className="w-full"
+                    >
+                      <option value="12x36_DIURNO">12x36 Diurno (07h-19h)</option>
+                      <option value="12x36_NOTURNO">12x36 Noturno (19h-07h)</option>
+                      <option value="ADM">Administrativo (Seg-Sex)</option>
+                      <option value="ECO_1">ECO 1 (12x36 - Ímpares/Pares)</option>
+                      <option value="ECO_2">ECO 2 (12x36 - Inverso)</option>
+                      <option value="EXPEDIENTE">Expediente (08h-17h48)</option>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-400 mb-1">
+                      Agrupamento (Opcional)
                     </label>
                     <Input
                       value={sector}
@@ -443,46 +492,7 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-400 mb-1">
-                      Tipo de Turno / Escala
-                    </label>
-                    <Select
-                      value={shiftType}
-                      onChange={(e) =>
-                        setShiftType(e.target.value as ShiftType)
-                      }
-                      className="w-full"
-                    >
-                      {Object.entries(SHIFT_TYPES).map(([key, config]) => (
-                        <option key={key} value={key}>
-                          {config.label}
-                        </option>
-                      ))}
-                    </Select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-400 mb-1">
-                      Equipe Fixa (Opcional)
-                    </label>
-                    <Select
-                      value={team}
-                      onChange={(e) => setTeam(e.target.value)}
-                      className="w-full"
-                    >
-                      <option value="">-- Qualquer --</option>
-                      {["A", "B", "C", "D", "ECO 1", "ECO 2", "ADM"].map(
-                        (t) => (
-                          <option key={t} value={t}>
-                            {t}
-                          </option>
-                        ),
-                      )}
-                    </Select>
-                  </div>
-                </div>
-
+                {/* 5. TIMES */}
                 <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-800">
                   <div>
                     <label className="block text-xs font-bold text-slate-400 mb-1">
@@ -574,14 +584,14 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
                   Salvar Posto
                 </Button>
               </div>
-            </div>
-          </div>
+            </div >
+          </div >
         )}
-      </div>
+      </div >
 
       <div className="flex justify-end pt-4 border-t border-slate-800 mt-4">
         <Button onClick={onClose}>Fechar</Button>
       </div>
-    </Modal>
+    </Modal >
   );
 };

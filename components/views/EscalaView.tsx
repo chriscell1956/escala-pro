@@ -43,11 +43,12 @@ const EscalaViewComponent: React.FC<EscalaViewProps> = (props) => {
     handleOpenCoverage,
     handleReturnFromAway,
     handleRemoveCoverage,
-    visibleTeams,
     expandedSectors,
     toggleSectorCollapse,
-    presets = [], // Default empty
+    presets = [],
   } = props;
+
+  const safePresets = Array.isArray(presets) ? presets : [];
 
   return (
     <div className="h-full flex flex-col">
@@ -151,9 +152,8 @@ const EscalaViewComponent: React.FC<EscalaViewProps> = (props) => {
                   </h3>
                   <div className="ml-auto p-1 rounded-full transition-colors">
                     <div
-                      className={`transform transition-transform duration-200 ${
-                        !isExpanded ? "rotate-0" : "rotate-180"
-                      }`}
+                      className={`transform transition-transform duration-200 ${!isExpanded ? "rotate-0" : "rotate-180"
+                        }`}
                     >
                       <span className="text-slate-400 text-xs">▼</span>
                     </div>
@@ -267,12 +267,12 @@ const EscalaViewComponent: React.FC<EscalaViewProps> = (props) => {
                                     <div className="flex flex-col">
                                       {(() => {
                                         // Lookup preset for code
-                                        const preset = presets.find(
+                                        const preset = safePresets.find(
                                           (p) =>
                                             (p.sector || "").toLowerCase() ===
-                                              (vig.setor || "").toLowerCase() &&
+                                            (vig.setor || "").toLowerCase() &&
                                             (p.campus || "").toLowerCase() ===
-                                              (vig.campus || "").toLowerCase(),
+                                            (vig.campus || "").toLowerCase(),
                                         );
                                         const code = preset?.code;
 
@@ -282,8 +282,9 @@ const EscalaViewComponent: React.FC<EscalaViewProps> = (props) => {
                                               {code ? code : vig.setor}
                                             </span>
                                             {code ? (
+                                              /* SHOW NAME ONLY (Avoid Redundancy) */
                                               <span className="text-xs text-slate-500 uppercase tracking-wide font-medium mt-1 group-hover:text-slate-400">
-                                                {vig.setor} • {vig.nome}
+                                                {vig.nome}
                                               </span>
                                             ) : (
                                               <span className="text-xs text-slate-500 uppercase tracking-wide font-medium mt-1 group-hover:text-slate-400">

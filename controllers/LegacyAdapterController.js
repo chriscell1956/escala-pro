@@ -543,40 +543,46 @@ export const LegacyAdapterController = {
         let cleanSetor = (s.nome || "SEM_NOME").toUpperCase();
         const id = `${cleanCampus}_${cleanSetor}`.replace(/[^A-Z0-9]/g, "_");
 
-        // Inferência de Tipo/Horário (Heurística simples para MVP)
-        // O ideal seria ter isso no banco, mas por enquanto inferimos pelo nome
-        let type = "12x36_DIURNO"; // Default
-        let team = "";
-        let horario = "07:00 às 19:00";
+        // Mapeamento Direto do Banco (ERS Compliant)
+        // Se o banco tem 'equipe' e 'turno', usamos.
 
-        // Heurísticas de Campus/Equipe
-        if (cleanCampus.includes("ECO 1") || cleanCampus.includes("ECO1")) {
-          team = "ECO 1";
-          type = "ECO_1";
-        } else if (
-          cleanCampus.includes("ECO 2") ||
-          cleanCampus.includes("ECO2")
-        ) {
-          team = "ECO 2";
-          type = "ECO_2";
-        } else if (
-          cleanSetor.includes("NOTURNO") ||
-          cleanSetor.includes("19H")
-        ) {
-          type = "12x36_NOTURNO";
-          team = "B"; // Chute, user ajusta depois
-          horario = "19:00 às 07:00";
+        // 1. Equipe
+        let team = s.equipe || "";
+        if (!team) {
+          // Fallback Heuristics
+          if (cleanCampus.includes("ECO 1") || cleanCampus.includes("ECO1")) team = "ECO 1";
+          else if (cleanCampus.includes("ECO 2") || cleanCampus.includes("ECO2")) team = "ECO 2";
+          else if (cleanSetor.includes("NOTURNO") || cleanSetor.includes("19H")) team = "B";
         }
 
-        // Ajuste Fino Expediente
-        if (cleanCampus.includes("EXPEDIENTE")) {
-          type = "EXPEDIENTE";
-          horario = "08:00 às 17:48";
+        // 2. Turno / Tipo
+        let type = "12x36_DIURNO"; // Default
+        let horario = "07:00 às 19:00";
+
+        if (s.turno) {
+          // Mapeia turno do banco para Tipo do Sistema (se possível)
+          if (s.turno === "DIURNO") { type = "12x36_DIURNO"; horario = "07:00 às 19:00"; }
+          else if (s.turno === "NOTURNO") { type = "12x36_NOTURNO"; horario = "19:00 às 07:00"; }
+          else if (s.turno === "ADM") { type = "ADM"; horario = "08:00 às 17:48"; }
+          else { type = s.turno; } // Custom
+        } else {
+          // Fallback Heuristics
+          if (cleanSetor.includes("NOTURNO") || cleanSetor.includes("19H")) {
+            type = "12x36_NOTURNO";
+            horario = "19:00 às 07:00";
+          }
+          if (cleanCampus.includes("EXPEDIENTE")) {
+            type = "EXPEDIENTE";
+            horario = "08:00 às 17:48";
+          }
         }
 
         return {
           id,
+          db_id: s.id, // REAL DB ID for Updates
           name: s.nome,
+          address: s.codigo_radio, // Fallback legacy key just in case
+          code: s.codigo_radio,    // NEW KEY: Maps to DB 'codigo_radio'
           campus: s.campus,
           sector: s.nome,
           type,
@@ -601,4 +607,52 @@ export const LegacyAdapterController = {
       return []; // Fallback empty
     }
   },
+
+  /**
+   * POST /api/presets
+   * Salva alterações nos postos de serviço diretamente no Supabase.
+   */
+  async savePresets(req, res) {
+    try {
+      const presets = req.body;
+      if (!Array.isArray(presets)) return res.status(400).json({ error: "Invalid body" });
+
+      console.log(`Saving ${presets.length} presets to DB...`);
+
+      for (const p of presets) {
+        // Prepare payload
+        const payload = {
+          nome: p.sector || p.name, // Prefer sector name
+          campus: p.campus || "CAMPUS I",
+          codigo_radio: p.code || p.address || null,
+          equipe: p.team || null,
+          turno: p.type || "12x36_DIURNO" // Save the 'type' as 'turno'
+        };
+
+        // Update or Insert
+        if (p.db_id) {
+          // Update existing by ID
+          await supabase.from("setores").update(payload).eq("id", p.db_id);
+        } else {
+          // Try to find by Name+Campus default
+          const { data: existing } = await supabase.from("setores")
+            .select("id")
+            .eq("nome", payload.nome)
+            .eq("campus", payload.campus)
+            .maybeSingle(); // Use maybeSingle to avoid 406 on multiple
+
+          if (existing) {
+            await supabase.from("setores").update(payload).eq("id", existing.id);
+          } else {
+            await supabase.from("setores").insert(payload);
+          }
+        }
+      }
+
+      res.json({ success: true, message: "Setores salvos no banco." });
+    } catch (e) {
+      console.error("Save Presets Error:", e);
+      res.status(500).json({ error: "Erro ao salvar presets" });
+    }
+  }
 };

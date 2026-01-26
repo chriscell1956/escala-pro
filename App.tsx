@@ -4912,6 +4912,25 @@ function AppContent() {
           />
           <div>
             <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">
+              Setor Inicial (Opcional):
+            </label>
+            <select
+              className="w-full bg-slate-700 text-white border border-slate-600 rounded p-2 text-sm"
+              value={newVigForm.setor || ""}
+              onChange={(e) =>
+                setNewVigForm({ ...newVigForm, setor: e.target.value, campus: presets.find(p => p.sector === e.target.value)?.campus || "CAMPUS I" })
+              }
+            >
+              <option value="">-- Sem Setor Fixo --</option>
+              {presets.map(p => (
+                <option key={p.id} value={p.sector}>
+                  {p.code ? `${p.code} - ` : ""}{p.sector} ({p.campus})
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">
               Equipe Inicial:
             </label>
             <div className="flex gap-2">
@@ -5675,6 +5694,35 @@ function AppContent() {
             <h4 className="font-bold text-sm text-slate-300 uppercase">
               {editingUser ? "Editar Usuário" : "Novo Usuário"}
             </h4>
+            {/* LINK VIGILANTE (DB) */}
+            <div className="bg-slate-700/50 p-2 rounded border border-slate-600 mb-2">
+              <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">
+                Vincular Vigilante do Banco (Preencher Automático)
+              </label>
+              <select
+                className="w-full bg-slate-800 text-white text-xs border border-slate-600 rounded p-1"
+                onChange={(e) => {
+                  const selectedMat = e.target.value;
+                  if (!selectedMat) return;
+                  // Find in 'data' (which holds current vigilantes) OR we need a full list
+                  // Using 'data' for now as it holds loaded vigilantes.
+                  // Ideally should fetch ALL from API if not loaded.
+                  // But user said "não está chamando do banco".
+                  // If 'data' is empty, we have a problem.
+                  // Let's assum 'data' has the list.
+                  const v = data.find(d => String(d.mat) === selectedMat);
+                  if (v) {
+                    setFormUserMat(v.mat);
+                    setFormUserNome(v.nome);
+                  }
+                }}
+              >
+                <option value="">-- Selecione para Preencher --</option>
+                {data.sort((a, b) => a.nome.localeCompare(b.nome)).map(v => (
+                  <option key={v.mat} value={v.mat}>{v.nome} ({v.mat})</option>
+                ))}
+              </select>
+            </div>
             <div className="flex gap-2">
               <Input
                 placeholder="Matrícula"

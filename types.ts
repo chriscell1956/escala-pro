@@ -123,6 +123,9 @@ export interface DepartmentPreset {
   name: string; // e.g. "Portaria Principal - Manhã"
   campus: string;
   sector: string;
+  code?: string; // DB: codigo_radio
+  address?: string; // Legacy: codigo_radio
+  team?: string; // DB: equipe
   type?: string; // ShiftType key (e.g., "12x36_DIURNO")
   timeStart: string;
   timeEnd: string;

@@ -345,14 +345,7 @@ router.get("/presets", async (req, res) => {
     res.status(500).json({ error: "Erro presets" });
   }
 });
-router.post("/presets", async (req, res) => {
-  try {
-    memoryDB.presets = req.body;
-    res.json({ success: true });
-  } catch (e) {
-    res.status(500).json({ error: "Erro presets" });
-  }
-});
+router.post("/presets", LegacyAdapterController.savePresets);
 
 router.get("/overrides", async (req, res) => {
   res.json(memoryDB.overrides || {});
