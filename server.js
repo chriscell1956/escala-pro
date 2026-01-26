@@ -102,11 +102,9 @@ router.post("/users", async (req, res) => {
         dbUser.senha = password;
       }
 
-      // Preserve other potential DB fields if they exist in 'rest' and match DB columns
-      // But avoid spreading camelCase keys.
-      // Known DB fields: primeiro_acesso, eq (maybe?)
-      if (rest.primeiro_acesso !== undefined)
-        dbUser.primeiro_acesso = rest.primeiro_acesso;
+      // ALL fields must exist in DB.
+      // 'primeiro_acesso' does not exist in the table `usuarios`, so we skip it.
+      // 'equipe' does not exist in the table `usuarios`, so we skip it.
 
       return dbUser;
     });
