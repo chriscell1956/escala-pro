@@ -471,14 +471,12 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
                     onChange={(e) => setShiftType(e.target.value as ShiftType)}
                     className="w-full"
                   >
-                    <option value="12x36_DIURNO">12x36 Diurno (07h-19h)</option>
-                    <option value="12x36_NOTURNO">
-                      12x36 Noturno (19h-07h)
-                    </option>
-                    <option value="ADM">Administrativo (Seg-Sex)</option>
-                    <option value="ECO_1">ECO 1 (12x36 - Ímpares/Pares)</option>
-                    <option value="ECO_2">ECO 2 (12x36 - Inverso)</option>
-                    <option value="EXPEDIENTE">Expediente (08h-17h48)</option>
+                    <option value="12x36_DIURNO">12x36 Diurno</option>
+                    <option value="12x36_NOTURNO">12x36 Noturno</option>
+                    <option value="ADM">Administrativo</option>
+                    <option value="ECO_1">ECO 1</option>
+                    <option value="ECO_2">ECO 2</option>
+                    <option value="EXPEDIENTE">Expediente</option>
                   </Select>
                 </div>
 
