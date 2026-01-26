@@ -107,7 +107,6 @@ router.post("/users", async (req, res) => {
       // Known DB fields: primeiro_acesso, eq (maybe?)
       if (rest.primeiro_acesso !== undefined)
         dbUser.primeiro_acesso = rest.primeiro_acesso;
-      if (rest.eq !== undefined) dbUser.equipe = rest.eq; // Assuming 'equipe' column, or 'eq'? Let's check GET.
 
       return dbUser;
     });
