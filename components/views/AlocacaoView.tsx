@@ -559,10 +559,11 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
                   Vínculo Vigilante
                 </span>
                 <span
-                  className={`font-mono px-1 rounded ${currentUserVig
-                    ? "bg-emerald-900/50 text-emerald-300"
-                    : "bg-red-900/50 text-red-300 font-bold"
-                    }`}
+                  className={`font-mono px-1 rounded ${
+                    currentUserVig
+                      ? "bg-emerald-900/50 text-emerald-300"
+                      : "bg-red-900/50 text-red-300 font-bold"
+                  }`}
                 >
                   {currentUserVig
                     ? `OK (Eq: ${currentUserVig.eq})`
@@ -690,10 +691,10 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
                   v.campus === "SEM POSTO" ||
                   v.campus.includes("DEFINIR"),
               ).length === 0 && (
-                  <div className="col-span-full text-center text-xs text-slate-500 py-4">
-                    Nenhum vigilante pendente. Todos estão alocados em postos.
-                  </div>
-                )}
+                <div className="col-span-full text-center text-xs text-slate-500 py-4">
+                  Nenhum vigilante pendente. Todos estão alocados em postos.
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -707,8 +708,9 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
           return (
             <div
               key={campus}
-              className={`bg-slate-800 rounded-xl shadow-sm border border-slate-700 transition-all ${!isExpanded ? "opacity-75 hover:opacity-100" : ""
-                }`}
+              className={`bg-slate-800 rounded-xl shadow-sm border border-slate-700 transition-all ${
+                !isExpanded ? "opacity-75 hover:opacity-100" : ""
+              }`}
             >
               {/* Header do Campus */}
               <div
@@ -888,19 +890,22 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
                           {/* Info (Left) */}
                           <div className="w-1/3 min-w-[200px] flex items-start gap-2">
                             <div className="flex flex-col flex-1">
-                              <span className="font-bold text-sm text-slate-100 group-hover:text-blue-300 transition-colors">
-                                {preset.name}
-                                {preset.team && (
-                                  <span className="ml-2 text-[10px] bg-purple-900/50 text-purple-300 border border-purple-700/50 px-1.5 py-0.5 rounded font-mono font-bold">
-                                    EQ: {preset.team}
-                                  </span>
-                                )}
+                              <span className="font-bold text-lg text-slate-100 group-hover:text-blue-300 transition-colors tracking-tight">
+                                {preset.code || preset.name}
                               </span>
+                              {preset.code && preset.name !== preset.code && (
+                                <span className="text-xs text-slate-400 font-medium">
+                                  {preset.name}
+                                </span>
+                              )}
+                              {preset.team && (
+                                <span className="mt-1 w-fit text-[10px] bg-purple-900/50 text-purple-300 border border-purple-700/50 px-1.5 py-0.5 rounded font-mono font-bold">
+                                  EQ: {preset.team}
+                                </span>
+                              )}
                               <div className="flex flex-wrap gap-2 mt-2">
                                 <span className="text-xs text-slate-300 font-mono bg-slate-800/80 border border-slate-700 px-2 py-1 rounded flex items-center gap-1.5 shadow-sm">
-                                  <Icons.Clock
-                                    className="text-blue-400 w-3 h-3"
-                                  />
+                                  <Icons.Clock className="text-blue-400 w-3 h-3" />
                                   {preset.horario}
                                 </span>
                                 {preset.refeicao && (
@@ -937,10 +942,11 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
                                 return (
                                   <div
                                     key={occ.mat}
-                                    className={`flex flex-col border rounded-lg p-2.5 shadow-sm animate-fade-in group ${!isWorking
-                                      ? "bg-red-900/10 border-red-900/30"
-                                      : "bg-slate-800 border-slate-600"
-                                      }`}
+                                    className={`flex flex-col border rounded-lg p-2.5 shadow-sm animate-fade-in group ${
+                                      !isWorking
+                                        ? "bg-red-900/10 border-red-900/30"
+                                        : "bg-slate-800 border-slate-600"
+                                    }`}
                                   >
                                     <div className="flex items-center justify-between mb-2">
                                       <div className="flex items-center gap-3">
@@ -948,7 +954,7 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
                                         {/* CRUZAMENTO CHECK */}
                                         {preset.team &&
                                           cleanString(preset.team) !==
-                                          cleanString(occ.eq) && (
+                                            cleanString(occ.eq) && (
                                             <span
                                               className="text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/50 px-1.5 py-0.5 rounded font-bold uppercase tracking-widest"
                                               title={`Vigilante da Equipe ${occ.eq} alocado em posto da Equipe ${preset.team}`}
@@ -1094,46 +1100,51 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
               <div className="flex bg-slate-900 rounded-lg p-1 gap-1 mb-4 flex-wrap">
                 <button
                   onClick={() => setEditorMode("edit_info")}
-                  className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${editorMode === "edit_info"
-                    ? "bg-blue-600 text-white shadow-sm"
-                    : "text-slate-400 hover:text-slate-300 bg-slate-800 border border-slate-700"
-                    }`}
+                  className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${
+                    editorMode === "edit_info"
+                      ? "bg-blue-600 text-white shadow-sm"
+                      : "text-slate-400 hover:text-slate-300 bg-slate-800 border border-slate-700"
+                  }`}
                 >
                   📝 DADOS
                 </button>
                 <button
                   onClick={() => setEditorMode("days")}
-                  className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${editorMode === "days"
-                    ? "bg-slate-700 text-white shadow-sm"
-                    : "text-slate-500 hover:text-slate-300"
-                    }`}
+                  className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${
+                    editorMode === "days"
+                      ? "bg-slate-700 text-white shadow-sm"
+                      : "text-slate-500 hover:text-slate-300"
+                  }`}
                 >
                   📅 DIAS
                 </button>
                 <button
                   onClick={() => setEditorMode("vacation")}
-                  className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${editorMode === "vacation"
-                    ? "bg-amber-100 text-amber-800 shadow-sm"
-                    : "text-slate-500 hover:text-slate-700"
-                    }`}
+                  className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${
+                    editorMode === "vacation"
+                      ? "bg-amber-100 text-amber-800 shadow-sm"
+                      : "text-slate-500 hover:text-slate-700"
+                  }`}
                 >
                   🏖️ FÉRIAS
                 </button>
                 <button
                   onClick={() => setEditorMode("falta")}
-                  className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${editorMode === "falta"
-                    ? "bg-red-600 text-white shadow-sm"
-                    : "text-slate-500 hover:text-slate-300"
-                    }`}
+                  className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${
+                    editorMode === "falta"
+                      ? "bg-red-600 text-white shadow-sm"
+                      : "text-slate-500 hover:text-slate-300"
+                  }`}
                 >
                   ❌ FALTA
                 </button>
                 <button
                   onClick={() => setEditorMode("partial")}
-                  className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${editorMode === "partial"
-                    ? "bg-orange-500 text-white shadow-sm"
-                    : "text-slate-500 hover:text-slate-300"
-                    }`}
+                  className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${
+                    editorMode === "partial"
+                      ? "bg-orange-500 text-white shadow-sm"
+                      : "text-slate-500 hover:text-slate-300"
+                  }`}
                 >
                   ⚠️ PARCIAL
                 </button>
@@ -1188,10 +1199,11 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
                                 folgasGeradas: [], // Reset generated days off as pattern changed
                               });
                             }}
-                            className={`px-3 py-2 rounded text-xs font-bold border transition-all ${managingVig.eq === t
-                              ? "bg-brand-600 text-white border-brand-500 shadow-md transform scale-105"
-                              : "bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700"
-                              }`}
+                            className={`px-3 py-2 rounded text-xs font-bold border transition-all ${
+                              managingVig.eq === t
+                                ? "bg-brand-600 text-white border-brand-500 shadow-md transform scale-105"
+                                : "bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700"
+                            }`}
                           >
                             {t}
                           </button>
@@ -1294,7 +1306,9 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
                       }
                       const currentEnd =
                         managingPreset.timeEnd ||
-                        (managingPreset.horario || "").split(" às ")[1]?.trim() ||
+                        (managingPreset.horario || "")
+                          .split(" às ")[1]
+                          ?.trim() ||
                         "";
                       setManagingPreset({
                         ...managingPreset,
@@ -1325,7 +1339,9 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
                       }
                       const currentStart =
                         managingPreset.timeStart ||
-                        (managingPreset.horario || "").split(" às ")[0]?.trim() ||
+                        (managingPreset.horario || "")
+                          .split(" às ")[0]
+                          ?.trim() ||
                         "";
                       setManagingPreset({
                         ...managingPreset,
