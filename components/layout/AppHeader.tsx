@@ -102,7 +102,12 @@ const AppHeaderComponent: React.FC<AppHeaderProps> = (props) => {
               <span>Atualizando...</span>
             </div>
           )}
-          <div className="text-[9px] bg-white/20 px-1 rounded text-white font-mono opacity-50 mr-2" title="Versão Atual">v2.5</div>
+          <div
+            className="text-[9px] bg-white/20 px-1 rounded text-white font-mono opacity-50 mr-2"
+            title="Versão Atual"
+          >
+            v2.5
+          </div>
           {/* BARRA DE PROGRESSO (TERMÔMETRO) - Agora visível em telas menores (lg) */}
           {isMaster && (
             <div className="hidden lg:flex items-center gap-2 bg-white/10 px-3 h-8 rounded-lg border border-white/30 mr-2 backdrop-blur-sm shadow-sm">
@@ -269,7 +274,10 @@ const AppHeaderComponent: React.FC<AppHeaderProps> = (props) => {
                     onClick={() => setIsPresetManagerOpen(true)}
                     title="Gerenciar Postos"
                   >
-                    <span className="md:hidden"></span>
+                    <span className="hidden md:inline">POSTOS</span>
+                    <span className="md:hidden">
+                      <Icons.Settings />
+                    </span>
                   </Button>
                 </>
               )}
