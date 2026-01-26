@@ -371,7 +371,6 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
               </div>
 
               <div className="p-6 overflow-y-auto space-y-4">
-
                 {/* 1. CÓDIGO RÁDIO (Main Identifier) */}
                 <div>
                   <label className="block text-xs font-bold text-slate-400 mb-1">
@@ -385,7 +384,8 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
                     autoFocus
                   />
                   <p className="text-[10px] text-slate-500 mt-1">
-                    Este é o código que aparecerá em destaque na escala (Ex: ALFA 01).
+                    Este é o código que aparecerá em destaque na escala (Ex:
+                    ALFA 01).
                   </p>
                 </div>
 
@@ -455,41 +455,31 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
                       <option value="ECO 2">Equipe ECO 2</option>
                     </Select>
                     <p className="text-[9px] text-slate-500 mt-1 leading-tight">
-                      Define a qual equipe este posto pertence na escala (Ex: Se for ALFA 01 da Equipe A, selecione A).
+                      Define a qual equipe este posto pertence na escala (Ex: Se
+                      for ALFA 01 da Equipe A, selecione A).
                     </p>
                   </div>
                 </div>
 
-                {/* 4. DETAILS (Shift Type & Sector Group) */}
-                <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-800">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-400 mb-1">
-                      Tipo de Turno / Escala
-                    </label>
-                    <Select
-                      value={shiftType || "12x36_DIURNO"}
-                      onChange={(e) => setShiftType(e.target.value as ShiftType)}
-                      className="w-full"
-                    >
-                      <option value="12x36_DIURNO">12x36 Diurno (07h-19h)</option>
-                      <option value="12x36_NOTURNO">12x36 Noturno (19h-07h)</option>
-                      <option value="ADM">Administrativo (Seg-Sex)</option>
-                      <option value="ECO_1">ECO 1 (12x36 - Ímpares/Pares)</option>
-                      <option value="ECO_2">ECO 2 (12x36 - Inverso)</option>
-                      <option value="EXPEDIENTE">Expediente (08h-17h48)</option>
-                    </Select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-400 mb-1">
-                      Agrupamento (Opcional)
-                    </label>
-                    <Input
-                      value={sector}
-                      onChange={(e) => setSector(e.target.value)}
-                      placeholder="Ex: Portaria"
-                      className="w-full"
-                    />
-                  </div>
+                {/* 4. DETAILS (Shift Type) */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 mb-1">
+                    Tipo de Turno / Escala
+                  </label>
+                  <Select
+                    value={shiftType || "12x36_DIURNO"}
+                    onChange={(e) => setShiftType(e.target.value as ShiftType)}
+                    className="w-full"
+                  >
+                    <option value="12x36_DIURNO">12x36 Diurno (07h-19h)</option>
+                    <option value="12x36_NOTURNO">
+                      12x36 Noturno (19h-07h)
+                    </option>
+                    <option value="ADM">Administrativo (Seg-Sex)</option>
+                    <option value="ECO_1">ECO 1 (12x36 - Ímpares/Pares)</option>
+                    <option value="ECO_2">ECO 2 (12x36 - Inverso)</option>
+                    <option value="EXPEDIENTE">Expediente (08h-17h48)</option>
+                  </Select>
                 </div>
 
                 {/* 5. TIMES */}
@@ -584,14 +574,14 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
                   Salvar Posto
                 </Button>
               </div>
-            </div >
-          </div >
+            </div>
+          </div>
         )}
-      </div >
+      </div>
 
       <div className="flex justify-end pt-4 border-t border-slate-800 mt-4">
         <Button onClick={onClose}>Fechar</Button>
       </div>
-    </Modal >
+    </Modal>
   );
 };
