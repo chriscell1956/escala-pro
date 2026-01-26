@@ -6007,6 +6007,10 @@ function AppContent() {
           {toast.msg}
         </div>
       )}
+      {/* DEPLOYMENT VERSION MARKER */}
+      <div className="fixed bottom-0.5 right-1 text-[8px] text-slate-700 opacity-40 hover:opacity-100 pointer-events-auto cursor-help z-[9999] font-mono select-none">
+        v_2026_01_27_RC3
+      </div>
     </div>
   );
 }
