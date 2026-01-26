@@ -86,8 +86,18 @@ export const api = {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(users),
       });
-      return res.ok;
+      if (!res.ok) {
+        const errorJSON = await res.json().catch(() => ({}));
+        if (errorJSON.details) {
+          alert(`ERRO SERVIDOR: ${errorJSON.details}`);
+        }
+        console.error("API: saveUsers failed", res.status, errorJSON);
+        return false;
+      }
+      return true;
     } catch (e) {
+      console.error("API saveUsers exception", e);
+      alert("Erro de Conexão ao salvar usuários.");
       return false;
     }
   },
@@ -106,7 +116,9 @@ export const api = {
         if (!saved) console.error("API: Erro em saveUsers()");
         return saved;
       }
-      console.warn(`API: updateUser falhou. Usuário ${targetMat} não encontrado na lista atual.`);
+      console.warn(
+        `API: updateUser falhou. Usuário ${targetMat} não encontrado na lista atual.`,
+      );
       return false;
     } catch (e) {
       console.error("API: updateUser exception:", e);
