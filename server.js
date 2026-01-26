@@ -84,18 +84,32 @@ router.post("/users", async (req, res) => {
     const usersToUpsert = users.map((u) => {
       // FIX: Map frontend 'mat' to database 'matricula' and exclude UI-only fields
       // Also explicitly exclude 'role' if it exists legacy-wise
-      const { nome, mat, role, ...rest } = u;
-      return {
+      const { nome, mat, role, password, ...rest } = u;
+
+      const dbUser = {
         matricula: mat, // Explicit mapping
         perfil: u.perfil, // Explicit mapping for clarity
-        pode_gerenciar_intervalos: rest.canManageIntervals,
-        pode_ver_logs: rest.canViewLogs,
-        pode_imprimir: rest.canPrint,
-        pode_simular: rest.canSimulate,
-        pode_ver_cftv: rest.canViewCFTV,
-        permissoes: rest.permissions, // JSONB
-        ...rest,
+        pode_gerenciar_intervalos: u.canManageIntervals,
+        pode_ver_logs: u.canViewLogs,
+        pode_imprimir: u.canPrint,
+        pode_simular: u.canSimulate,
+        pode_ver_cftv: u.canViewCFTV,
+        permissoes: u.permissions, // JSONB
       };
+
+      // Only add password if explicitly provided (to avoid overwriting with undefined)
+      if (password) {
+        dbUser.senha = password;
+      }
+
+      // Preserve other potential DB fields if they exist in 'rest' and match DB columns
+      // But avoid spreading camelCase keys.
+      // Known DB fields: primeiro_acesso, eq (maybe?)
+      if (rest.primeiro_acesso !== undefined)
+        dbUser.primeiro_acesso = rest.primeiro_acesso;
+      if (rest.eq !== undefined) dbUser.equipe = rest.eq; // Assuming 'equipe' column, or 'eq'? Let's check GET.
+
+      return dbUser;
     });
     const { error } = await supabase
       .from("usuarios")
