@@ -102,10 +102,14 @@ export const api = {
 
       if (idx > -1) {
         currentUsers[idx] = updatedUser;
-        return await this.saveUsers(currentUsers);
+        const saved = await this.saveUsers(currentUsers);
+        if (!saved) console.error("API: Erro em saveUsers()");
+        return saved;
       }
+      console.warn(`API: updateUser falhou. Usuário ${targetMat} não encontrado na lista atual.`);
       return false;
     } catch (e) {
+      console.error("API: updateUser exception:", e);
       return false;
     }
   },

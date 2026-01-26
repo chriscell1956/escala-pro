@@ -77,54 +77,36 @@ const CORINGA_MATS = ["76154", "72911"]; // João Galvão e Marcio Pivaro
 
 // Helper para definir visibilidade cruzada de equipes
 // Helper para definir visibilidade cruzada de equipes
-// Helper para definir visibilidade cruzada de equipes
-const getVisibleTeams = (fiscalTeam: string, isMaster: boolean) => {
+const getVisibleTeams = (fiscalTeam: string, isMaster: boolean, userShift?: string) => {
   if (isMaster) return ["A", "B", "C", "D", "ECO1", "ECO2", "ADM"];
 
   let t = cleanString(fiscalTeam);
 
-  // Normalize Variations (Fix for "C (CHARLIE)", "A (ALFA)", etc.)
-  if (
-    t === "A" ||
-    t.startsWith("A ") ||
-    t.includes("ALFA") ||
-    t.includes("(ALFA)")
-  )
-    t = "A";
-  else if (
-    t === "B" ||
-    t.startsWith("B ") ||
-    t.includes("BRAVO") ||
-    t.includes("(BRAVO)")
-  )
-    t = "B";
-  else if (
-    t === "C" ||
-    t.startsWith("C ") ||
-    t.includes("CHARLIE") ||
-    t.includes("(CHARLIE)")
-  )
-    t = "C";
-  else if (
-    t === "D" ||
-    t.startsWith("D ") ||
-    t.includes("DELTA") ||
-    t.includes("(DELTA)")
-  )
-    t = "D";
+  // Normalize Variations
+  if (t === "A" || t.startsWith("A ") || t.includes("ALFA") || t.includes("(ALFA)")) t = "A";
+  else if (t === "B" || t.startsWith("B ") || t.includes("BRAVO") || t.includes("(BRAVO)")) t = "B";
+  else if (t === "C" || t.startsWith("C ") || t.includes("CHARLIE") || t.includes("(CHARLIE)")) t = "C";
+  else if (t === "D" || t.startsWith("D ") || t.includes("DELTA") || t.includes("(DELTA)")) t = "D";
 
-  // ADM included for everyone so Fiscals can see/schedule ADM staff
-  // STRICT SEPARATION: Noturno sees ECO 2, Diurno sees ECO 1
-  if (t === "A") return ["A", "ECO2", "ECO 2", "ADM"];
-  if (t === "B") return ["B", "ECO2", "ECO 2", "ADM"];
-  if (t === "C") return ["C", "ECO1", "ECO 1", "ADM"];
-  if (t === "D") return ["D", "ECO1", "ECO 1", "ADM"];
+  // LOGIC UPGRADE: Check Shift (Diurno vs Noturno)
+  // Diurno -> ECO1
+  // Noturno -> ECO2
+  const isDiurno = userShift && (userShift.toUpperCase().includes("DIURNO") || userShift.toUpperCase().includes("DIA"));
+  const isNoturno = userShift && (userShift.toUpperCase().includes("NOTURNO") || userShift.toUpperCase().includes("NOITE"));
 
-  // GENERIC TEAM MAPPINGS
-  if (t.includes("DIURNO")) return [t, "ECO1", "ECO 1", "ADM", "C", "D"];
-  if (t.includes("NOTURNO")) return [t, "ECO2", "ECO 2", "ADM", "A", "B"];
+  const baseTeams = [t, "ADM"];
 
-  return [t, "ADM"];
+  if (isDiurno) {
+    baseTeams.push("ECO1", "ECO 1", "E1", "ECO 1");
+  } else if (isNoturno) {
+    baseTeams.push("ECO2", "ECO 2", "E2", "ECO 2");
+  } else {
+    // Legacy Fallback if Shift is unknown
+    if (t === "A" || t === "B") baseTeams.push("ECO2", "ECO 2");
+    if (t === "C" || t === "D") baseTeams.push("ECO1", "ECO 1");
+  }
+
+  return Array.from(new Set(baseTeams)); // Remove duplicates
 };
 
 // HELPER NOVA: Visibilidade restrita para o LANÇADOR (Pedido do usuário)
@@ -133,6 +115,7 @@ const getLancadorVisibleTeams = (
   fiscalTeam: string,
   isMaster: boolean,
   permissions?: VisibilityPermission[],
+  userShift?: string
 ) => {
   // Master sees EVERYONE
   if (isMaster)
@@ -152,56 +135,32 @@ const getLancadorVisibleTeams = (
       "SEM POSTO",
     ];
 
+  // LOGIC UPGRADE: Check Shift (Diurno vs Noturno)
+  const isDiurno = userShift && (userShift.toUpperCase().includes("DIURNO") || userShift.toUpperCase().includes("DIA"));
+  const isNoturno = userShift && (userShift.toUpperCase().includes("NOTURNO") || userShift.toUpperCase().includes("NOITE"));
+
   // 1. Explicit Permissions (Priority)
-  // If user has specific permissions configured, use them to derive visibility
   if (permissions && permissions.length > 0) {
     const allowed = new Set<string>();
-    allowed.add("ADM"); // Always allow seeing ADM presets/users if needed
+    allowed.add("ADM");
 
     permissions.forEach((p) => {
-      // If permission grants view access (or edit access, which implies view)
       if (p.canView || p.canEdit) {
         let t = cleanString(p.team);
-        // Normalize Variations in Permissions too
-        if (
-          t === "A" ||
-          t.startsWith("A ") ||
-          t.includes("ALFA") ||
-          t.includes("(ALFA)")
-        )
-          t = "A";
-        else if (
-          t === "B" ||
-          t.startsWith("B ") ||
-          t.includes("BRAVO") ||
-          t.includes("(BRAVO)")
-        )
-          t = "B";
-        else if (
-          t === "C" ||
-          t.startsWith("C ") ||
-          t.includes("CHARLIE") ||
-          t.includes("(CHARLIE)")
-        )
-          t = "C";
-        else if (
-          t === "D" ||
-          t.startsWith("D ") ||
-          t.includes("DELTA") ||
-          t.includes("(DELTA)")
-        )
-          t = "D";
+        // Normalize
+        if (t === "A" || t.startsWith("A ") || t.includes("ALFA") || t.includes("(ALFA)")) t = "A";
+        else if (t === "B" || t.startsWith("B ") || t.includes("BRAVO") || t.includes("(BRAVO)")) t = "B";
+        else if (t === "C" || t.startsWith("C ") || t.includes("CHARLIE") || t.includes("(CHARLIE)")) t = "C";
+        else if (t === "D" || t.startsWith("D ") || t.includes("DELTA") || t.includes("(DELTA)")) t = "D";
 
         allowed.add(t);
 
-        // Auto-include related Shift resources based on the Team
-        // Night Teams (A, B) -> see ECO2
-        if (t === "A" || t === "B") {
+        // Auto-include related Shift resources based on the Team OR explicit Shift
+        if (isNoturno || t === "A" || t === "B") {
           allowed.add("ECO2");
           allowed.add("ECO 2");
         }
-        // Day Teams (C, D) -> see ECO1
-        if (t === "C" || t === "D") {
+        if (isDiurno || t === "C" || t === "D") {
           allowed.add("ECO1");
           allowed.add("ECO 1");
         }
@@ -211,55 +170,35 @@ const getLancadorVisibleTeams = (
     return Array.from(allowed);
   }
 
-  // 2. Fallback: Derived from User's "Fiscal Team" (Legacy)
+  // 2. Fallback: Derived from User's "Fiscal Team"
   let t = cleanString(fiscalTeam);
 
-  // Normalize Variations (Fix for "C (CHARLIE)", "A (ALFA)", etc.)
-  if (
-    t === "A" ||
-    t.startsWith("A ") ||
-    t.includes("ALFA") ||
-    t.includes("(ALFA)")
-  )
-    t = "A";
-  else if (
-    t === "B" ||
-    t.startsWith("B ") ||
-    t.includes("BRAVO") ||
-    t.includes("(BRAVO)")
-  )
-    t = "B";
-  else if (
-    t === "C" ||
-    t.startsWith("C ") ||
-    t.includes("CHARLIE") ||
-    t.includes("(CHARLIE)")
-  )
-    t = "C";
-  else if (
-    t === "D" ||
-    t.startsWith("D ") ||
-    t.includes("DELTA") ||
-    t.includes("(DELTA)")
-  )
-    t = "D";
+  // Normalize Variations
+  if (t === "A" || t.startsWith("A ") || t.includes("ALFA") || t.includes("(ALFA)")) t = "A";
+  else if (t === "B" || t.startsWith("B ") || t.includes("BRAVO") || t.includes("(BRAVO)")) t = "B";
+  else if (t === "C" || t.startsWith("C ") || t.includes("CHARLIE") || t.includes("(CHARLIE)")) t = "C";
+  else if (t === "D" || t.startsWith("D ") || t.includes("DELTA") || t.includes("(DELTA)")) t = "D";
 
-  // Equipes Noturnas -> Própria + ECO2 + ADM
-  if (t === "A") return ["A", "ECO2", "ECO 2", "ADM"];
-  if (t === "B") return ["B", "ECO2", "ECO 2", "ADM"];
+  const baseTeams = [t, "ADM"];
 
-  // Equipes Diurnas -> Própria + ECO1 + ADM
-  if (t === "C") return ["C", "ECO1", "ECO 1", "ADM"];
-  if (t === "D") return ["D", "ECO1", "ECO 1", "ADM"];
-
-  // Default: Return ONLY "ADM" or empty to prevent leaking "Team A" info
-  // Previously this defaulted to [t, "ADM"], but if 't' was invalid it might have caused issues or defaulted to 'A' elsewhere.
-  // Now we are safer.
-  if (t && t !== "SEM EQUIPE") {
-    return [t, "ADM"];
+  if (isDiurno) {
+    baseTeams.push("ECO1", "ECO 1");
+  } else if (isNoturno) {
+    baseTeams.push("ECO2", "ECO 2");
+  } else {
+    // Legacy mapping
+    if (t === "A" || t === "B") baseTeams.push("ECO2", "ECO 2");
+    if (t === "C" || t === "D") baseTeams.push("ECO1", "ECO 1");
   }
 
-  return ["ADM"];
+  // Handle generic 'SEM EQUIPE'
+  if (t && t !== "SEM EQUIPE") {
+    // defaults provided above
+  } else {
+    return ["ADM"];
+  }
+
+  return Array.from(new Set(baseTeams));
 };
 
 function AppContent() {
@@ -1527,6 +1466,7 @@ function AppContent() {
       currentUserVig?.eq || "",
       isMaster,
       user?.permissions,
+      currentUserVig?.horario // Pass Shift Info
     );
     console.log("DEBUG: Resulting Visible Teams:", result);
     return result;
@@ -1536,7 +1476,7 @@ function AppContent() {
     let filtered = data.filter((v) => v.campus !== "AFASTADOS");
 
     // Regra Fiscal: Vê apenas sua própria equipe no Lançador
-    if (user?.role === "FISCAL" && !isMaster) {
+    if (user?.perfil === "FISCAL" && !isMaster) {
       // Exclui ADMs específicos
       filtered = filtered.filter((v) => !EXCLUDED_ADM_MATS.includes(v.mat));
 
@@ -1564,7 +1504,8 @@ function AppContent() {
         if (visibleTeams.includes("ECO2")) visibleTeams.push("ECO 2");
       } else {
         // 2. Legacy/Heuristic Logic
-        visibleTeams = getVisibleTeams(myEq, isMaster);
+        const myTurno = currentUserVig?.horario || "";
+        visibleTeams = getVisibleTeams(myEq, isMaster, myTurno);
 
         // ROBUSTNESS: Ensure variations of ECO are present for Master/Legacy too
         if (visibleTeams.includes("ECO1")) visibleTeams.push("ECO 1");
@@ -2387,15 +2328,32 @@ function AppContent() {
     if (targetUser.perfil === "USER") newRole = "FISCAL";
     else if (targetUser.perfil === "FISCAL") newRole = "MASTER";
     else newRole = "USER";
-    const updatedUser: User = { ...targetUser, perfil: newRole };
+
+    // FIX: Update legacy 'role' as well to ensure compatibility
+    // @ts-ignore
+    const updatedUser: User = { ...targetUser, perfil: newRole, role: newRole };
+
     const updatedList = allUsers.map((u) =>
       u.mat === targetUser.mat ? updatedUser : u,
     );
     setAllUsers(updatedList);
-    const success = await api.updateUser(updatedUser);
-    if (success)
+
+    console.log(`Tentando salvar alteração de role (Direct Save via saveUsers): ${targetUser.nome} -> ${newRole}`);
+    // Use saveUsers directly to avoid roundtrip issues with updateUser
+    const success = await api.saveUsers(updatedList);
+
+    if (success) {
       showToast(`Permissão de ${targetUser.nome} alterada para ${newRole}`);
-    else loadUsers();
+      // If we edited ourselves, update local session too
+      if (user && user.mat === targetUser.mat) {
+        setUser(updatedUser);
+      }
+    } else {
+      console.error("ERRO: api.saveUsers retornou false. Falha de rede ou backend.");
+      alert(`Erro ao salvar permissão de ${targetUser.nome}. Verifique o console.`);
+      showToast("Erro ao salvar permissão.", "error");
+      loadUsers();
+    }
   };
   const handleResetPassword = async (targetUser: User) => {
     if (!confirm(`Resetar senha de ${targetUser.nome} para '123456'?`)) return;
@@ -5577,7 +5535,7 @@ function AppContent() {
           )}
 
           <p className="text-xs text-slate-500 text-center mt-2">
-            Versão 3.5.4 (Pro) - Unoeste Segurança
+            Versão 3.5.5 (Permissões Fix) - Unoeste Segurança
           </p>
         </div>
       </Modal>
