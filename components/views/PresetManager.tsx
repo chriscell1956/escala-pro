@@ -1,9 +1,8 @@
-﻿import React, { useState, useEffect } from "react";
+﻿import React, { useState } from "react";
 import { DepartmentPreset, Team } from "../../types";
-import { Button, Input, Select, Card, Modal, Badge, Icons } from "../ui";
+import { Button, Input, Select, Modal, Icons } from "../ui";
 import { api } from "../../services/api";
-import { sectorPresets, generateDefaultPresets } from "../../presets";
-import { SHIFT_TYPES, ShiftType } from "../../constants";
+import { ShiftType } from "../../constants";
 
 interface PresetManagerProps {
   isOpen: boolean;
@@ -12,6 +11,7 @@ interface PresetManagerProps {
   setPresets: (presets: DepartmentPreset[]) => void;
   onUpdatePreset?: (id: string, updates: Partial<DepartmentPreset>) => void;
   onDeletePreset?: (id: string) => void;
+  onRegisterLog?: (action: any, details: string, target?: string) => void;
 }
 
 export const PresetManager: React.FC<PresetManagerProps> = ({
@@ -21,6 +21,7 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
   setPresets,
   onUpdatePreset,
   onDeletePreset,
+  onRegisterLog,
 }) => {
   const [editingPreset, setEditingPreset] = useState<DepartmentPreset | null>(
     null,
@@ -98,10 +99,12 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
 
     // Legacy Local Logic
     const newPresets = presets.filter((p) => p.id !== id);
-    setPresets(newPresets);
-    await api.savePresets(newPresets);
+    const saved = await api.savePresets(newPresets);
+    setPresets(saved || newPresets);
   };
 
+  /*
+  // Unused function commented out to satisfy linter
   const parseTime = (str: string): string => {
     if (!str) return "";
     const clean = (s: string) => {
@@ -114,20 +117,16 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
   };
 
   const handleImportSystemPresets = async () => {
-    // ... import logic remains same ...
     if (
       !confirm(
         "Isso importará e REESCREVERÁ os padrões do sistema. Deseja continuar?",
       )
     )
       return;
-    // (Simulating existing logic for brevity, user didn't ask to change this)
-    // Actually, I need to keep the existing logic so I don't break import
-    // COPYING EXISTING IMPORT LOGIC FROM PREVIOUS FILE TO ENSURE NO LOSS
+
     const newPresets: DepartmentPreset[] = [];
     Object.entries(sectorPresets).forEach(([sectorName, shifts]) => {
       const processShift = (shiftData: any, type: string) => {
-        // Type 'any' used to match existing
         const rawParts = shiftData.horario.split(" às ");
         const mealParts = shiftData.refeicao
           ? shiftData.refeicao.split(" às ")
@@ -156,70 +155,58 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
     const newNames = new Set(newPresets.map((p) => p.name));
     finalPresets = finalPresets.filter((p) => !newNames.has(p.name));
     finalPresets = [...finalPresets, ...newPresets];
-    setPresets(finalPresets);
-    await api.savePresets(finalPresets);
+    const saved = await api.savePresets(finalPresets);
+    setPresets(saved || finalPresets);
     alert(`Importados/Corrigidos ${newPresets.length} padrões com sucesso!`);
   };
+  */
+
+  const [isSaving, setIsSaving] = useState(false);
 
   const handleSave = async () => {
-    if (!name || !sector || !hStart || !hEnd) {
-      alert("Preencha os campos obrigatórios: Nome, Setor, Início e Fim.");
+    if (!name.trim()) {
+      alert("O nome do setor é obrigatório.");
       return;
     }
 
-    // UPDATE LOGIC: Use onUpdatePreset if editing
-    if (editingPreset && onUpdatePreset) {
-      const updates: Partial<DepartmentPreset> = {
-        name,
-        code, // SAVE CODE
-        campus,
-        sector,
+    try {
+      setIsSaving(true);
+
+      const presetData: any = {
+        db_id: editingPreset?.db_id,
+        name: name.trim(),
+        code: code.trim() || null,
+        campus: campus || "CAMPUS I",
+        sector: name.trim(),
         type: shiftType,
-        team: team || undefined, // Save team if selected
+        team: team || null,
         timeStart: hStart,
         timeEnd: hEnd,
         mealStart: rStart,
         mealEnd: rEnd,
-        // Composite fields for compatibility
-        horario: `${hStart} às ${hEnd}`,
-        refeicao: rStart && rEnd ? `${rStart} às ${rEnd}` : "",
       };
-      onUpdatePreset(editingPreset.id, updates);
-      setIsFormOpen(false);
-      resetForm();
-      return;
+
+      console.log("[PERSISTENCE] Enviando salvamento cirúrgico:", presetData);
+
+      const updatedList = await api.savePresets([presetData]);
+
+      if (updatedList && Array.isArray(updatedList)) {
+        setPresets(updatedList);
+        setIsFormOpen(false);
+        resetForm();
+        alert("Salvo com sucesso!");
+        if (onRegisterLog) {
+          onRegisterLog("EDICAO", `Alteração de Posto: ${presetData.name}`, campus);
+        }
+      } else {
+        throw new Error("Resposta inválida do servidor.");
+      }
+    } catch (error: any) {
+      console.error("[PERSISTENCE] Erro ao salvar:", error);
+      alert(`❌ ERRO AO SALVAR:\n\n${error.message || "Falha na conexão com o servidor."}\n\nO item NÃO foi salvo no banco de dados.`);
+    } finally {
+      setIsSaving(false);
     }
-
-    // CREATE LOGIC (Fallback or New)
-    const newPreset: DepartmentPreset = {
-      id: editingPreset ? editingPreset.id : crypto.randomUUID(),
-      name,
-      code, // SAVE CODE
-      campus,
-      sector,
-      type: shiftType,
-      team: team || undefined, // Save team if selected
-      timeStart: hStart,
-      timeEnd: hEnd,
-      mealStart: rStart,
-      mealEnd: rEnd,
-      horario: `${hStart} às ${hEnd}`,
-      refeicao: rStart && rEnd ? `${rStart} às ${rEnd}` : "",
-    };
-
-    let updatedPresets = [...presets];
-    if (editingPreset) {
-      updatedPresets = updatedPresets.map((p) =>
-        p.id === editingPreset.id ? newPreset : p,
-      );
-    } else {
-      updatedPresets.push(newPreset);
-    }
-
-    setPresets(updatedPresets);
-    await api.savePresets(updatedPresets);
-    setIsFormOpen(false);
-    resetForm();
   };
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -565,11 +552,11 @@ export const PresetManager: React.FC<PresetManagerProps> = ({
               </div>
 
               <div className="p-4 border-t border-slate-800 bg-slate-950 flex justify-end gap-2">
-                <Button variant="ghost" onClick={() => setIsFormOpen(false)}>
+                <Button variant="ghost" onClick={() => setIsFormOpen(false)} disabled={isSaving}>
                   Cancelar
                 </Button>
-                <Button variant="primary" onClick={handleSave}>
-                  Salvar Posto
+                <Button variant="primary" onClick={handleSave} disabled={isSaving}>
+                  {isSaving ? "Salvando..." : "Salvar Posto"}
                 </Button>
               </div>
             </div>

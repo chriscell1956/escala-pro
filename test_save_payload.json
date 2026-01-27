@@ -1,0 +1,13 @@
+[
+    {
+        "db_id": 110,
+        "name": "CATRACA SUPERIOR",
+        "campus": "Ambulatorio",
+        "sector": "CATRACA SUPERIOR",
+        "code": "LIMA 03",
+        "type": "EXPEDIENTE",
+        "team": "E1",
+        "horario": "07:00 às 19:00",
+        "refeicao": "1h"
+    }
+]

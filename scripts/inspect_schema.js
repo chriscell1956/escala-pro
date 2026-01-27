@@ -8,7 +8,22 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 async function inspect() {
   console.log("--- FULL SCHEMA INSPECTION ---");
 
-  const tables = ["setores"];
+  const tables = [
+    "afastamentos",
+    "alocacoes",
+    "ferias",
+    "horarios",
+    "intervalos",
+    "intervalos_log",
+    "jornadas",
+    "logs_sistema",
+    "logs",
+    "setor_jornada",
+    "setores",
+    "solicitacoes_folga",
+    "usuarios",
+    "vigilantes"
+  ];
 
   for (const t of tables) {
     console.log(`\nTABLE: [${t}]`);

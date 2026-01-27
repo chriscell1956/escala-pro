@@ -56,6 +56,8 @@ import { ConfigView } from "./components/views/ConfigView";
 import { VigilanteManager } from "./components/views/VigilanteManager";
 // Nota: CalendarGrid agora é usado internamente pelo LancadorView, não precisa importar aqui
 
+import { supabase } from "./services/supabase";
+
 // Define extended type for Interval View
 type IntervalVigilante = Vigilante & {
   isOnBreak: boolean;
@@ -202,19 +204,6 @@ const getLancadorVisibleTeams = (
 };
 
 function AppContent() {
-  // --- CACHE BUSTER (Post-Database Wipe) ---
-  useEffect(() => {
-    const EXPECTED_VERSION = "WIPE_V4_REAL_FINAL";
-    const current = localStorage.getItem("app_version_tag");
-    if (current !== EXPECTED_VERSION) {
-      console.warn(
-        "🧹 BUSTING CACHE: Database was wiped. clearing local storage.",
-      );
-      localStorage.clear();
-      localStorage.setItem("app_version_tag", EXPECTED_VERSION);
-      window.location.reload();
-    }
-  }, []);
 
   // --- Config State ---
   const [expandedSectors, setExpandedSectors] = useState<Set<string>>(
@@ -558,11 +547,12 @@ function AppContent() {
       // We should save that Truth.
 
       s = basePresets;
-      await api.savePresets(s);
+      const saved = await api.savePresets(s);
       // log("Presets sincronizados com sucesso.");
 
       // GLOBAL STABLE SORT
-      s.sort((a, b) => {
+      const finalS = saved || s;
+      finalS.sort((a, b) => {
         const c = (a.campus || "").localeCompare(b.campus || "");
         if (c !== 0) return c;
         const sec = (a.sector || "").localeCompare(b.sector || "");
@@ -572,7 +562,7 @@ function AppContent() {
         return (a.id || "").localeCompare(b.id || "");
       });
 
-      setPresets(s);
+      setPresets(finalS);
     };
 
     safeLoad();
@@ -773,38 +763,36 @@ function AppContent() {
     });
   }, []);
 
-  // --- AUTO-UPDATE (POLLING) ---
-  // Verifica atualizações no banco a cada 10 segundos
-  // --- AUTO-UPDATE (POLLING) ---
-  // REMOVED: Auto-refresh causing usability issues.
-  /*
+  // --- REALTIME SYNC (SUPABASE) ---
+  // Atualiza a tela automaticamente quando outro usuário salva algo no banco
   useEffect(() => {
-    if (
-      !user ||
-      isSimulationMode ||
-      unsavedChanges ||
-      editingVig ||
-      isNewVigModalOpen ||
-      isVigilanteManagerOpen
-    )
-      return;
+    if (!user || isSimulationMode || unsavedChanges) return;
 
-     const intervalId = setInterval(() => {
-      // Chama o carregamento em modo silencioso (sem spinner)
-      loadDataForMonth(month, true);
-    }, 10000); // 10 segundos
+    console.log("📡 Ativando Sincronismo em Tempo Real...");
+    const channel = supabase
+      .channel("db-changes")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "alocacoes" },
+        () => {
+          console.log("⚡ Mudança na Escala detectada! Sincronizando...");
+          loadDataForMonth(month, true);
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "setores" },
+        () => {
+          console.log("⚡ Mudança nos Postos detectada! Sincronizando...");
+          loadDataForMonth(month, true);
+        },
+      )
+      .subscribe();
 
-    return () => clearInterval(intervalId);
-  }, [
-    user,
-    month,
-    isSimulationMode,
-    unsavedChanges,
-    editingVig,
-    isNewVigModalOpen,
-    isVigilanteManagerOpen,
-  ]);
-  */
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, month, isSimulationMode, unsavedChanges]);
 
   const checkSystemStatus = async () => {
     setDbStatus({ online: false, message: "Testando conexão..." });
@@ -1355,8 +1343,8 @@ function AppContent() {
           return (a.name || "").localeCompare(b.name || "");
         });
 
-        await api.savePresets(cleanPresets);
-        setPresets(cleanPresets);
+        const saved = await api.savePresets(cleanPresets);
+        setPresets(saved || cleanPresets);
       } else {
         // If no change, just ensure local state is fresh
         setPresets(cleanPresets);
@@ -1417,6 +1405,8 @@ function AppContent() {
     // We use forcePublish=true because this is an administrative "Repair" action
     // that should be effective immediately, even in future months/drafts.
     await saveData(newData, true);
+
+    registerLog("EDICAO", `Alteração Global de Vigilante (Equipe/Setor)`, updatedVig.nome);
 
     showToast(`Vigilante ${updatedVig.nome} atualizado e salvo!`, "success");
     // No need to setUnsavedChanges(true) because saveData handles it (sets to false on success)
@@ -3360,8 +3350,10 @@ function AppContent() {
       }
       return p;
     });
-    setPresets(newPresets);
-    await api.savePresets(newPresets);
+
+    // FIX: Use API return to sync state
+    const saved = await api.savePresets(newPresets);
+    setPresets(saved || newPresets);
 
     // Cascade update to vigilantes if ANY detail changed
     if (shouldCascade) {
@@ -5547,6 +5539,68 @@ function AppContent() {
         presets={presets}
         setPresets={setPresets}
         onUpdatePreset={handleUpdatePreset}
+        onDeletePreset={async (id) => {
+          const target = presets.find((p) => p.id === id);
+          if (!target) return;
+
+          // 1. Remove Preset
+          const newPresets = presets.filter((p) => p.id !== id);
+
+          // FIX: Use API return to sync state
+          const saved = await api.savePresets(newPresets);
+          setPresets(saved || newPresets);
+
+          // 2. Check for Orphaned Vigilantes
+          // If a vigilante was in this Campus/Sector, and NO VALID PRESET remains for them, unassign.
+          const updatedVigData = data.map((v) => {
+            const isTarget =
+              v.campus === target.campus && v.setor === target.sector;
+            if (!isTarget) return v;
+
+            // Does another valid preset exist for this vigilante?
+            const stillHasSpot = newPresets.some((p) => {
+              if (p.campus !== v.campus || p.sector !== v.setor) return false;
+              // Strict Team Check (if P has team, V must match)
+              if (p.team) {
+                return cleanString(p.team) === cleanString(v.eq);
+              }
+              return true; // Generic preset accepts anyone
+            });
+
+            if (!stillHasSpot) {
+              // Unassign
+              return {
+                ...v,
+                campus: "SEM POSTO",
+                setor: "AGUARDANDO",
+                horario: "", // Clear details
+                refeicao: "",
+              };
+            }
+            return v;
+          });
+
+          // Check if any vigilante was actually changed
+          const changedCount = updatedVigData.filter(
+            (v, i) => v !== data[i],
+          ).length;
+
+          if (changedCount > 0) {
+            setData(updatedVigData);
+            await api.saveData(month, updatedVigData);
+            setToast({
+              type: "info",
+              msg: `Posto excluído. ${changedCount} vigilante(s) foram desalocados.`,
+            });
+            setTimeout(() => setToast(null), 4000);
+          } else {
+            setToast({
+              type: "success",
+              msg: "Posto excluído com sucesso.",
+            });
+            setTimeout(() => setToast(null), 3000);
+          }
+        }}
       />
 
       {/* Vacation Manager Modal (Master Only) */}
@@ -5882,6 +5936,7 @@ function AppContent() {
         </div>
       </Modal>
 
+      {/* Preset Manager Modal */}
       <PresetManager
         isOpen={isPresetManagerOpen}
         onClose={() => setIsPresetManagerOpen(false)}
@@ -5894,8 +5949,10 @@ function AppContent() {
 
           // 1. Remove Preset
           const newPresets = presets.filter((p) => p.id !== id);
-          setPresets(newPresets);
-          await api.savePresets(newPresets);
+
+          // FIX: Use API return to sync state
+          const saved = await api.savePresets(newPresets);
+          setPresets(saved || newPresets);
 
           // 2. Check for Orphaned Vigilantes
           // If a vigilante was in this Campus/Sector, and NO VALID PRESET remains for them, unassign.
@@ -5965,10 +6022,6 @@ function AppContent() {
           {toast.msg}
         </div>
       )}
-      {/* DEPLOYMENT VERSION MARKER */}
-      <div className="fixed bottom-0.5 right-1 text-[8px] text-slate-700 opacity-40 hover:opacity-100 pointer-events-auto cursor-help z-[9999] font-mono select-none">
-        v_2026_01_27_RC3
-      </div>
     </div>
   );
 }

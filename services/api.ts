@@ -8,7 +8,6 @@ import {
 } from "../types";
 
 // --- CONFIGURAÇÃO API (LOCAL ADAPTER) ---
-// --- CONFIGURAÇÃO API (LOCAL ADAPTER) ---
 // Em produção (Vercel), usa caminhos relativos "/api"
 // Em desenvolvimento, usa localhost:3001
 const isLocal =
@@ -18,7 +17,7 @@ const isLocal =
 const API_URL = isLocal ? "http://localhost:3001/api" : "/api";
 
 export const api = {
-  updateConnection(url: string, key: string) {
+  updateConnection() {
     // No-op for local adapter
     return true;
   },
@@ -35,9 +34,9 @@ export const api = {
     try {
       const res = await fetch(`${API_URL}/health`);
       if (!res.ok) throw new Error("Offline");
-      const data = await res.json();
+      // const data = await res.json(); // Unused
       return { online: true, message: "Conectado ao Servidor Local" };
-    } catch (e: any) {
+    } catch {
       return {
         online: false,
         message:
@@ -62,7 +61,7 @@ export const api = {
       });
       const data = await res.json();
       return data;
-    } catch (e) {
+    } catch {
       return { success: false, message: "Erro de conexão ao fazer login." };
     }
   },
@@ -74,7 +73,7 @@ export const api = {
       });
       if (!res.ok) return [];
       return await res.json();
-    } catch (e) {
+    } catch {
       return [];
     }
   },
@@ -153,7 +152,7 @@ export const api = {
       if (json && Array.isArray(json.dados)) return json.dados;
       if (Array.isArray(json)) return json;
       return null;
-    } catch (e) {
+    } catch {
       return null;
     }
   },
@@ -185,7 +184,7 @@ export const api = {
       const res = await fetch(`${API_URL}/logs/${month}`);
       if (!res.ok) return [];
       return await res.json();
-    } catch (e) {
+    } catch {
       return [];
     }
   },
@@ -209,7 +208,7 @@ export const api = {
       const res = await fetch(`${API_URL}/overrides`);
       if (!res.ok) return {};
       return await res.json();
-    } catch (e) {
+    } catch {
       return {};
     }
   },
@@ -224,7 +223,7 @@ export const api = {
         body: JSON.stringify(overrides),
       });
       return res.ok;
-    } catch (e) {
+    } catch {
       return false;
     }
   },
@@ -233,24 +232,35 @@ export const api = {
 
   async loadPresets(): Promise<DepartmentPreset[]> {
     try {
-      const res = await fetch(`${API_URL}/presets`);
+      const res = await fetch(`${API_URL}/presets?t=${Date.now()}`, {
+        cache: "no-store",
+      });
       if (!res.ok) return [];
       return await res.json();
-    } catch (e) {
+    } catch {
       return [];
     }
   },
 
-  async savePresets(presets: DepartmentPreset[]): Promise<boolean> {
+  async savePresets(presets: any[]): Promise<any[]> {
     try {
-      const res = await fetch(`${API_URL}/presets`, {
+      const response = await fetch(`${API_URL}/presets`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(presets),
       });
-      return res.ok;
-    } catch (e) {
-      return false;
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || `Erro do servidor (${response.status})`);
+      }
+
+      const data = await response.json();
+      if (Array.isArray(data)) return data;
+      throw new Error("Resposta inválida do servidor.");
+    } catch (error: any) {
+      console.error("API Save Presets Error:", error);
+      throw error;
     }
   },
 };

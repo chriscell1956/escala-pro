@@ -18,7 +18,6 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // --- IN-MEMORY STORAGE ---
 const memoryDB = {
-  presets: [],
   overrides: {},
 };
 
@@ -216,19 +215,19 @@ router.post("/escala/:month", LegacyAdapterController.saveEscala);
 // --- Logs Routes ---
 router.get("/logs/:month", async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from("logs")
+    const { data: logData, error } = await supabase
+      .from("logs_sistema")
       .select("*")
-      .order("timestamp", { ascending: false })
+      .order("created_at", { ascending: false })
       .limit(200);
 
     if (error) throw error;
 
-    // DB: id, timestamp, action, user_name, details, target_item_id
+    // DB (logs_sistema): id, created_at, action, user_name, details, target_item_id
     // Frontend: id, timestamp, user, action, details, targetName
-    const formatted = data.map((l) => ({
+    const formatted = (logData || []).map((l) => ({
       id: l.id?.toString(),
-      timestamp: l.timestamp ? new Date(l.timestamp).getTime() : Date.now(),
+      timestamp: l.created_at ? new Date(l.created_at).getTime() : Date.now(),
       user: l.user_name || "Sistema",
       action: l.action,
       details: l.details,
@@ -238,7 +237,7 @@ router.get("/logs/:month", async (req, res) => {
     res.json(formatted);
   } catch (err) {
     console.error("Logs GET error:", err);
-    res.status(500).json({ error: "Erro logs" });
+    res.status(500).json({ error: "Erro ao buscar logs" });
   }
 });
 
@@ -251,16 +250,16 @@ router.post("/logs/:month", async (req, res) => {
       user_name: newLog.user,
       details: newLog.details,
       target_item_id: newLog.targetName,
-      timestamp: new Date(newLog.timestamp || Date.now()).toISOString(),
+      // created_at será preenchido automaticamente pelo Supabase
     };
 
-    const { error } = await supabase.from("logs").insert(dbLog);
+    const { error } = await supabase.from("logs_sistema").insert(dbLog);
     if (error) throw error;
 
     res.json({ success: true });
   } catch (err) {
     console.error("Logs POST error:", err);
-    res.status(500).json({ error: "Erro logs" });
+    res.status(500).json({ error: "Erro ao gravar log" });
   }
 });
 
@@ -348,9 +347,7 @@ router.post("/maintenance/restore-master", async (req, res) => {
 // --- Presets & Overrides ---
 router.get("/presets", async (req, res) => {
   try {
-    if (memoryDB.presets && memoryDB.presets.length > 0) {
-      return res.json(memoryDB.presets);
-    }
+    // Always fetch from DB now
     return await LegacyAdapterController.getDynamicPresets(req, res);
   } catch (e) {
     res.status(500).json({ error: "Erro presets" });

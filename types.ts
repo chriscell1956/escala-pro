@@ -120,6 +120,7 @@ export type IntervalPriority = "RED" | "ORANGE" | "YELLOW" | "GREEN";
 
 export interface DepartmentPreset {
   id: string;
+  db_id?: number; // ID real do banco de dados (para updates)
   name: string; // e.g. "Portaria Principal - Manhã"
   campus: string;
   sector: string;
@@ -131,8 +132,6 @@ export interface DepartmentPreset {
   timeEnd: string;
   mealStart?: string;
   mealEnd?: string;
-  team?: Team; // Keeping for backward compatibility or direct assignment if needed
   horario?: string;
   refeicao?: string;
-  code?: string; // Código Rádio (ex: Alfa 01)
 }
