@@ -2,7 +2,9 @@ import { createClient } from "@supabase/supabase-js";
 
 // --- CONFIGURAÇÃO SUPABASE ---
 const SUPABASE_URL = "https://uiqelqgurmczmrsdeipn.supabase.co";
-const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVpcWVscWd1cm1jem1yc2RlaXBuIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODQzMDI1NiwiZXhwIjoyMDg0MDA2MjU2fQ.dq58zyZmqObEZfTUi_Z4xTjBPaX0JYTxWq8-Y_i7aZY";
+const SUPABASE_KEY =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVpcWVscWd1cm1jem1yc2RlaXBuIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODQzMDI1NiwiZXhwIjoyMDg0MDA2MjU2fQ.dq58zyZmqObEZfTUi_Z4xTjBPaX0JYTxWq8-Y_i7aZY";
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 export const LegacyAdapterController = {
@@ -67,7 +69,7 @@ export const LegacyAdapterController = {
 
         myAlocs.forEach((a) => {
           // Contagem Equipe
-          if (a.tipo && a.tipo !== "NORMAL" && a.tipo.length < 5) {
+          if (a.tipo && a.tipo !== "NORMAL" && a.tipo.length <= 10) {
             const t = a.tipo;
             teamCounts[t] = (teamCounts[t] || 0) + 1;
           }
@@ -309,72 +311,121 @@ export const LegacyAdapterController = {
       const monthNum = parseInt(monthStr.substring(4, 6));
       const dateFormat = `${year}-${String(monthNum).padStart(2, "0")}`;
 
-      // Cache Refs
+      // --- FASE 1: SINCRONIZAR PERFIS (Self-Healing) ---
+      const { data: currentVigs } = await supabase
+        .from("vigilantes")
+        .select("id, matricula");
+      const currentMap = new Map();
+      (currentVigs || []).forEach((v) =>
+        currentMap.set(String(v.matricula).trim(), v.id),
+      );
+
+      const vigilantesToSync = vigilantes
+        .map((v) => {
+          const cleanMat = String(v.mat || "").trim();
+          const existingId = currentMap.get(cleanMat);
+          if (cleanMat === "100961")
+            console.log(
+              `🔍 WESLEY SYNC: mat=${cleanMat}, eq=${v.eq}, id=${existingId}`,
+            );
+          const p = {
+            matricula: cleanMat,
+            nome: v.nome,
+            equipe: v.eq || "A",
+            ativo: true,
+          };
+          if (existingId) p.id = existingId;
+          return p;
+        })
+        .filter((v) => v.matricula);
+
+      if (vigilantesToSync.length > 0) {
+        // FORCE UPDATE of all columns to ensure 'equipe' changes are applied
+        // Passing the columns to 'ignoreDuplicates: false' is default, but we want to ensure
+        // that if the row exists, it updates. Supabase upsert does this by default.
+        // Let's add more logs to ensure we are reaching here.
+        console.log(`⚡ Syncing ${vigilantesToSync.length} profiles...`);
+        const { error: upsertErr } = await supabase
+          .from("vigilantes")
+          .upsert(vigilantesToSync, { onConflict: "matricula" });
+        if (upsertErr) console.error("❌ Error syncing profiles:", upsertErr);
+        else console.log("✅ Profiles synchronized successfully.");
+      }
+
+      // --- FASE 3: MAPEAR IDs FINAIS ---
+      const { data: refreshedVigs } = await supabase
+        .from("vigilantes")
+        .select("id, matricula");
+      const vigMap = new Map();
+      (refreshedVigs || []).forEach((v) =>
+        vigMap.set(String(v.matricula).trim(), v.id),
+      );
+
       const { data: allSectors } = await supabase
         .from("setores")
         .select("id, nome, campus");
       const sectorMap = new Map();
-      allSectors.forEach((s) => sectorMap.set(`${s.nome}|${s.campus}`, s.id));
+      allSectors.forEach((s) =>
+        sectorMap.set(
+          `${String(s.nome).trim()}|${String(s.campus).trim()}`,
+          s.id,
+        ),
+      );
 
-      const { data: allVigs } = await supabase
-        .from("vigilantes")
-        .select("id, matricula");
-      const vigMap = new Map();
-      allVigs.forEach((v) => vigMap.set(v.matricula, v.id));
+      const allVigIds = [];
+      const newAllocations = [];
 
+      // --- FASE 3: PREPARAR ALOCAÇÕES ---
       for (const v of vigilantes) {
-        let vigId = vigMap.get(v.mat);
-        let sectorId = sectorMap.get(`${v.setor}|${v.campus}`) || null;
-
-        if (!vigId) {
-          const { data: newV } = await supabase
-            .from("vigilantes")
-            .insert({
-              matricula: v.mat,
-              nome: v.nome,
-            })
-            .select("id")
-            .single();
-          if (newV) vigId = newV.id;
-        }
+        const cleanMat = String(v.mat || "").trim();
+        const vigId = vigMap.get(cleanMat);
         if (!vigId) continue;
 
-        // Delete allocations for this vig in this month
+        allVigIds.push(vigId);
+        const sectorId =
+          sectorMap.get(
+            `${String(v.setor).trim()}|${String(v.campus).trim()}`,
+          ) || null;
+
+        if (Array.isArray(v.dias) && v.dias.length > 0) {
+          v.dias.forEach((day) => {
+            newAllocations.push({
+              vigilante_id: vigId,
+              data: `${dateFormat}-${String(day).padStart(2, "0")}`,
+              setor_id: sectorId,
+              tipo: v.eq || "A",
+            });
+          });
+        }
+      }
+
+      // --- FASE 4: SALVAMENTO MASSIVO ALOCAÇÕES ---
+      // A) Limpeza em Bloco
+      if (allVigIds.length > 0) {
         await supabase
           .from("alocacoes")
           .delete()
-          .eq("vigilante_id", vigId)
+          .in("vigilante_id", allVigIds)
           .gte("data", `${dateFormat}-01`)
           .lte("data", `${dateFormat}-31`);
-
-        // Insert new ERS-compliant allocations
-        if (Array.isArray(v.dias) && v.dias.length > 0) {
-          const rows = v.dias.map((day) => ({
-            vigilante_id: vigId,
-            data: `${dateFormat}-${String(day).padStart(2, "0")}`,
-            setor_id: sectorId,
-            tipo: v.eq || "A", // STORE TEAM IN TIPO
-          }));
-          await supabase.from("alocacoes").insert(rows);
-        }
-
-        // RC14 FIX: Persist Team and Sector in the main 'vigilantes' table
-        // This ensures the profile is permanently updated even if there are no allocations.
-        const updatePayload = {
-          equipe: v.eq || "A"
-          // We can also infer the last sector if we want, but at minimum team is vital
-        };
-
-        await supabase
-          .from("vigilantes")
-          .update(updatePayload)
-          .eq("id", vigId);
       }
 
-      res.json({ success: true, message: "Escala ERS sincronizada." });
+      // B) Inserção Massiva
+      if (newAllocations.length > 0) {
+        const CHUNK_SIZE = 500;
+        for (let i = 0; i < newAllocations.length; i += CHUNK_SIZE) {
+          const { error: insErr } = await supabase
+            .from("alocacoes")
+            .insert(newAllocations.slice(i, i + CHUNK_SIZE));
+          if (insErr)
+            console.error("❌ Erro ao inserir lote de alocações:", insErr);
+        }
+      }
+
+      res.json({ success: true, message: "Sincronização Turbo concluída." });
     } catch (e) {
-      console.error("Save Error", e);
-      res.status(500).json({ error: "Erro." });
+      console.error("Batch Save Error:", e);
+      res.status(500).json({ error: "Falha no processamento turbinado." });
     }
   },
 
@@ -448,7 +499,7 @@ export const LegacyAdapterController = {
    */
   async getDynamicPresets(req, res) {
     try {
-      if (res) res.setHeader('Cache-Control', 'no-store');
+      if (res) res.setHeader("Cache-Control", "no-store");
       const { data: setores, error } = await supabase
         .from("setores")
         .select("*");
@@ -464,19 +515,33 @@ export const LegacyAdapterController = {
         // Mapeamento Direto do Banco (ERS Compliant)
         let team = s.equipe || "";
         if (!team) {
-          if (cleanCampus.includes("ECO 1") || cleanCampus.includes("ECO1")) team = "ECO 1";
-          else if (cleanCampus.includes("ECO 2") || cleanCampus.includes("ECO2")) team = "ECO 2";
-          else if (cleanSetor.includes("NOTURNO") || cleanSetor.includes("19H")) team = "B";
+          if (cleanCampus.includes("ECO 1") || cleanCampus.includes("ECO1"))
+            team = "ECO 1";
+          else if (
+            cleanCampus.includes("ECO 2") ||
+            cleanCampus.includes("ECO2")
+          )
+            team = "ECO 2";
+          else if (cleanSetor.includes("NOTURNO") || cleanSetor.includes("19H"))
+            team = "B";
         }
 
         let type = "12x36_DIURNO";
         let horario = "07:00 às 19:00";
 
         if (s.turno) {
-          if (s.turno === "DIURNO") { type = "12x36_DIURNO"; horario = "07:00 às 19:00"; }
-          else if (s.turno === "NOTURNO") { type = "12x36_NOTURNO"; horario = "19:00 às 07:00"; }
-          else if (s.turno === "ADM") { type = "ADM"; horario = "08:00 às 17:48"; }
-          else { type = s.turno; }
+          if (s.turno === "DIURNO") {
+            type = "12x36_DIURNO";
+            horario = "07:00 às 19:00";
+          } else if (s.turno === "NOTURNO") {
+            type = "12x36_NOTURNO";
+            horario = "19:00 às 07:00";
+          } else if (s.turno === "ADM") {
+            type = "ADM";
+            horario = "08:00 às 17:48";
+          } else {
+            type = s.turno;
+          }
         } else {
           if (cleanSetor.includes("NOTURNO") || cleanSetor.includes("19H")) {
             type = "12x36_NOTURNO";
@@ -528,7 +593,9 @@ export const LegacyAdapterController = {
       const isArray = Array.isArray(data);
       const items = isArray ? data : [data];
 
-      console.log(`[PERSISTÊNCIA] Recebida tentativa de salvar ${items.length} item(s).`);
+      console.log(
+        `[PERSISTÊNCIA] Recebida tentativa de salvar ${items.length} item(s).`,
+      );
 
       for (const p of items) {
         const payload = {
@@ -536,27 +603,38 @@ export const LegacyAdapterController = {
           campus: (p.campus || "CAMPUS I").trim().toUpperCase(),
           codigo_radio: p.code ? p.code.trim().toUpperCase() : null,
           equipe: p.team || null,
-          turno: p.type || "12x36_DIURNO"
+          turno: p.type || "12x36_DIURNO",
         };
 
-        console.log(`[DIAGNÓSTICO] Payload para salvar:`, JSON.stringify(payload));
+        console.log(
+          `[DIAGNÓSTICO] Payload para salvar:`,
+          JSON.stringify(payload),
+        );
 
         if (p.db_id) {
           const targetId = Number(p.db_id);
-          console.log(`[PERSISTÊNCIA] Atualizando ID: ${targetId} (${payload.nome}) com ADMIN KEY`);
+          console.log(
+            `[PERSISTÊNCIA] Atualizando ID: ${targetId} (${payload.nome}) com ADMIN KEY`,
+          );
           const { error: updateError, count } = await supabase
             .from("setores")
-            .update(payload, { count: 'exact' })
+            .update(payload, { count: "exact" })
             .eq("id", targetId);
 
           if (updateError) throw updateError;
           if (count === 0) {
-            console.error(`[ERRO] Nenhuma linha encontrada para o ID ${targetId}`);
-            throw new Error(`O posto ID ${targetId} não foi encontrado no banco para atualização.`);
+            console.error(
+              `[ERRO] Nenhuma linha encontrada para o ID ${targetId}`,
+            );
+            throw new Error(
+              `O posto ID ${targetId} não foi encontrado no banco para atualização.`,
+            );
           }
           console.log(`[PERSISTÊNCIA] Sucesso: 1 linha atualizada.`);
         } else {
-          console.log(`[PERSISTÊNCIA] Inserindo novo posto com ADMIN KEY: ${payload.nome}`);
+          console.log(
+            `[PERSISTÊNCIA] Inserindo novo posto com ADMIN KEY: ${payload.nome}`,
+          );
           const { error: insertError } = await supabase
             .from("setores")
             .insert(payload);
@@ -567,13 +645,12 @@ export const LegacyAdapterController = {
 
       console.log(`[PERSISTÊNCIA] Sucesso. Recarregando lista...`);
       return await LegacyAdapterController.getDynamicPresets(req, res);
-
     } catch (e) {
       console.error("!!!! ERRO FATAL AO SALVAR POSTO !!!!", e);
       res.status(500).json({
         error: "Erro ao persistir no banco de dados.",
-        details: e.message
+        details: e.message,
       });
     }
-  }
+  },
 };
