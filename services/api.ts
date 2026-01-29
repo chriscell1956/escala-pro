@@ -141,18 +141,35 @@ export const api = {
 
   async loadData(month: number, isDraft = false): Promise<Vigilante[] | null> {
     try {
-      const url = `${API_URL}/escala/${month}${isDraft ? "?type=draft" : ""}&t=${Date.now()}`;
-      const res = await fetch(url, { cache: "no-store" });
-      if (!res.ok) return null;
+      const url = `${API_URL}/escala/${month}${isDraft ? "?type=draft&" : "?"}t=${Date.now()}`;
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+
+      const res = await fetch(url, {
+        cache: "no-store",
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+
+      if (!res.ok) {
+        console.error(`[API] loadData(${month}) HTTP Error ${res.status}`);
+        return null;
+      }
       const json = await res.json();
-      // O Adapter retorna { dados: [...] } ou direto [...]?
-      // O server.js antigo (filesystem) retornava [...].
-      // O LegacyAdapterController.getEscala retorna { dados: [...] }.
-      // Vamos suportar ambos.
-      if (json && Array.isArray(json.dados)) return json.dados;
-      if (Array.isArray(json)) return json;
+      console.log(`[API] loadData(${month}) response:`, json);
+      if (json && Array.isArray(json.dados)) {
+        console.log(`[API] Returning json.dados (${json.dados.length} items)`);
+        return json.dados;
+      }
+      if (Array.isArray(json)) {
+        console.log(`[API] Returning json array (${json.length} items)`);
+        return json;
+      }
+      console.warn("[API] Unexpected response format:", json);
       return null;
-    } catch {
+    } catch (e: any) {
+      console.error(`[API] loadData(${month}) FATAL ERROR:`, e);
       return null;
     }
   },

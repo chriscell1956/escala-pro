@@ -37,6 +37,49 @@ router.get("/health", (req, res) => {
   res.json({ status: "online", mode: "production_memory_db" });
 });
 
+router.get("/health-check", async (req, res) => {
+  const timeoutMs = 15000;
+  const timeout = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error("Database Timeout")), timeoutMs)
+  );
+
+  try {
+    const dbCheck = async () => {
+      const { count: vCount } = await supabase.from("vigilantes").select("*", { count: "exact", head: true });
+      const { count: aCount } = await supabase.from("alocacoes").select("*", { count: "exact", head: true });
+      const { data: vSample } = await supabase.from("vigilantes").select("id, matricula, nome, equipe").limit(2);
+
+      const { data: joinSample } = await supabase
+        .from("alocacoes")
+        .select("id, vigilante_id, vigilantes(nome)")
+        .limit(1);
+
+      return { vCount, aCount, vSample, joinSample };
+    };
+
+    const result = await Promise.race([dbCheck(), timeout]);
+
+    res.json({
+      timestamp: new Date().toISOString(),
+      vigilantes_total: result.vCount,
+      alocacoes_total: result.aCount,
+      vigilantes_sample: result.vSample,
+      join_working: !!(result.joinSample?.[0]?.vigilantes),
+      env: {
+        node: process.version,
+        port: PORT
+      }
+    });
+  } catch (err) {
+    console.error("[BACKEND] Health Check Error:", err.message);
+    res.status(503).json({
+      error: err.message,
+      hint: "Database might be under maintenance or unreachable",
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 router.get("/test/:id", (req, res) => {
   res.json({ id: req.params.id, url: req.url });
 });

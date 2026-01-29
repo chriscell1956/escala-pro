@@ -222,6 +222,7 @@ function AppContent() {
   const [dbStatus, setDbStatus] = useState<{
     online: boolean;
     message: string;
+    isMaintenance?: boolean;
   }>({ online: false, message: "Verificando conexão..." });
   const [isSilentUpdating, setIsSilentUpdating] = useState(false);
 
@@ -614,7 +615,7 @@ function AppContent() {
   }, [month]);
 
   const filteredMonthOptions = useMemo(() => {
-    if (user?.role !== "USER") return monthOptions;
+    if (user?.perfil !== "USER") return monthOptions;
 
     const now = new Date();
     const year = now.getFullYear();
@@ -741,7 +742,7 @@ function AppContent() {
         const u = JSON.parse(savedUser);
         u.mat = String(u.mat).trim();
         setUser(u);
-        if (u.role === "USER") {
+        if (u.perfil === "USER") {
           setSearchTerm(u.nome);
         }
       } catch (e) {
@@ -764,7 +765,8 @@ function AppContent() {
   }, []);
 
   // --- REALTIME SYNC (SUPABASE) ---
-  // Atualiza a tela automaticamente quando outro usuário salva algo no banco
+  // DISABLED TO PREVENT INFINITE LOOP (Recurso temporariamente desligado para estabilidade)
+  /*
   useEffect(() => {
     if (!user || isSimulationMode || unsavedChanges) return;
 
@@ -793,6 +795,7 @@ function AppContent() {
       supabase.removeChannel(channel);
     };
   }, [user, month, isSimulationMode, unsavedChanges]);
+  */
 
   const checkSystemStatus = async () => {
     setDbStatus({ online: false, message: "Testando conexão..." });
@@ -811,6 +814,18 @@ function AppContent() {
       loadDataForMonth(month);
     }
   }, [month, user]);
+
+  // --- AUTO-REFRESH (TEMPO REAL PARA FISCAIS) ---
+  useEffect(() => {
+    // Apenas para Fiscais e Masters e se não estiver no meio de uma edição não salva
+    if (user && user.perfil !== "USER" && !unsavedChanges) {
+      const interval = setInterval(() => {
+        console.log("🔄 Sincronizando dados em tempo real...");
+        loadDataForMonth(month, true); // true = silent update
+      }, 30000); // 30 segundos
+      return () => clearInterval(interval);
+    }
+  }, [month, user, unsavedChanges]);
 
   // --- AUTO-COLLAPSE EFFECT ---
   // Quando os dados são carregados, colapsa todos os setores por padrão (APENAS NA PRIMEIRA VEZ)
@@ -882,7 +897,7 @@ function AppContent() {
   }, [view]);
 
   useEffect(() => {
-    if (isUserMgmtModalOpen && user?.role === "MASTER") {
+    if (isUserMgmtModalOpen && user?.perfil === "MASTER") {
       loadUsers();
       cancelEditUser();
       setUserSearch("");
@@ -900,11 +915,12 @@ function AppContent() {
   };
 
   const loadDataForMonth = async (m: number, isSilent = false) => {
-    setFilterDay(""); // FIX: Limpa filtro de dia ao trocar de mês para evitar "tela branca"
+    console.log(`[CORE] loadDataForMonth start for ${m} (silent: ${isSilent})`);
+    setFilterDay("");
     if (!isSilent) {
       setIsLoading(true);
     } else {
-      setIsSilentUpdating(true); // Ativa o indicador
+      setIsSilentUpdating(true);
     }
     setViewingDraft(false);
 
@@ -912,11 +928,10 @@ function AppContent() {
     const currentPeriod = now.getFullYear() * 100 + (now.getMonth() + 1);
     const isFuture = m > currentPeriod;
 
-    // STRATEGY:
-    // 1. Try to load OFFICIAL first.
-    // 2. If Manager/Fiscal AND Future, Try to load DRAFT.
-
+    console.log(`[CORE] Attempting api.loadData(${m}, false)...`);
     let fetchedData = await api.loadData(m, false); // Load Official
+    console.log(`[CORE] Official data loaded: ${fetchedData?.length || "null"}`);
+    console.log(`[CORE] Official data loaded: ${fetchedData?.length || "null"}`);
 
     // Capture which matriculas are officially published
     const officialMatriculas = new Set<string>();
@@ -925,42 +940,47 @@ function AppContent() {
     }
 
     // If user is Fiscal/Master, check if a DRAFT exists for this month
-    if (user?.role !== "USER" && isFuture) {
+    if (user?.perfil !== "USER" && isFuture) {
+      console.log(`[CORE] Manager/Future: Attempting api.loadData(${m}, true)...`);
       const draftData = await api.loadData(m, true); // Load Draft
+      console.log(`[CORE] Draft data loaded: ${draftData?.length || "null"}`);
       if (draftData && draftData.length > 0) {
         fetchedData = draftData;
         setViewingDraft(true);
-        // setIsSimulationMode(true); // Removido: Carrega o rascunho mas aguarda clique em EDITAR
         showToast("Carregando Rascunho (Não publicado)", "info");
-      } else {
-        // Future month with no draft? Start fresh or from official
-        // setIsSimulationMode(true); // Removido: Aguarda clique em EDITAR
       }
+    }
+
+    // --- DB MAINTENANCE CHECK ---
+    if (fetchedData === null) {
+      setDbStatus(prev => ({ ...prev, online: false, isMaintenance: true, message: "Banco de Dados em Manutenção" }));
+      showToast("Banco de Dados em Manutenção (Tentando reconectar...)", "warning");
     } else {
-      // Regular User
-      if (!fetchedData || fetchedData.length === 0) {
-        // If official data is empty for future, show nothing/placeholder
-        if (isFuture) {
-          setData([]);
-          if (!isSilent) {
-            setIsLoading(false);
-          } else {
-            setTimeout(() => setIsSilentUpdating(false), 500);
-          }
-          return;
+      setDbStatus(prev => ({ ...prev, online: true, isMaintenance: false, message: "Sistema Online" }));
+
+      // Regular User or Not Future month empty check
+      if ((!fetchedData || fetchedData.length === 0) && isFuture) {
+        setData([]);
+        if (!isSilent) {
+          setIsLoading(false);
+        } else {
+          setTimeout(() => setIsSilentUpdating(false), 500);
         }
+        return;
       }
     }
 
     const fetchedLogs = await api.loadLogs(m);
     setLogs(fetchedLogs || []);
 
-    // NEW: Load interval overrides from DB
+    console.log(`[CORE] Loading interval overrides...`);
     const fetchedOverrides = await api.loadIntervalOverrides();
+    console.log(`[CORE] Overrides loaded.`);
     setIntervalOverrides(fetchedOverrides);
 
     // NEW (SYNC FIX): Always sync presets to ensure new sectors appear for everyone
     const fetchedPresets = await api.loadPresets();
+    console.log(`[CORE] Presets loaded: ${fetchedPresets?.length || 0}`);
     if (fetchedPresets && fetchedPresets.length > 0) {
       setPresets(fetchedPresets);
     }
@@ -987,7 +1007,9 @@ function AppContent() {
       let prevM = m - 1;
       if (m % 100 === 1) prevM = (Math.floor(m / 100) - 1) * 100 + 12;
 
+      console.log(`[CORE] Current month empty. Propagating from ${prevM}...`);
       const prevData = await api.loadData(prevM, false); // Load Official Previous
+      console.log(`[CORE] Previous month loaded: ${prevData?.length || "null"}`);
 
       if (prevData && prevData.length > 0) {
         // If previous month exists, use its roster as base for current month
@@ -1087,27 +1109,27 @@ function AppContent() {
             coberturas: [],
           } as Vigilante;
         });
-        if (user?.role !== "USER")
+        if (user?.perfil !== "USER")
           showToast("Base gerada a partir do mês anterior.", "info");
       } else {
         // DISABLE AUTO-SEEDING (Requested by User: "Queria tudo zerado")
         // Previously: Loaded INITIAL_DB or DECEMBER_2025_PRESET
         finalData = [];
-        /* 
-        if (m === 202512) {
-          finalData = DECEMBER_2025_PRESET.map(
-            (v) => ({ ...v, dias: v.dias || [] }) as Vigilante,
-          );
-        } else {
-          finalData = INITIAL_DB.map((v) => {
-            // ... (restoration logic commented out) ...
-             // eslint-disable-next-line @typescript-eslint/no-unused-vars
-             const { vacation, ...baseVig } = v;
-             return { ...baseVig, dias: [] } as any; // Simplified for comment
-          });
-        }
-        */
       }
+      /* 
+      if (m === 202512) {
+        finalData = DECEMBER_2025_PRESET.map(
+          (v) => ({ ...v, dias: v.dias || [] }) as Vigilante,
+        );
+      } else {
+        finalData = INITIAL_DB.map((v) => {
+          // ... (restoration logic commented out) ...
+           // eslint-disable-next-line @typescript-eslint/no-unused-vars
+           const { vacation, ...baseVig } = v;
+           return { ...baseVig, dias: [] } as any; // Simplified for comment
+        });
+      }
+      */
     }
 
     // --- FIX: GARANTIA DE INTEGRIDADE (ECO 1 / ECO 2) ---
@@ -1209,7 +1231,7 @@ function AppContent() {
     // Se for Usuário Comum e Mês Futuro: Mostra os dias reais (folgas/trabalho),
     // mas mantém Setor/Horário/Campus "atuais" para evitar confusão com mudanças não oficializadas.
     // CORREÇÃO: Verifica se a matrícula do usuário está no conjunto de matrículas oficiais (publicadas)
-    if (user?.role === "USER" && isFuture) {
+    if (user?.perfil === "USER" && isFuture) {
       finalData = finalData.map((v) => {
         // Se a matrícula NÃO estiver na lista oficial (foi limpa ou é rascunho), mascara os dados
         if (!officialMatriculas.has(String(v.mat).trim())) {
@@ -1243,120 +1265,113 @@ function AppContent() {
       }
     });
 
+    console.log(`[CORE] Final Data Prepared. Count: ${finalData.length}`);
+    setData(finalData);
+
+    // Finalize loading before preset sync to show names faster
+    if (!isSilent) setIsLoading(false);
+    else setTimeout(() => setIsSilentUpdating(false), 500);
+
     // --- DYNAMIC PRESET SYNC V3 (AUTO-HEAL) ---
     // User Requirement: "Lançador completo igual estava antes" (Match DB exactly)
-    // Whenever we load data, we verify if presets cover all active sectors.
     if (finalData && finalData.length > 0) {
-      // 1. Get current known presets (or empty if first load)
-      // We use a fresh load or existing state? Existing `presets` state might be stale if inside closure.
-      // Let's rely on api.loadPresets() again to be safe? No, too heavy.
-      // Let's build a Set of IDs from current 'presets' state (via ref or trusting flow).
-      // Actually, we can just rebuild the delta.
+      try {
+        let cleanPresets = await api.loadPresets();
+        if (!Array.isArray(cleanPresets)) cleanPresets = [];
 
-      let cleanPresets = await api.loadPresets(); // Re-fetch current state of truth
-      if (!Array.isArray(cleanPresets)) cleanPresets = [];
+        const seenIds = new Set(cleanPresets.map((p) => p.id));
+        let changedPresets = false;
 
-      const seenIds = new Set(cleanPresets.map((p) => p.id));
-      let changedPresets = false;
+        finalData.forEach((vig) => {
+          if (
+            !vig.campus ||
+            !vig.setor ||
+            vig.campus === "AFASTADOS" ||
+            vig.campus === "SEM POSTO" ||
+            vig.setor === "AGUARDANDO" ||
+            vig.setor === "A DEFINIR" ||
+            vig.campus === "A DEFINIR"
+          )
+            return;
 
-      // 2. Scan loaded data for missing slots
-      finalData.forEach((vig) => {
-        if (
-          !vig.campus ||
-          !vig.setor ||
-          vig.campus === "AFASTADOS" ||
-          vig.campus === "SEM POSTO" ||
-          vig.setor === "AGUARDANDO" ||
-          vig.setor === "A DEFINIR" ||
-          vig.campus === "A DEFINIR"
-        )
-          return;
-
-        // Normalization Logic (Strict Unification)
-        let campus = vig.campus;
-        if (campus.includes("CAMPUS I") || campus.includes("CAMPUS II")) {
-          if (campus.includes("EXPEDIENTE")) {
-            if (campus.includes("CAMPUS I")) campus = "CAMPUS I - EXPEDIENTE";
-            else if (campus.includes("CAMPUS II"))
-              campus = "CAMPUS II - EXPEDIENTE";
-          }
-        }
-
-        // ID Generation
-        const paramId = `${campus}_${vig.setor.trim()}_${vig.mat}`
-          .replace(/[^A-Z0-9]/gi, "_")
-          .toUpperCase();
-
-        if (!seenIds.has(paramId)) {
-          // Create Missing Preset
-          let type = "12x36_DIURNO";
-          const h = vig.horario || "";
-          if (h.includes("18h") || h.includes("19h") || h.includes("NOTURNO"))
-            type = "12x36_NOTURNO";
-          else if (campus.includes("EXPEDIENTE")) {
-            if (vig.eq === "ECO1" || vig.eq === "E1") type = "ECO_1";
-            else if (vig.eq === "ECO2" || vig.eq === "E2") type = "ECO_2";
-            else if (h.includes("14h45")) type = "ECO_2";
-            else type = "ECO_1";
+          let campus = vig.campus;
+          if (campus.includes("CAMPUS I") || campus.includes("CAMPUS II")) {
+            if (campus.includes("EXPEDIENTE")) {
+              if (campus.includes("CAMPUS I")) campus = "CAMPUS I - EXPEDIENTE";
+              else if (campus.includes("CAMPUS II"))
+                campus = "CAMPUS II - EXPEDIENTE";
+            }
           }
 
-          const newPreset: DepartmentPreset = {
-            id: paramId,
-            name: vig.setor,
-            campus: campus,
-            sector: vig.setor,
-            type,
-            horario: vig.horario || "",
-            refeicao: vig.refeicao || "",
-            timeStart: "06:00",
-            timeEnd: "18:00",
-            mealStart: "12:00",
-            mealEnd: "13:00",
-            team: vig.eq || "",
-          };
+          const paramId = `${campus}_${vig.setor.trim()}_${vig.mat}`
+            .replace(/[^A-Z0-9]/gi, "_")
+            .toUpperCase();
 
-          // Time Parse
-          if (vig.horario) {
-            const times = extractTimeInputs(vig.horario);
-            if (times.start) newPreset.timeStart = times.start;
-            if (times.end) newPreset.timeEnd = times.end;
+          if (!seenIds.has(paramId)) {
+            let type = "12x36_DIURNO";
+            const h = vig.horario || "";
+            if (h.includes("18h") || h.includes("19h") || h.includes("NOTURNO"))
+              type = "12x36_NOTURNO";
+            else if (campus.includes("EXPEDIENTE")) {
+              if (vig.eq === "ECO1" || vig.eq === "E1") type = "ECO_1";
+              else if (vig.eq === "ECO2" || vig.eq === "E2") type = "ECO_2";
+              else if (h.includes("14h45")) type = "ECO_2";
+              else type = "ECO_1";
+            }
+
+            const newPreset: DepartmentPreset = {
+              id: paramId,
+              name: vig.setor,
+              campus: campus,
+              sector: vig.setor,
+              type,
+              horario: vig.horario || "",
+              refeicao: vig.refeicao || "",
+              timeStart: "06:00",
+              timeEnd: "18:00",
+              mealStart: "12:00",
+              mealEnd: "13:00",
+              team: vig.eq || "",
+            };
+
+            if (vig.horario) {
+              const times = extractTimeInputs(vig.horario);
+              if (times.start) newPreset.timeStart = times.start;
+              if (times.end) newPreset.timeEnd = times.end;
+            }
+            if (vig.refeicao) {
+              const meals = extractTimeInputs(vig.refeicao);
+              if (meals.start) newPreset.mealStart = meals.start;
+              if (meals.end) newPreset.mealEnd = meals.end;
+            }
+
+            cleanPresets.push(newPreset);
+            seenIds.add(paramId);
+            changedPresets = true;
           }
-          if (vig.refeicao) {
-            const meals = extractTimeInputs(vig.refeicao);
-            if (meals.start) newPreset.mealStart = meals.start;
-            if (meals.end) newPreset.mealEnd = meals.end;
-          }
-
-          cleanPresets.push(newPreset);
-          seenIds.add(paramId);
-          changedPresets = true;
-        }
-      });
-
-      if (changedPresets) {
-        // Sort
-        cleanPresets.sort((a, b) => {
-          const c = (a.campus || "").localeCompare(b.campus || "");
-          if (c !== 0) return c;
-          const sec = (a.sector || "").localeCompare(b.sector || "");
-          if (sec !== 0) return sec;
-          return (a.name || "").localeCompare(b.name || "");
         });
 
-        const saved = await api.savePresets(cleanPresets);
-        setPresets(saved || cleanPresets);
-      } else {
-        // If no change, just ensure local state is fresh
-        setPresets(cleanPresets);
+        if (changedPresets) {
+          cleanPresets.sort((a, b) => {
+            const c = (a.campus || "").localeCompare(b.campus || "");
+            if (c !== 0) return c;
+            const sec = (a.sector || "").localeCompare(b.sector || "");
+            if (sec !== 0) return sec;
+            return (a.name || "").localeCompare(b.name || "");
+          });
+
+          const saved = await api.savePresets(cleanPresets);
+          setPresets(saved || cleanPresets);
+        } else {
+          setPresets(cleanPresets);
+        }
+      } catch (err: any) {
+        console.warn("[CORE] Preset Sync Failed:", err.message);
+        // Do not block UI if sync fails
       }
     }
 
-    setData(finalData);
-    if (!isSilent) {
-      setIsLoading(false);
-    } else {
-      setTimeout(() => setIsSilentUpdating(false), 500);
-    }
+    console.log(`[CORE] loadDataForMonth finished.`);
   };
 
   // Modified saveData to handle drafts
@@ -1455,239 +1470,67 @@ function AppContent() {
     const result = getLancadorVisibleTeams(
       currentUserVig?.eq || "",
       isMaster,
-      user?.permissions,
+      (user as any)?.permissions,
       currentUserVig?.horario // Pass Shift Info
     );
     console.log("DEBUG: Resulting Visible Teams:", result);
     return result;
   }, [user, currentUserVig, isMaster]);
 
+
   const lancadorList = useMemo(() => {
+    // --- DIAGNOSTICS: LANÇADOR LIST ---
+    const isLMaster = user?.perfil === "MASTER";
+    console.log("DIAGNOSTICO: lancadorList iniciada. Data count:", data.length, "isMaster:", isLMaster, "SelectedTeam:", selectedLancadorTeam);
+
     let filtered = data.filter((v) => v.campus !== "AFASTADOS");
+    console.log("DIAGNOSTICO: Após remover AFASTADOS:", filtered.length);
 
     // Regra Fiscal: Vê apenas sua própria equipe no Lançador
-    if (user?.perfil === "FISCAL" && !isMaster) {
-      // Exclui ADMs específicos
-      filtered = filtered.filter((v) => !EXCLUDED_ADM_MATS.includes(v.mat));
+    if (user?.perfil === "FISCAL" && !isLMaster) {
+      const fiscalVig = currentUserVig;
+      const visibleTeamsRes = getLancadorVisibleTeams(
+        fiscalVig?.eq || "A",
+        false,
+        user?.permissions,
+        fiscalVig?.horario,
+      ).map((t) => cleanString(t));
 
-      let myEq = "";
-      if (currentUserVig) {
-        myEq = cleanString(currentUserVig.eq);
-      }
-
-      // Determine Visible Teams (Robust Logic)
-      let visibleTeams: string[] = [];
-
-      // 1. Explicit Permissions (Priority)
-      if (user.permissions && user.permissions.length > 0) {
-        visibleTeams = user.permissions
-          .filter((p) => p.canView)
-          .map((p) => {
-            // Normalize for compatibility with existing heuristics
-            if (cleanString(p.team) === "ECO1") return "ECO1";
-            if (cleanString(p.team) === "ECO2") return "ECO2";
-            return cleanString(p.team);
-          });
-
-        // Add variations for ECO teams to ensure matching works
-        if (visibleTeams.includes("ECO1")) visibleTeams.push("ECO 1");
-        if (visibleTeams.includes("ECO2")) visibleTeams.push("ECO 2");
-      } else {
-        // 2. Legacy/Heuristic Logic
-        const myTurno = currentUserVig?.horario || "";
-        visibleTeams = getVisibleTeams(myEq, isMaster, myTurno);
-
-        // ROBUSTNESS: Ensure variations of ECO are present for Master/Legacy too
-        if (visibleTeams.includes("ECO1")) visibleTeams.push("ECO 1");
-        if (visibleTeams.includes("ECO2")) visibleTeams.push("ECO 2");
-      }
-
-      // If we have no visible teams (and not Antonio), maybe we shouldn't show anything?
-      // Or default to 'myEq'. Leaving as is for others, but critical for Antonio.
+      console.log("DIAGNOSTICO: Perfil FISCAL. Equipes visíveis:", visibleTeamsRes);
 
       filtered = filtered.filter((v) => {
-        // 1. Team Visibility
-        if (!visibleTeams.includes(cleanString(v.eq))) return false;
-
-        // 2. Strict Sector Visibility (Expediente Logic)
-        // If the sector implies a hidden team (e.g. EXP_2 -> ECO 2), hide it.
-        // FIX: Case-insensitive match for robust preset lookup
-        const p = presets.find(
-          (pre) => cleanString(pre.sector) === cleanString(v.setor),
-        );
-
-        // HEURISTIC: Check Start Time
-        // If starts >= 09:00, it's likely Afternoon/Night (ECO 2)
-        // If starts < 09:00, it's Morning (ECO 1)
-        let startHour = 0;
-
-        // FIX: Check v.horario FIRST (Instance time is source of truth)
-        let foundTime = false;
-        if (v.horario) {
-          const match = v.horario.match(/(\d{1,2})[h:]/i); // Matches "09h" or "09:"
-          if (match) {
-            startHour = parseInt(match[1], 10);
-            foundTime = true;
-          }
-        }
-
-        if (!foundTime && p && p.timeStart) {
-          startHour = parseInt(p.timeStart.split(":")[0], 10);
-          foundTime = true;
-        } else if (!foundTime && p && p.horario) {
-          const match = p.horario.match(/(\d{1,2})[h:]/i);
-          if (match) startHour = parseInt(match[1], 10);
-        }
-
-        const isLateStart = startHour >= 9; // 09:00 or later implies ECO 2
-
-        // ROBUST FIX: Explicit Rule for Day Fiscals
-        // Instead of guessing team names ("C", "D"), checks CAPABILITY.
-        // If I see ECO1 but NOT ECO2, I am strictly Day Shift.
-        const seesEco1 =
-          visibleTeams.includes("ECO1") ||
-          visibleTeams.includes("ECO 1") ||
-          visibleTeams.includes("C") ||
-          visibleTeams.includes("D");
-        const seesEco2 =
-          visibleTeams.includes("ECO2") ||
-          visibleTeams.includes("ECO 2") ||
-          visibleTeams.includes("A") ||
-          visibleTeams.includes("B");
-
-        const isStrictlyDayFiscal = seesEco1 && !seesEco2;
-
-        // 1. Get the preset associated with this vigilante's sector
-        // 1. Get the preset(s) associated with this sector
-        // IMPROVED: Handle duplicate names (e.g. Same name for Morning/Night)
-        const candidates = presets.filter(
-          (p) =>
-            p.name === v.setor ||
-            (p.sector === v.setor && p.campus === v.campus),
-        );
-
-        let relevantPreset = candidates[0];
-
-        // Disambiguate if multiple presets exist (e.g. "Charlie 12" Day vs Night)
-        if (candidates.length > 1 && foundTime) {
-          const isSlotLate = startHour >= 9; // 09:00+ is likely ECO 2/Night
-
-          // Try to find a candidate that matches the time block
-          const bestMatch = candidates.find((c) => {
-            let cStart = -1;
-            if (c.timeStart) {
-              cStart = parseInt(c.timeStart.split(":")[0], 10);
-            } else if (c.horario) {
-              const m = c.horario.match(/(\d{1,2})[h:]/i);
-              if (m) cStart = parseInt(m[1], 10);
-            }
-
-            if (cStart === -1) return false; // Can't judge
-
-            const isCandidateLate = cStart >= 9;
-            return isCandidateLate === isSlotLate;
-          });
-
-          if (bestMatch) relevantPreset = bestMatch;
-        }
-
-        // 2. Determine Shift Type
-        let shiftType = relevantPreset?.type || "12x36_DIURNO";
-
-        // SPECIAL RULE: "EXPEDIENTE" (Generic) defaults to ECO_1 (Day) visibility
-        // unless explicitly set to ECO_2.
-        if (
-          (shiftType as string) === "EXP_1" ||
-          shiftType === "EXP_ADM" ||
-          shiftType === "EXPEDIENTE"
-        ) {
-          shiftType = "ECO_1";
-        }
-
-        if ((shiftType as string) === "EXP_2") {
-          shiftType = "ECO_2";
-        }
-
-        // 3. Apply Visibility Rules
-        // Rule A: ECO 2 (Night/Afternoon) -> HIDDEN from Strict Day Fiscal
-        // This is the new way to hide "Charlie 14 (09:45)": User sets it to ECO 2.
-        if (shiftType === "ECO_2") {
-          if (isStrictlyDayFiscal) {
-            return false;
-          }
-        }
-
-        // Rule B: ECO 1 (Morning) -> HIDDEN from Strict Night Fiscal
-        // (Assuming Strict Night Fiscal sees only Night stuff + ECO 2)
-        // If I am strictly Night Fiscal (A/B), I should NOT see ECO 1?
-        // Wait, definition of `isStrictlyDayFiscal` implies Day only.
-        // Let's rely on `visibleTeams`.
-        // If my visibleTeams has "ECO 1", I see it. If not, I don't.
-        // But `visibleTeams` logic for generic teams might be tricky.
-        // Let's stick to the REQUESTED rule:
-        // "ECO 2" must be selectable and hidden from Day.
-        // The rest should follow standard logic.
-
-        // Fallback or explicit check for legacy heuristic
-        // If we processed it above, we trust `shiftType`.
-
-        if (isStrictlyDayFiscal && isLateStart && shiftType !== "ECO_1") {
-          // Safety net: If it looks like late start (09:45) AND wasn't forced to ECO 1, hide it.
-          // But if user sets it to ECO 1 explicitly, we SHOW it even if late.
-          if (relevantPreset?.type === "ECO_1") {
-            // Explicit override: SHOW IT
-          } else {
-            return false;
-          }
-        }
-
-        if (p) {
-          const isExp2 =
-            (p.type as string) === "EXP_2" ||
-            p.type === "ECO_2" || // Treat ECO 2 as Exp 2 for this check
-            (p.name && p.name.toUpperCase().includes("EXPEDIENTE 2")) ||
-            (p.name && p.name.includes("Expediente 2"));
-
-          const isExp1 =
-            (p.type as string) === "EXP_1" ||
-            p.type === "ECO_1" || // Treat ECO 1 as Exp 1 for this check
-            (p.name && p.name.toUpperCase().includes("EXPEDIENTE 1")) ||
-            (!isLateStart && startHour > 0);
-
-          if (isExp2) {
-            // EXP_2 or Late Start requires ECO2 visibility
-            if (
-              !visibleTeams.includes("ECO2") &&
-              !visibleTeams.includes("ECO 2")
-            )
-              return false;
-          }
-          if (isExp1) {
-            // EXP_1 or Early Start requires ECO1 visibility
-            if (
-              !visibleTeams.includes("ECO1") &&
-              !visibleTeams.includes("ECO 1") &&
-              !isLateStart // Don't hide if it was caught by isLateStart logic (double safety)
-            )
-              return false;
-          }
-        } else if (isLateStart) {
-          // Even without preset, if vigilante has late schedule, hide from Early Team
-          if (!visibleTeams.includes("ECO2") && !visibleTeams.includes("ECO 2"))
-            return false;
-        }
-
-        return true;
+        const vEq = cleanString(v.eq);
+        return visibleTeamsRes.includes(vEq);
       });
     }
 
-    // Filtro visual do dropdown (Aplica-se DEPOIS da restrição de segurança)
-    // FEATURE: Global Search for Master (Bypass team filter if searching)
-    const bypassTeamFilter = isMaster && lancadorSearch.trim().length > 0;
+    // DEBUG: FORCE SHOW ALL FOR MASTER TO DIAGNOSE EMPTY LIST
+    if (isLMaster) {
+      console.log("DEBUG: Master bypass active. Ignorando filtros normais.");
+      const bypassTeamFilter = isMaster && lancadorSearch.trim().length > 0;
+      if (selectedLancadorTeam !== "TODAS" && !bypassTeamFilter) {
+        const bef = filtered.length;
+        filtered = filtered.filter(
+          (v) => cleanString(v.eq) === cleanString(selectedLancadorTeam)
+        );
+        console.log(`DEBUG: Filtered by team ${selectedLancadorTeam}: ${bef} -> ${filtered.length}`);
+      }
+      return filtered.sort((a, b) => a.nome.localeCompare(b.nome));
+    }
 
+    const bypassTeamFilter = isMaster && lancadorSearch.trim().length > 0;
     if (selectedLancadorTeam !== "TODAS" && !bypassTeamFilter) {
       filtered = filtered.filter(
         (v) => cleanString(v.eq) === cleanString(selectedLancadorTeam),
+      );
+    }
+
+    if (lancadorSearch) {
+      const search = cleanString(lancadorSearch);
+      filtered = filtered.filter(
+        (v) =>
+          cleanString(v.nome).includes(search) ||
+          cleanString(v.mat).includes(search),
       );
     }
 
@@ -1704,7 +1547,12 @@ function AppContent() {
 
   const lancadorSummary = useMemo(() => {
     const total = lancadorList.length;
-    const ok = lancadorList.filter((v) => v.manualLock).length;
+    const ok = lancadorList.filter((v) => {
+      // Regra Chris: Só conta como OK se estiver realmente alocado em um posto/setor
+      const hasCampus = v.campus && v.campus !== "A DEFINIR" && v.campus !== "SEM POSTO" && v.campus !== "AFASTADOS";
+      const hasSector = v.setor && v.setor !== "A DEFINIR" && v.setor !== "AGUARDANDO" && v.setor !== "NÃO DEFINIDO";
+      return hasCampus && hasSector;
+    }).length;
     const pending = total - ok;
     return { total, ok, pending };
   }, [lancadorList]);
@@ -1752,7 +1600,7 @@ function AppContent() {
         return uMat === vMat;
       }
       // 2. Fiscal: Exclui ADMs específicos
-      if (user?.role === "FISCAL" && EXCLUDED_ADM_MATS.includes(v.mat)) {
+      if (user?.perfil === "FISCAL" && EXCLUDED_ADM_MATS.includes(v.mat)) {
         return false;
       }
 
@@ -1760,7 +1608,7 @@ function AppContent() {
       // Fiscal só vê EXATAMENTE a sua equipe na tabela principal.
       // Impede ver outros fiscais ou outras equipes.
       // FIX: Apply rule even if currentUserVig is missing (using permissions/default)
-      if (user?.role === "FISCAL") {
+      if (user?.perfil === "FISCAL") {
         // CORREÇÃO: Usar a lista de equipes visíveis calculada (que respeita Permissões Explícitas)
         // em vez da lógica hardcoded legada.
         const targetEq = cleanString(v.eq);
@@ -2120,7 +1968,9 @@ function AppContent() {
     // Publish Official acts as a "Commit Draft to Official"
     if (
       !confirm(
-        `PUBLICAR OFICIALMENTE?\n\nIsso tornará o rascunho atual VISÍVEL para todos os vigilantes.`,
+        `PUBLICAR OFICIALMENTE?
+
+Isso tornará o rascunho atual VISÍVEL para todos os vigilantes.`,
       )
     )
       return;
@@ -2143,9 +1993,7 @@ function AppContent() {
   const handleExitSimulation = async () => {
     if (unsavedChanges) {
       if (
-        !confirm(
-          "⚠️ ATENÇÃO: Você tem alterações não salvas.\n\nDeseja realmente SAIR e DESCARTAR o que fez agora?",
-        )
+        !confirm("⚠️ ATENÇÃO: Você tem alterações não salvas.\n\nDeseja realmente SAIR e DESCARTAR o que fez agora?")
       )
         return;
     }
@@ -2434,7 +2282,10 @@ function AppContent() {
     if (existingVig) {
       if (
         confirm(
-          `⚠️ Matrícula ${newVigForm.mat} já existe (${existingVig.nome})!\n\nEle pode estar oculto em outro setor.\nDeseja RECUPERAR este vigilante movendo-o para 'SEM POSTO' para que você possa editá-lo?`,
+          `⚠️ Matrícula ${newVigForm.mat} já existe (${existingVig.nome})!
+
+Ele pode estar oculto em outro setor.
+Deseja RECUPERAR este vigilante movendo-o para 'SEM POSTO' para que você possa editá-lo?`,
         )
       ) {
         // RECOVERY LOGIC
@@ -2569,7 +2420,9 @@ function AppContent() {
 
     if (
       !confirm(
-        `⚠️ PERIGO: Tem certeza que deseja EXCLUIR DEFINITIVAMENTE o vigilante ${vigToDelete.nome}?\n\nIsso removerá ele desta escala. Se for um erro de cadastro, prossiga.`,
+        `⚠️ PERIGO: Tem certeza que deseja EXCLUIR DEFINITIVAMENTE o vigilante ${vigToDelete.nome}?
+
+Isso removerá ele desta escala. Se for um erro de cadastro, prossiga.`,
       )
     )
       return;
@@ -2625,7 +2478,11 @@ function AppContent() {
     if (!isFutureMonth) return;
     if (
       !confirm(
-        `🚀 LANÇAR ESCALA?\n\nIsso irá gerar e CONFIRMAR a escala de ${currentLabel} para TODOS os vigilantes baseados no cadastro inicial.\n\nQualquer alteração manual feita neste rascunho será sobrescrita.`,
+        `🚀 LANÇAR ESCALA?
+
+Isso irá gerar e CONFIRMAR a escala de ${currentLabel} para TODOS os vigilantes baseados no cadastro inicial.
+
+Qualquer alteração manual feita neste rascunho será sobrescrita.`,
       )
     )
       return;
@@ -2677,7 +2534,11 @@ function AppContent() {
 
     if (
       !confirm(
-        `⚠️ TEM CERTEZA?\n\nIsso redefinirá a escala de ${currentLabel} para "A DEFINIR" na equipe: ${targetTeam}.\n\nOs dados de setor e posto serão limpos, mas o cadastro dos vigilantes (e férias) será mantido.`,
+        `⚠️ TEM CERTEZA?
+
+Isso redefinirá a escala de ${currentLabel} para "A DEFINIR" na equipe: ${targetTeam}.
+
+Os dados de setor e posto serão limpos, mas o cadastro dos vigilantes (e férias) será mantido.`,
       )
     )
       return;
@@ -2988,7 +2849,11 @@ function AppContent() {
   const handleClearAllRequests = async () => {
     if (
       !confirm(
-        `⚠️ PERIGO: Isso apagará TODAS as solicitações de folga de ${currentLabel} para TODOS os vigilantes.\n\nUse isso para corrigir bugs de dados antigos.\n\nDeseja continuar?`,
+        `⚠️ PERIGO: Isso apagará TODAS as solicitações de folga de ${currentLabel} para TODOS os vigilantes.
+
+Use isso para corrigir bugs de dados antigos.
+
+Deseja continuar?`,
       )
     )
       return;
@@ -3264,11 +3129,21 @@ function AppContent() {
           updated.campus = "AGRÁRIAS";
         else if (s.includes("HOSPITAL") || s.includes("HR"))
           updated.campus = "HOSPITAL";
-        else if (updated.campus === "A DEFINIR") updated.campus = "OUTROS"; // Só move para OUTROS se estava A DEFINIR
+        // REMOVED: Don't auto-move to OUTROS if still A DEFINIR. Keep in Pendentes.
       }
 
       newData[idx] = updated;
-      saveData(newData);
+
+      // FIX UI SYNC: Save and IMMEDIATELY reload from DB to guarantee simple source of truth
+      // usage of 'async' inside 'handleSaveEditor' wrapper required if we want to await here
+      // but 'handleSaveEditor' is defined as () => {...}
+      // We will perform the reload as a follow-up promise
+      saveData(newData).then(async (success) => {
+        if (success) {
+          await loadDataForMonth(month); // Force UI to match DB (fixes "Ghost" local state)
+        }
+      });
+
       registerLog("EDICAO", "Alteração manual.", updated.nome);
       setEditingVig(null);
       setShowMobileEditor(false);
@@ -3313,12 +3188,21 @@ function AppContent() {
     setData(newData);
     saveData(newData); // Persist immediately
 
-    if (targetVig && changes.campus) {
-      registerLog(
-        "ALOCACAO",
-        `Alocado em ${changes.campus} - ${changes.setor || ""} (Eq: ${changes.eq || targetVig.eq})`,
-        targetVig.nome,
-      );
+    if (targetVig) {
+      if (changes.campus) {
+        registerLog(
+          "ALOCACAO",
+          `Alocado em ${changes.campus} - ${changes.setor || ""} (Eq: ${changes.eq || targetVig.eq})`,
+          targetVig.nome,
+        );
+      } else if (changes.eq && changes.eq !== targetVig.eq) {
+        registerLog(
+          "EDICAO",
+          `Equipe alterada: ${targetVig.eq} -> ${changes.eq}`,
+          targetVig.nome,
+        );
+      }
+      showToast(`Alterações em ${targetVig.nome} salvas!`, "success");
     }
   };
 
@@ -4074,14 +3958,7 @@ function AppContent() {
               </button>
             </>
           )}
-          {canManageIntervals && (
-            <button
-              onClick={() => setView("intervalos")}
-              className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all whitespace-nowrap ${view === "intervalos" ? "bg-blue-600 text-white shadow-md" : "text-slate-400 hover:text-white"}`}
-            >
-              🍽️ INTERVALOS
-            </button>
-          )}
+
           {canViewCFTV && (
             <button
               onClick={() => setView("cftv")}
@@ -4119,16 +3996,22 @@ function AppContent() {
             </button>
           )}
 
-          {/* BOTÃO DE GESTÃO DE FÉRIAS (SÓ MASTER) */}
-          {isMaster && (
-            <button
-              onClick={() => setIsVacationManagerOpen(true)}
-              className="px-3 py-1.5 rounded-md text-xs font-bold transition-all whitespace-nowrap bg-yellow-600 text-white shadow-md hover:bg-yellow-700 ml-2 flex items-center gap-1"
-            >
-              🏖️ GESTÃO DE FÉRIAS
-            </button>
-          )}
         </div>
+
+        {isMaster && (
+          <button
+            onClick={() => setIsVacationManagerOpen(true)}
+            className="px-3 py-1.5 rounded-md text-xs font-bold transition-all whitespace-nowrap bg-yellow-600 text-white shadow-md hover:bg-yellow-700 ml-2 flex items-center gap-1"
+          >
+            🏖️ GESTÃO DE FÉRIAS
+          </button>
+        )}
+
+        {dbStatus.isMaintenance && (
+          <div className="mx-8 bg-amber-900/60 px-4 py-1.5 rounded-full border border-amber-500 text-[10px] font-bold text-amber-200 animate-pulse flex items-center gap-2 shadow-lg">
+            <span>⚠️ BANCO DE DATOS EM MANUTENÇÃO (SUPABASE) - AGUARDANDO RETORNO</span>
+          </div>
+        )}
         <div className="flex items-center gap-2">
           {(!isUser || canManageIntervals || canViewCFTV) &&
             (view === "escala" || view === "intervalos" || view === "cftv") && (
@@ -4237,6 +4120,8 @@ function AppContent() {
             currentUserVig={currentUserVig}
           />
         )}
+
+
 
         {/* --- CONFIG VIEW --- */}
         {view === "config" && <ConfigView />}
@@ -4480,7 +4365,7 @@ function AppContent() {
                         if (!v.requests || v.requests.length === 0)
                           return false;
                         // FISCAL FILTER: Show only requests from OWN TEAM. Master sees ALL.
-                        if (user?.role === "FISCAL" && currentUserVig) {
+                        if (user?.perfil === "FISCAL" && currentUserVig) {
                           const myEq = cleanString(currentUserVig.eq);
                           const visibleTeams = getVisibleTeams(
                             myEq,
@@ -5202,7 +5087,7 @@ function AppContent() {
                 if (v.campus === "AFASTADOS") return false;
 
                 // Team Visibility Check
-                if (user?.role === "FISCAL" && currentUserVig) {
+                if (user?.perfil === "FISCAL" && currentUserVig) {
                   const myEq = cleanString(currentUserVig.eq);
                   const visibleTeams = getVisibleTeams(myEq, !!isMaster);
                   return visibleTeams.includes(cleanString(v.eq));
@@ -6008,21 +5893,23 @@ function AppContent() {
       />
 
       {/* Toast Container */}
-      {toast && (
-        <div
-          className={`fixed bottom-4 right-4 z-50 px-6 py-3 rounded-lg shadow-2xl font-bold text-white flex items-center gap-3 animate-slide-up ${toast.type === "success" ? "bg-emerald-600" : toast.type === "error" ? "bg-red-600" : "bg-blue-600"}`}
-        >
-          <span>
-            {toast.type === "success"
-              ? "✅"
-              : toast.type === "error"
-                ? "❌"
-                : "ℹ️"}
-          </span>
-          {toast.msg}
-        </div>
-      )}
-    </div>
+      {
+        toast && (
+          <div
+            className={`fixed bottom-4 right-4 z-50 px-6 py-3 rounded-lg shadow-2xl font-bold text-white flex items-center gap-3 animate-slide-up ${toast.type === "success" ? "bg-emerald-600" : toast.type === "error" ? "bg-red-600" : "bg-blue-600"}`}
+          >
+            <span>
+              {toast.type === "success"
+                ? "✅"
+                : toast.type === "error"
+                  ? "❌"
+                  : "ℹ️"}
+            </span>
+            {toast.msg}
+          </div>
+        )
+      }
+    </div >
   );
 }
 

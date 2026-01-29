@@ -1,0 +1,500 @@
+    } else {
+      showToast("Erro ao salvar na nuvem!", "error");
+    }
+    return success;
+  };
+
+  // --- VIGILANTE MANAGER CALLBACK ---
+  // --- VIGILANTE MANAGER CALLBACK ---
+  const handleGlobalVigilanteUpdate = async (updatedVig: Vigilante) => {
+    // Correctly compute new state based on current data
+    const newData = data.map((v) =>
+      v.mat === updatedVig.mat ? updatedVig : v,
+    );
+
+    // Update local state immediately for responsiveness
+    setData(newData);
+
+    // FORCE SAVE to backend to prevent auto-refresh overwrite.
+    // We use forcePublish=true because this is an administrative "Repair" action
+    // that should be effective immediately, even in future months/drafts.
+    await saveData(newData, true);
+
+    registerLog("EDICAO", `Alteração Global de Vigilante (Equipe/Setor)`, updatedVig.nome);
+
+    showToast(`Vigilante ${updatedVig.nome} atualizado e salvo!`, "success");
+    // No need to setUnsavedChanges(true) because saveData handles it (sets to false on success)
+  };
+
+  // --- MEMOIZED VIEWS ---
+  const conflicts = useMemo(() => {
+    // FIX: Não exibir alertas de conflito em meses futuros (Planejamento) para não poluir a tela
+    if (isFutureMonth) return [];
+
+    const rawConflicts = analyzeConflicts(
+      data,
+      month,
+      filterEq === "AFASTADOS" ? "TODAS" : filterEq,
+    );
+
+    // FIX: Remove falsos positivos de conflito para equipes ECO nos fins de semana
+    return rawConflicts.filter((c) => {
+      const team = cleanString(c.equipe);
+      const year = Math.floor(month / 100);
+      const mon = (month % 100) - 1;
+      const date = new Date(year, mon, c.dia);
+      const dayOfWeek = date.getDay(); // 0 = Dom, 6 = Sab
+
+      // ECO 1 (6x1) -> Folga Domingo. Se der conflito no Domingo, ignora.
+      if (team === "ECO1" || team === "E1") {
+        if (dayOfWeek === 0) return false;
+      }
+
+      // ECO 2 (5x2) -> Folga Sábado e Domingo. Se der conflito, ignora.
+      if (team === "ECO2" || team === "E2") {
+        if (dayOfWeek === 0 || dayOfWeek === 6) return false;
+      }
+
+      return true;
+    });
+  }, [data, month, filterEq, isFutureMonth]);
+
+  const visibleTeamsForFilter = useMemo(() => {
+    // DEBUG LOGGING
+    console.log("DEBUG: Computing visibleTeamsForFilter");
+    console.log("DEBUG: User:", user);
+    console.log("DEBUG: CurrentUserVig:", currentUserVig);
+    console.log("DEBUG: isMaster:", isMaster);
+
+    const result = getLancadorVisibleTeams(
+      currentUserVig?.eq || "",
+      isMaster,
+      user?.permissions,
+      currentUserVig?.horario // Pass Shift Info
+    );
+    console.log("DEBUG: Resulting Visible Teams:", result);
+    return result;
+  }, [user, currentUserVig, isMaster]);
+
+  const lancadorList = useMemo(() => {
+    let filtered = data.filter((v) => v.campus !== "AFASTADOS");
+
+    // Regra Fiscal: Vê apenas sua própria equipe no Lançador
+    if (user?.perfil === "FISCAL" && !isMaster) {
+      // Exclui ADMs específicos
+      filtered = filtered.filter((v) => !EXCLUDED_ADM_MATS.includes(v.mat));
+
+      let myEq = "";
+      if (currentUserVig) {
+        myEq = cleanString(currentUserVig.eq);
+      }
+
+      // Determine Visible Teams (Robust Logic)
+      let visibleTeams: string[] = [];
+
+      // 1. Explicit Permissions (Priority)
+      if (user.permissions && user.permissions.length > 0) {
+        visibleTeams = user.permissions
+          .filter((p) => p.canView)
+          .map((p) => {
+            // Normalize for compatibility with existing heuristics
+            if (cleanString(p.team) === "ECO1") return "ECO1";
+            if (cleanString(p.team) === "ECO2") return "ECO2";
+            return cleanString(p.team);
+          });
+
+        // Add variations for ECO teams to ensure matching works
+        if (visibleTeams.includes("ECO1")) visibleTeams.push("ECO 1");
+        if (visibleTeams.includes("ECO2")) visibleTeams.push("ECO 2");
+      } else {
+        // 2. Legacy/Heuristic Logic
+        const myTurno = currentUserVig?.horario || "";
+        visibleTeams = getVisibleTeams(myEq, isMaster, myTurno);
+
+        // ROBUSTNESS: Ensure variations of ECO are present for Master/Legacy too
+        if (visibleTeams.includes("ECO1")) visibleTeams.push("ECO 1");
+        if (visibleTeams.includes("ECO2")) visibleTeams.push("ECO 2");
+      }
+
+      // If we have no visible teams (and not Antonio), maybe we shouldn't show anything?
+      // Or default to 'myEq'. Leaving as is for others, but critical for Antonio.
+
+      filtered = filtered.filter((v) => {
+        // 1. Team Visibility
+        if (!visibleTeams.includes(cleanString(v.eq))) return false;
+
+        // 2. Strict Sector Visibility (Expediente Logic)
+        // If the sector implies a hidden team (e.g. EXP_2 -> ECO 2), hide it.
+        // FIX: Case-insensitive match for robust preset lookup
+        const p = presets.find(
+          (pre) => cleanString(pre.sector) === cleanString(v.setor),
+        );
+
+        // HEURISTIC: Check Start Time
+        // If starts >= 09:00, it's likely Afternoon/Night (ECO 2)
+        // If starts < 09:00, it's Morning (ECO 1)
+        let startHour = 0;
+
+        // FIX: Check v.horario FIRST (Instance time is source of truth)
+        let foundTime = false;
+        if (v.horario) {
+          const match = v.horario.match(/(\d{1,2})[h:]/i); // Matches "09h" or "09:"
+          if (match) {
+            startHour = parseInt(match[1], 10);
+            foundTime = true;
+          }
+        }
+
+        if (!foundTime && p && p.timeStart) {
+          startHour = parseInt(p.timeStart.split(":")[0], 10);
+          foundTime = true;
+        } else if (!foundTime && p && p.horario) {
+          const match = p.horario.match(/(\d{1,2})[h:]/i);
+          if (match) startHour = parseInt(match[1], 10);
+        }
+
+        const isLateStart = startHour >= 9; // 09:00 or later implies ECO 2
+
+        // ROBUST FIX: Explicit Rule for Day Fiscals
+        // Instead of guessing team names ("C", "D"), checks CAPABILITY.
+        // If I see ECO1 but NOT ECO2, I am strictly Day Shift.
+        const seesEco1 =
+          visibleTeams.includes("ECO1") ||
+          visibleTeams.includes("ECO 1") ||
+          visibleTeams.includes("C") ||
+          visibleTeams.includes("D");
+        const seesEco2 =
+          visibleTeams.includes("ECO2") ||
+          visibleTeams.includes("ECO 2") ||
+          visibleTeams.includes("A") ||
+          visibleTeams.includes("B");
+
+        const isStrictlyDayFiscal = seesEco1 && !seesEco2;
+
+        // 1. Get the preset associated with this vigilante's sector
+        // 1. Get the preset(s) associated with this sector
+        // IMPROVED: Handle duplicate names (e.g. Same name for Morning/Night)
+        const candidates = presets.filter(
+          (p) =>
+            p.name === v.setor ||
+            (p.sector === v.setor && p.campus === v.campus),
+        );
+
+        let relevantPreset = candidates[0];
+
+        // Disambiguate if multiple presets exist (e.g. "Charlie 12" Day vs Night)
+        if (candidates.length > 1 && foundTime) {
+          const isSlotLate = startHour >= 9; // 09:00+ is likely ECO 2/Night
+
+          // Try to find a candidate that matches the time block
+          const bestMatch = candidates.find((c) => {
+            let cStart = -1;
+            if (c.timeStart) {
+              cStart = parseInt(c.timeStart.split(":")[0], 10);
+            } else if (c.horario) {
+              const m = c.horario.match(/(\d{1,2})[h:]/i);
+              if (m) cStart = parseInt(m[1], 10);
+            }
+
+            if (cStart === -1) return false; // Can't judge
+
+            const isCandidateLate = cStart >= 9;
+            return isCandidateLate === isSlotLate;
+          });
+
+          if (bestMatch) relevantPreset = bestMatch;
+        }
+
+        // 2. Determine Shift Type
+        let shiftType = relevantPreset?.type || "12x36_DIURNO";
+
+        // SPECIAL RULE: "EXPEDIENTE" (Generic) defaults to ECO_1 (Day) visibility
+        // unless explicitly set to ECO_2.
+        if (
+          (shiftType as string) === "EXP_1" ||
+          shiftType === "EXP_ADM" ||
+          shiftType === "EXPEDIENTE"
+        ) {
+          shiftType = "ECO_1";
+        }
+
+        if ((shiftType as string) === "EXP_2") {
+          shiftType = "ECO_2";
+        }
+
+        // 3. Apply Visibility Rules
+        // Rule A: ECO 2 (Night/Afternoon) -> HIDDEN from Strict Day Fiscal
+        // This is the new way to hide "Charlie 14 (09:45)": User sets it to ECO 2.
+        if (shiftType === "ECO_2") {
+          if (isStrictlyDayFiscal) {
+            return false;
+          }
+        }
+
+        // Rule B: ECO 1 (Morning) -> HIDDEN from Strict Night Fiscal
+        // (Assuming Strict Night Fiscal sees only Night stuff + ECO 2)
+        // If I am strictly Night Fiscal (A/B), I should NOT see ECO 1?
+        // Wait, definition of `isStrictlyDayFiscal` implies Day only.
+        // Let's rely on `visibleTeams`.
+        // If my visibleTeams has "ECO 1", I see it. If not, I don't.
+        // But `visibleTeams` logic for generic teams might be tricky.
+        // Let's stick to the REQUESTED rule:
+        // "ECO 2" must be selectable and hidden from Day.
+        // The rest should follow standard logic.
+
+        // Fallback or explicit check for legacy heuristic
+        // If we processed it above, we trust `shiftType`.
+
+        if (isStrictlyDayFiscal && isLateStart && shiftType !== "ECO_1") {
+          // Safety net: If it looks like late start (09:45) AND wasn't forced to ECO 1, hide it.
+          // But if user sets it to ECO 1 explicitly, we SHOW it even if late.
+          if (relevantPreset?.type === "ECO_1") {
+            // Explicit override: SHOW IT
+          } else {
+            return false;
+          }
+        }
+
+        if (p) {
+          const isExp2 =
+            (p.type as string) === "EXP_2" ||
+            p.type === "ECO_2" || // Treat ECO 2 as Exp 2 for this check
+            (p.name && p.name.toUpperCase().includes("EXPEDIENTE 2")) ||
+            (p.name && p.name.includes("Expediente 2"));
+
+          const isExp1 =
+            (p.type as string) === "EXP_1" ||
+            p.type === "ECO_1" || // Treat ECO 1 as Exp 1 for this check
+            (p.name && p.name.toUpperCase().includes("EXPEDIENTE 1")) ||
+            (!isLateStart && startHour > 0);
+
+          if (isExp2) {
+            // EXP_2 or Late Start requires ECO2 visibility
+            if (
+              !visibleTeams.includes("ECO2") &&
+              !visibleTeams.includes("ECO 2")
+            )
+              return false;
+          }
+          if (isExp1) {
+            // EXP_1 or Early Start requires ECO1 visibility
+            if (
+              !visibleTeams.includes("ECO1") &&
+              !visibleTeams.includes("ECO 1") &&
+              !isLateStart // Don't hide if it was caught by isLateStart logic (double safety)
+            )
+              return false;
+          }
+          // Filtro visual do dropdown (Aplica-se DEPOIS da restrição de segurança)
+          // FEATURE: Global Search for Master (Bypass team filter if searching)
+          const bypassTeamFilter = isMaster && lancadorSearch.trim().length > 0;
+
+          const lancadorList = useMemo(() => {
+            // --- DIAGNOSTICS: LANÇADOR LIST ---
+            const isLMaster = user?.perfil === "MASTER";
+            console.log("DIAGNOSTICO: lancadorList iniciada. Data count:", data.length, "isMaster:", isLMaster, "SelectedTeam:", selectedLancadorTeam);
+
+            let filtered = data.filter((v) => v.campus !== "AFASTADOS");
+            console.log("DIAGNOSTICO: Após remover AFASTADOS:", filtered.length);
+
+            // Regra Fiscal: Vê apenas sua própria equipe no Lançador
+            if (user?.perfil === "FISCAL" && !isLMaster) {
+              const fiscalVig = currentUserVig;
+              const visibleTeams = getLancadorVisibleTeams(
+                fiscalVig?.eq || "A",
+                false,
+                user?.permissions,
+                fiscalVig?.horario,
+              ).map((t) => cleanString(t));
+
+              console.log("DIAGNOSTICO: Perfil FISCAL. Equipes visíveis:", visibleTeams);
+
+              filtered = filtered.filter((v) => {
+                const vEq = cleanString(v.eq);
+                return visibleTeams.includes(vEq);
+              });
+              console.log("DIAGNOSTICO: Após filtro de equipe Fiscal:", filtered.length);
+            }
+
+            // DEBUG: FORCE SHOW ALL FOR MASTER TO DIAGNOSE EMPTY LIST
+            if (isLMaster) {
+              console.log("DEBUG: Master bypass active. Ignorando filtros normais.");
+              if (selectedLancadorTeam !== "TODAS" && !bypassTeamFilter) {
+                const bef = filtered.length;
+                filtered = filtered.filter(
+                  (v) => cleanString(v.eq) === cleanString(selectedLancadorTeam)
+                );
+                console.log(`DEBUG: Filtered by team ${selectedLancadorTeam}: ${bef} -> ${filtered.length}`);
+              }
+              return filtered.sort((a, b) => a.nome.localeCompare(b.nome));
+            }
+
+            if (selectedLancadorTeam !== "TODAS" && !bypassTeamFilter) {
+              filtered = filtered.filter(
+                (v) => cleanString(v.eq) === cleanString(selectedLancadorTeam),
+              );
+              console.log("DIAGNOSTICO: Após filtro de equipe selecionada:", filtered.length);
+            }
+
+            if (lancadorSearch) {
+              const search = cleanString(lancadorSearch);
+              filtered = filtered.filter(
+                (v) =>
+                  cleanString(v.nome).includes(search) ||
+                  cleanString(v.mat).includes(search),
+              );
+              console.log("DIAGNOSTICO: Após filtro de busca:", filtered.length);
+            }
+
+            return filtered.sort((a, b) => a.nome.localeCompare(b.nome));
+          }, [
+            data,
+            selectedLancadorTeam,
+            lancadorSearch,
+            user,
+            currentUserVig,
+            isMaster,
+            presets,
+          ]);
+
+          const lancadorSummary = useMemo(() => {
+            const total = lancadorList.length;
+            const ok = lancadorList.filter((v) => {
+              // Regra Chris: Só conta como OK se estiver realmente alocado em um posto/setor
+              const hasCampus = v.campus && v.campus !== "A DEFINIR" && v.campus !== "SEM POSTO" && v.campus !== "AFASTADOS";
+              const hasSector = v.setor && v.setor !== "A DEFINIR" && v.setor !== "AGUARDANDO" && v.setor !== "NÃO DEFINIDO";
+              return hasCampus && hasSector;
+            }).length;
+            const pending = total - ok;
+            return { total, ok, pending };
+          }, [lancadorList]);
+
+          const groupedData = useMemo<
+            Record<
+              string,
+              (Vigilante & {
+                displayStatus?: {
+                  active: boolean;
+                  status?: string;
+                  variant?: string;
+                  location?: string;
+                } | null;
+              })[]
+            >
+          >(() => {
+            let displayList = [...data];
+            if (
+              isUser &&
+              currentUserVig &&
+              !data.find((v) => v.mat === currentUserVig.mat)
+            ) {
+              displayList.push(currentUserVig);
+            }
+
+            if (!displayList.length)
+              return {} as Record<
+                string,
+                (Vigilante & {
+                  displayStatus?: {
+                    active: boolean;
+                    status?: string;
+                    variant?: string;
+                    location?: string;
+                  } | null;
+                })[]
+              >;
+
+            let filtered = displayList.filter((v) => {
+              // 1. Usuário comum só vê a si mesmo
+              if (isUser && view !== "solicitacoes") {
+                const uMat = String(user?.mat || "").trim();
+                const vMat = String(v.mat || "").trim();
+                return uMat === vMat;
+              }
+              // 2. Fiscal: Exclui ADMs específicos
+              if (user?.role === "FISCAL" && EXCLUDED_ADM_MATS.includes(v.mat)) {
+                return false;
+              }
+
+              // --- CORREÇÃO DE VISIBILIDADE DO FISCAL ---
+              // Fiscal só vê EXATAMENTE a sua equipe na tabela principal.
+              // Impede ver outros fiscais ou outras equipes.
+              // FIX: Apply rule even if currentUserVig is missing (using permissions/default)
+              if (user?.role === "FISCAL") {
+                // CORREÇÃO: Usar a lista de equipes visíveis calculada (que respeita Permissões Explícitas)
+                // em vez da lógica hardcoded legada.
+                const targetEq = cleanString(v.eq);
+
+                // Use the permission-aware list
+                const visibleTeams = visibleTeamsForFilter.map((t) => cleanString(t));
+
+                // Se a equipe do vigilante não estiver na lista de visíveis, esconde.
+                if (!visibleTeams.includes(targetEq)) return false;
+              }
+
+              // 3. Filtros da UI
+              if (filterEq === "AFASTADOS") {
+                return v.campus === "AFASTADOS";
+              }
+              if (v.campus === "AFASTADOS" && !searchTerm) {
+                // FIX: Master wants to see everyone, including Afastados, when viewing ALL
+                if (isMaster && filterEq === "TODAS") return true;
+
+                return (
+                  filterEq !== "TODAS" && cleanString(v.eq) === cleanString(filterEq)
+                );
+              }
+              if (filterEq !== "TODAS" && cleanString(v.eq) !== cleanString(filterEq))
+                return false;
+              if (
+                searchTerm &&
+                !v.nome.toUpperCase().includes(searchTerm.toUpperCase()) &&
+                !v.mat.includes(searchTerm)
+              )
+                return false;
+              if (filterDay && view === "escala" && !isUser) {
+                const dayNum = parseInt(filterDay);
+                const status = getVigilanteStatus(v, dayNum, filterTime);
+                const isTeamVacation =
+                  filterEq !== "TODAS" &&
+                  v.campus === "AFASTADOS" &&
+                  cleanString(v.eq) === cleanString(filterEq);
+                if (!status.active && !isTeamVacation) return false;
+              }
+              return true;
+            });
+
+            // 4. Reordenação para Fiscal
+            if (user?.role === "FISCAL" && currentUserVig) {
+              const myEq = cleanString(currentUserVig.eq);
+              const teamOrder = [myEq, "E1", "E2"];
+
+              filtered.sort((a, b) => {
+                const eqA = cleanString(a.eq);
+                const eqB = cleanString(b.eq);
+                const indexA = teamOrder.indexOf(eqA);
+                const indexB = teamOrder.indexOf(eqB);
+
+                if (indexA !== -1 && indexB !== -1) return indexA - indexB; // Ambos na lista de prioridade
+                if (indexA !== -1) return -1; // A na lista, B não
+                if (indexB !== -1) return 1; // B na lista, A não
+                return eqA.localeCompare(eqB); // Nenhum na lista, ordem alfabética
+              });
+            }
+
+            const groups: Record<
+              string,
+              (Vigilante & {
+                displayStatus?: {
+                  active: boolean;
+                  status?: string;
+                  variant?: string;
+                  location?: string;
+                } | null;
+              })[]
+            > = {};
+            filtered.forEach((v) => {
+              let processedVig = {
+                ...v,
+                displayStatus: null as {
+                  active: boolean;

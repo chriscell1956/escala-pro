@@ -1,5 +1,6 @@
 import React from "react";
 import { Vigilante, User, Conflict, DepartmentPreset } from "../../types";
+import { getDaysInMonth } from "../../utils";
 import { Icons, Badge } from "../ui";
 
 interface EscalaViewProps {
@@ -48,6 +49,7 @@ const EscalaViewComponent: React.FC<EscalaViewProps> = (props) => {
 
     presets = [],
     visibleTeams = [], // FIX: Destructure visibleTeams (default to empty array)
+    month,
   } = props;
 
   const safePresets = Array.isArray(presets) ? presets : [];
@@ -154,9 +156,8 @@ const EscalaViewComponent: React.FC<EscalaViewProps> = (props) => {
                   </h3>
                   <div className="ml-auto p-1 rounded-full transition-colors">
                     <div
-                      className={`transform transition-transform duration-200 ${
-                        !isExpanded ? "rotate-0" : "rotate-180"
-                      }`}
+                      className={`transform transition-transform duration-200 ${!isExpanded ? "rotate-0" : "rotate-180"
+                        }`}
                     >
                       <span className="text-slate-400 text-xs">▼</span>
                     </div>
@@ -221,206 +222,192 @@ const EscalaViewComponent: React.FC<EscalaViewProps> = (props) => {
                         </div>
                       )}
 
-                    {/* LIST VIEW */}
-                    <div className="overflow-x-auto print:block print:overflow-visible">
-                      <table className="w-full text-left text-sm min-w-[800px] md:min-w-0">
-                        <thead className="bg-slate-900 text-slate-400 font-bold text-xs uppercase tracking-wider border-b border-slate-700 print:bg-gray-200 print:text-black">
+                    {/* GRID VIEW */}
+                    <div className="overflow-x-auto print:block print:overflow-visible pb-4">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead className="bg-slate-900 text-slate-400 font-bold text-[10px] uppercase tracking-wider border-b border-slate-700 print:bg-gray-200 print:text-black">
                           <tr>
-                            <th className="px-6 py-4">NOME</th>
-                            <th className="px-6 py-4 w-20 text-center">EQ</th>
-                            <th className="px-6 py-4 w-24">MAT</th>
-                            <th className="px-6 py-4 w-[40%]">
-                              STATUS / ESCALA
-                            </th>
-                            <th className="px-6 py-4 text-right">HORÁRIO</th>
+                            <th className="px-4 py-3 sticky left-0 z-20 bg-slate-900 print:bg-white w-64 min-w-[200px]">NOME / MAT</th>
+                            <th className="px-2 py-3 w-16 text-center border-r border-slate-700/50">EQ</th>
+
+                            {/* DYNAMIC DAYS HEADER */}
+                            {(() => {
+                              try {
+                                const numDays = getDaysInMonth(month || 202601);
+                                if (isNaN(numDays) || numDays < 28 || numDays > 31) {
+                                  console.warn("Invalid numDays in EscalaView:", numDays, "for month:", month);
+                                  return null;
+                                }
+                                return Array.from({ length: numDays }, (_, i) => i + 1).map((d) => (
+                                  <th key={d} className="px-0.5 py-3 w-8 text-center min-w-[30px] border-r border-slate-800 font-mono text-slate-500">
+                                    {d}
+                                  </th>
+                                ));
+                              } catch (e) {
+                                console.error("Error generating days header:", e);
+                                return null;
+                              }
+                            })()}
+
+                            <th className="px-4 py-3 text-right sticky right-0 bg-slate-900 print:bg-white z-20 shadow-[-10px_0_20px_rgba(0,0,0,0.5)]">HORÁRIO</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-700/50">
-                          {(
-                            groupedData[campus] as (Vigilante & {
+                          {(() => {
+                            const list = (groupedData[campus] || []) as (Vigilante & {
                               displayStatus?: {
                                 active: boolean;
                                 status: string;
                                 variant: string;
                               };
-                            })[]
-                          )
-                            .sort((a, b) => {
-                              // 1. Sort by Sector (Name of Post)
-                              const sA = (a.setor || "").toUpperCase();
-                              const sB = (b.setor || "").toUpperCase();
-                              if (sA !== sB) return sA.localeCompare(sB);
+                            })[];
 
-                              // 2. Sort by Horario (Time)
-                              const hA = (a.horario || "").replace("h", ":");
-                              const hB = (b.horario || "").replace("h", ":");
-                              if (hA !== hB) return hA.localeCompare(hB);
-
-                              // 3. Sort by Name (Tie-breaker)
-                              return (a.nome || "").localeCompare(b.nome || "");
-                            })
-                            .map((vig) => {
-                              const isAfastado = vig.campus === "AFASTADOS";
+                            if (list.length === 0) {
                               return (
-                                <tr
-                                  key={vig.mat}
-                                  className={`${isAfastado ? "bg-amber-900/10 hover:bg-amber-900/20" : "even:bg-slate-800/30 odd:bg-transparent hover:bg-slate-700/30"} border-b border-slate-700/50 text-sm print:bg-white print:border-black transition-colors group`}
-                                >
-                                  <td className="px-6 py-4 align-top">
-                                    <div className="flex flex-col">
-                                      {(() => {
-                                        // Lookup preset for code
-                                        const preset = safePresets.find(
-                                          (p) =>
-                                            (p.sector || "").toLowerCase() ===
-                                              (vig.setor || "").toLowerCase() &&
-                                            (p.campus || "").toLowerCase() ===
-                                              (vig.campus || "").toLowerCase(),
-                                        );
-                                        const code = preset?.code;
-
-                                        return (
-                                          <>
-                                            <span className="font-bold text-slate-200 text-base group-hover:text-white transition-colors">
-                                              {code ? code : vig.setor}
-                                            </span>
-                                            {code ? (
-                                              /* SHOW NAME ONLY (Avoid Redundancy) */
-                                              <span className="text-xs text-slate-500 uppercase tracking-wide font-medium mt-1 group-hover:text-slate-400">
-                                                {vig.nome}
-                                              </span>
-                                            ) : (
-                                              <span className="text-xs text-slate-500 uppercase tracking-wide font-medium mt-1 group-hover:text-slate-400">
-                                                {vig.nome}
-                                              </span>
-                                            )}
-                                          </>
-                                        );
-                                      })()}
-                                    </div>
-                                  </td>
-
-                                  <td className="px-6 py-4 text-center align-top pt-5">
-                                    <Badge team={vig.eq} />
-                                  </td>
-
-                                  <td className="px-6 py-4 text-slate-500 font-mono text-xs align-top pt-5">
-                                    {vig.mat}
-                                  </td>
-
-                                  <td className="px-6 py-4 align-top">
-                                    <div className="flex flex-col gap-2">
-                                      {/* STATUS BADGE */}
-                                      <div className="flex items-center gap-2 flex-wrap">
-                                        {vig.manualLock ? (
-                                          <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">
-                                            NO POSTO
-                                          </span>
-                                        ) : isAfastado ? (
-                                          <span className="bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">
-                                            AFASTADO
-                                          </span>
-                                        ) : (
-                                          <span className="bg-orange-500/10 text-orange-400 border border-orange-500/20 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
-                                            <span className="animate-pulse">
-                                              ●
-                                            </span>{" "}
-                                            PENDENTE
-                                          </span>
-                                        )}
-
-                                        {/* ACTION BUTTONS */}
-                                        {isAfastado && (
-                                          <button
-                                            onClick={() =>
-                                              handleReturnFromAway(vig)
-                                            }
-                                            className="flex items-center gap-1 bg-slate-700 hover:bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded transition-all shadow-sm"
-                                          >
-                                            <Icons.History className="w-2.5 h-2.5" />{" "}
-                                            Retornar
-                                          </button>
-                                        )}
-                                      </div>
-
-                                      {/* LIST OF WORKING DAYS */}
-                                      {!isAfastado && (
-                                        <div className="flex flex-wrap items-center gap-2">
-                                          <span className="text-[10px] text-slate-500 font-bold uppercase">
-                                            DIAS:
-                                          </span>
-                                          <span className="text-slate-300 text-xs leading-relaxed font-mono">
-                                            {vig.dias
-                                              .sort((a, b) => a - b)
-                                              .join(", ")}
-                                          </span>
-                                        </div>
-                                      )}
-
-                                      {/* FOLGAS */}
-                                      {!isAfastado &&
-                                        vig.folgasGeradas &&
-                                        vig.folgasGeradas.length > 0 && (
-                                          <div className="flex items-center gap-2 mt-1">
-                                            <span className="bg-red-500/20 text-red-400 border border-red-500/30 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">
-                                              FOLGAS:{" "}
-                                              {vig.folgasGeradas.join(", ")}
-                                            </span>
-                                          </div>
-                                        )}
-
-                                      {/* COBERTURAS (Coverages) */}
-                                      {!isAfastado &&
-                                        vig.coberturas &&
-                                        vig.coberturas.length > 0 && (
-                                          <div className="flex flex-col gap-1 mt-1">
-                                            {vig.coberturas.map((cob, idx) => (
-                                              <div
-                                                key={idx}
-                                                className="flex items-center gap-2"
-                                              >
-                                                <span className="bg-orange-500/20 text-orange-300 border border-orange-500/30 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
-                                                  COB. {cob.dia}{" "}
-                                                  <span className="text-orange-500">
-                                                    ➜
-                                                  </span>{" "}
-                                                  {cob.local}
-                                                  <button
-                                                    onClick={() =>
-                                                      handleRemoveCoverage(
-                                                        vig,
-                                                        cob.dia,
-                                                      )
-                                                    }
-                                                    className="ml-1 hover:text-white transition-colors"
-                                                    title="Remover Cobertura"
-                                                  >
-                                                    <Icons.Trash className="w-2.5 h-2.5" />
-                                                  </button>
-                                                </span>
-                                              </div>
-                                            ))}
-                                          </div>
-                                        )}
-                                    </div>
-                                  </td>
-
-                                  <td className="px-6 py-4 text-right align-top">
-                                    <div className="flex flex-col items-end gap-1">
-                                      <span className="text-slate-200 font-bold text-sm bg-slate-800/50 px-2 py-1 rounded border border-slate-700/50">
-                                        {vig.horario}
-                                      </span>
-                                      {vig.refeicao &&
-                                        vig.refeicao !== "Sem Ref." && (
-                                          <span className="text-slate-400 text-xs font-mono">
-                                            Ref: {vig.refeicao}
-                                          </span>
-                                        )}
-                                    </div>
+                                <tr>
+                                  <td colSpan={35} className="px-4 py-8 text-center text-slate-500 italic">
+                                    Nenhum vigilante encontrado neste grupo.
                                   </td>
                                 </tr>
                               );
-                            })}
+                            }
+
+                            return [...list]
+                              .sort((a, b) => {
+                                try {
+                                  // safety check
+                                  if (!a || !b) return 0;
+
+                                  // 1. Sort by Sector (Name of Post)
+                                  const sA = String(a.setor || "").toUpperCase();
+                                  const sB = String(b.setor || "").toUpperCase();
+                                  if (sA !== sB) return sA.localeCompare(sB);
+
+                                  // 2. Sort by Horario (Time)
+                                  const hA = String(a.horario || "").replace("h", ":");
+                                  const hB = String(b.horario || "").replace("h", ":");
+                                  if (hA !== hB) return hA.localeCompare(hB);
+
+                                  // 3. Sort by Name (Tie-breaker)
+                                  return String(a.nome || "").localeCompare(String(b.nome || ""));
+                                } catch (e) {
+                                  console.error("Sorting error in EscalaView:", e, a, b);
+                                  return 0;
+                                }
+                              })
+                              .map((vig) => {
+                                const isAfastado = vig.campus === "AFASTADOS";
+                                // Determine days
+                                const numDaysRaw = getDaysInMonth(month || 202601);
+                                const numDays = (isNaN(numDaysRaw) || numDaysRaw < 28) ? 30 : numDaysRaw;
+                                const daysArray = Array.from({ length: numDays }, (_, i) => i + 1);
+
+                                if (!vig || !vig.mat) {
+                                  console.warn("Vigilante missing MAT or is null in EscalaView inside group:", campus, vig);
+                                  return null;
+                                }
+
+                                return (
+                                  <tr
+                                    key={vig.mat}
+                                    className={`${isAfastado ? "bg-amber-900/10" : "even:bg-slate-800/30 odd:bg-transparent hover:bg-slate-700/30"} border-b border-slate-700/50 text-xs print:bg-white print:border-black transition-colors group`}
+                                  >
+                                    {/* NAME COLUMN */}
+                                    <td className="px-4 py-2 align-middle sticky left-0 z-10 bg-inherit backdrop-blur-sm group-hover:bg-slate-800 transition-colors border-r border-slate-700/50">
+                                      <div className="flex flex-col">
+                                        {(() => {
+                                          const preset = safePresets.find(
+                                            (p) =>
+                                              (p.sector || "").toLowerCase() === (vig.setor || "").toLowerCase() &&
+                                              (p.campus || "").toLowerCase() === (vig.campus || "").toLowerCase(),
+                                          );
+                                          const code = preset?.code;
+                                          return (
+                                            <>
+                                              <span className="font-bold text-slate-200 group-hover:text-white transition-colors truncate max-w-[180px]" title={vig.setor}>
+                                                {code ? code : vig.setor}
+                                              </span>
+                                              <span className="text-[10px] text-slate-500 uppercase tracking-wide font-medium mt-0.5 truncate max-w-[180px]">
+                                                {vig.nome}
+                                              </span>
+                                            </>
+                                          );
+                                        })()}
+                                      </div>
+                                      <div className="text-[9px] text-slate-600 font-mono mt-0.5">{vig.mat}</div>
+                                    </td>
+
+                                    {/* TEAM COLUMN */}
+                                    <td className="px-2 py-2 text-center align-middle border-r border-slate-700/50">
+                                      <Badge team={vig.eq} />
+                                    </td>
+
+                                    {/* GRID DAYS COLUMNS */}
+                                    {daysArray.map(d => {
+                                      const isWork = (vig.dias || []).includes(d);
+                                      const isVacation = vig.vacation && d >= vig.vacation.start && d <= vig.vacation.end;
+                                      const isFalta = (vig.faltas || []).includes(d);
+                                      const isPartial = (vig.saidasAntecipadas || []).includes(d);
+                                      const isGeneratedOff = (vig.folgasGeradas || []).includes(d);
+
+                                      let cellClass = "bg-transparent"; // Default empty
+                                      let content = "";
+
+                                      if (isVacation) {
+                                        cellClass = "bg-amber-500/20 border-b-2 border-amber-500";
+                                        content = "F";
+                                      } else if (isFalta) {
+                                        cellClass = "bg-red-600/20 border-b-2 border-red-600";
+                                        content = "X";
+                                      } else if (isWork) {
+                                        // Check conflicts?
+                                        if (isPartial) {
+                                          cellClass = "bg-orange-500/30 border-b-2 border-orange-500";
+                                          content = "P";
+                                        } else {
+                                          cellClass = "bg-blue-600/30 border-b-2 border-blue-500";
+                                          content = "•";
+                                        }
+                                      } else if (isGeneratedOff) {
+                                        cellClass = "bg-slate-700/30"; // Just visual dimmer
+                                      }
+
+                                      return (
+                                        <td key={d} className={`p-0 text-center align-middle border-r border-slate-800/50 h-10 w-8 min-w-[30px] relative ${cellClass}`}>
+                                          <span className={`text-[10px] font-bold ${isVacation ? 'text-amber-500' : isFalta ? 'text-red-500' : isWork ? 'text-blue-400' : 'text-slate-700'}`}>
+                                            {content}
+                                          </span>
+                                        </td>
+                                      )
+                                    })}
+
+                                    {/* HORARIO COLUMN */}
+                                    <td className="px-4 py-2 text-right align-middle sticky right-0 bg-inherit z-10 shadow-[-10px_0_20px_rgba(0,0,0,0.5)] print:shadow-none border-l border-slate-700/50">
+                                      <div className="flex flex-col items-end gap-0.5">
+                                        <span className="text-slate-300 font-bold text-xs">
+                                          {vig.horario}
+                                        </span>
+                                        {vig.refeicao && vig.refeicao !== "Sem Ref." && (
+                                          <span className="text-slate-500 text-[10px] font-mono whitespace-nowrap">
+                                            R: {vig.refeicao}
+                                          </span>
+                                        )}
+
+                                        {/* Action Buttons for Afastados maintained for operations */}
+                                        {isAfastado && (
+                                          <button
+                                            onClick={() => handleReturnFromAway(vig)}
+                                            className="mt-1 flex items-center gap-1 bg-slate-700 hover:bg-blue-600 text-white text-[9px] px-2 py-0.5 rounded transition-all shadow-sm"
+                                          >
+                                            <Icons.History className="w-2.5 h-2.5" /> Retornar
+                                          </button>
+                                        )}
+                                      </div>
+                                    </td>
+                                  </tr>
+                                );
+                              });
+                          })()}
                         </tbody>
                       </table>
                     </div>

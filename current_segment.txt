@@ -1,0 +1,200 @@
+            if (cleanString(p.team) === "ECO1") return "ECO1";
+            if (cleanString(p.team) === "ECO2") return "ECO2";
+            return cleanString(p.team);
+          });
+
+        // Add variations for ECO teams to ensure matching works
+        if (visibleTeams.includes("ECO1")) visibleTeams.push("ECO 1");
+        if (visibleTeams.includes("ECO2")) visibleTeams.push("ECO 2");
+      } else {
+        // 2. Legacy/Heuristic Logic
+        const myTurno = currentUserVig?.horario || "";
+        visibleTeams = getVisibleTeams(myEq, isMaster, myTurno);
+
+        // ROBUSTNESS: Ensure variations of ECO are present for Master/Legacy too
+        if (visibleTeams.includes("ECO1")) visibleTeams.push("ECO 1");
+        if (visibleTeams.includes("ECO2")) visibleTeams.push("ECO 2");
+      }
+
+      // If we have no visible teams (and not Antonio), maybe we shouldn't show anything?
+      // Or default to 'myEq'. Leaving as is for others, but critical for Antonio.
+
+      filtered = filtered.filter((v) => {
+        // 1. Team Visibility
+        if (!visibleTeams.includes(cleanString(v.eq))) return false;
+
+        // 2. Strict Sector Visibility (Expediente Logic)
+        // If the sector implies a hidden team (e.g. EXP_2 -> ECO 2), hide it.
+        // FIX: Case-insensitive match for robust preset lookup
+        const p = presets.find(
+          (pre) => cleanString(pre.sector) === cleanString(v.setor),
+        );
+
+        // HEURISTIC: Check Start Time
+        // If starts >= 09:00, it's likely Afternoon/Night (ECO 2)
+        // If starts < 09:00, it's Morning (ECO 1)
+        let startHour = 0;
+
+        // FIX: Check v.horario FIRST (Instance time is source of truth)
+        let foundTime = false;
+        if (v.horario) {
+          const match = v.horario.match(/(\d{1,2})[h:]/i); // Matches "09h" or "09:"
+          if (match) {
+            startHour = parseInt(match[1], 10);
+            foundTime = true;
+          }
+        }
+
+        if (!foundTime && p && p.timeStart) {
+          startHour = parseInt(p.timeStart.split(":")[0], 10);
+          foundTime = true;
+        } else if (!foundTime && p && p.horario) {
+          const match = p.horario.match(/(\d{1,2})[h:]/i);
+          if (match) startHour = parseInt(match[1], 10);
+        }
+
+        const isLateStart = startHour >= 9; // 09:00 or later implies ECO 2
+
+        // ROBUST FIX: Explicit Rule for Day Fiscals
+        // Instead of guessing team names ("C", "D"), checks CAPABILITY.
+        // If I see ECO1 but NOT ECO2, I am strictly Day Shift.
+        const seesEco1 =
+          visibleTeams.includes("ECO1") ||
+          visibleTeams.includes("ECO 1") ||
+          visibleTeams.includes("C") ||
+          visibleTeams.includes("D");
+        const seesEco2 =
+          visibleTeams.includes("ECO2") ||
+          visibleTeams.includes("ECO 2") ||
+          visibleTeams.includes("A") ||
+          visibleTeams.includes("B");
+
+        const isStrictlyDayFiscal = seesEco1 && !seesEco2;
+
+        // 1. Get the preset associated with this vigilante's sector
+        // 1. Get the preset(s) associated with this sector
+        // IMPROVED: Handle duplicate names (e.g. Same name for Morning/Night)
+        const candidates = presets.filter(
+          (p) =>
+            p.name === v.setor ||
+            (p.sector === v.setor && p.campus === v.campus),
+        );
+
+        let relevantPreset = candidates[0];
+
+        // Disambiguate if multiple presets exist (e.g. "Charlie 12" Day vs Night)
+        if (candidates.length > 1 && foundTime) {
+          const isSlotLate = startHour >= 9; // 09:00+ is likely ECO 2/Night
+
+          // Try to find a candidate that matches the time block
+          const bestMatch = candidates.find((c) => {
+            let cStart = -1;
+            if (c.timeStart) {
+              cStart = parseInt(c.timeStart.split(":")[0], 10);
+            } else if (c.horario) {
+              const m = c.horario.match(/(\d{1,2})[h:]/i);
+              if (m) cStart = parseInt(m[1], 10);
+            }
+
+            if (cStart === -1) return false; // Can't judge
+
+            const isCandidateLate = cStart >= 9;
+            return isCandidateLate === isSlotLate;
+          });
+
+          if (bestMatch) relevantPreset = bestMatch;
+        }
+
+        // 2. Determine Shift Type
+        let shiftType = relevantPreset?.type || "12x36_DIURNO";
+
+        // SPECIAL RULE: "EXPEDIENTE" (Generic) defaults to ECO_1 (Day) visibility
+        // unless explicitly set to ECO_2.
+        if (
+          (shiftType as string) === "EXP_1" ||
+          shiftType === "EXP_ADM" ||
+          shiftType === "EXPEDIENTE"
+        ) {
+          shiftType = "ECO_1";
+        }
+
+        if ((shiftType as string) === "EXP_2") {
+          shiftType = "ECO_2";
+        }
+
+        // 3. Apply Visibility Rules
+        // Rule A: ECO 2 (Night/Afternoon) -> HIDDEN from Strict Day Fiscal
+        // This is the new way to hide "Charlie 14 (09:45)": User sets it to ECO 2.
+        if (shiftType === "ECO_2") {
+          if (isStrictlyDayFiscal) {
+            return false;
+          }
+        }
+
+        // Rule B: ECO 1 (Morning) -> HIDDEN from Strict Night Fiscal
+        // (Assuming Strict Night Fiscal sees only Night stuff + ECO 2)
+        // If I am strictly Night Fiscal (A/B), I should NOT see ECO 1?
+        // Wait, definition of `isStrictlyDayFiscal` implies Day only.
+        // Let's rely on `visibleTeams`.
+        // If my visibleTeams has "ECO 1", I see it. If not, I don't.
+        // But `visibleTeams` logic for generic teams might be tricky.
+        // Let's stick to the REQUESTED rule:
+        // "ECO 2" must be selectable and hidden from Day.
+        // The rest should follow standard logic.
+
+        // Fallback or explicit check for legacy heuristic
+        // If we processed it above, we trust `shiftType`.
+
+        if (isStrictlyDayFiscal && isLateStart && shiftType !== "ECO_1") {
+          // Safety net: If it looks like late start (09:45) AND wasn't forced to ECO 1, hide it.
+          // But if user sets it to ECO 1 explicitly, we SHOW it even if late.
+          if (relevantPreset?.type === "ECO_1") {
+            // Explicit override: SHOW IT
+          } else {
+            return false;
+          }
+        }
+
+        if (p) {
+          const isExp2 =
+            (p.type as string) === "EXP_2" ||
+            p.type === "ECO_2" || // Treat ECO 2 as Exp 2 for this check
+            (p.name && p.name.toUpperCase().includes("EXPEDIENTE 2")) ||
+            (p.name && p.name.includes("Expediente 2"));
+
+          const isExp1 =
+            (p.type as string) === "EXP_1" ||
+            p.type === "ECO_1" || // Treat ECO 1 as Exp 1 for this check
+            (p.name && p.name.toUpperCase().includes("EXPEDIENTE 1")) ||
+            (!isLateStart && startHour > 0);
+
+          if (isExp2) {
+            // EXP_2 or Late Start requires ECO2 visibility
+            if (
+              !visibleTeams.includes("ECO2") &&
+              !visibleTeams.includes("ECO 2")
+            )
+              return false;
+          }
+          if (isExp1) {
+            // EXP_1 or Early Start requires ECO1 visibility
+            if (
+              !visibleTeams.includes("ECO1") &&
+              !visibleTeams.includes("ECO 1") &&
+              !isLateStart // Don't hide if it was caught by isLateStart logic (double safety)
+            )
+              return false;
+          }
+          // Filtro visual do dropdown (Aplica-se DEPOIS da restrição de segurança)
+          // FEATURE: Global Search for Master (Bypass team filter if searching)
+          const bypassTeamFilter = isMaster && lancadorSearch.trim().length > 0;
+
+          const lancadorList = useMemo(() => {
+            // --- DIAGNOSTICS: LANÇADOR LIST ---
+            const isLMaster = user?.perfil === "MASTER";
+            console.log("DIAGNOSTICO: lancadorList iniciada. Data count:", data.length, "isMaster:", isLMaster, "SelectedTeam:", selectedLancadorTeam);
+
+            let filtered = data.filter((v) => v.campus !== "AFASTADOS");
+            console.log("DIAGNOSTICO: Após remover AFASTADOS:", filtered.length);
+
+            // Regra Fiscal: Vê apenas sua própria equipe no Lançador

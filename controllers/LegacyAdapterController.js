@@ -7,6 +7,14 @@ const SUPABASE_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVpcWVscWd1cm1jem1yc2RlaXBuIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODQzMDI1NiwiZXhwIjoyMDg0MDA2MjU2fQ.dq58zyZmqObEZfTUi_Z4xTjBPaX0JYTxWq8-Y_i7aZY";
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
+// --- HELPERS ---
+const withTimeout = (promise, ms = 30000) => {
+  const timeout = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error("Database Timeout")), ms)
+  );
+  return Promise.race([promise, timeout]);
+};
+
 export const LegacyAdapterController = {
   /**
    * GET /api/vigilantes
@@ -16,10 +24,10 @@ export const LegacyAdapterController = {
   async getVigilantes(req, res) {
     try {
       // 1. Buscar Vigilantes (Apenas dados pessoais)
-      const { data: vigs, error: errV } = await supabase
+      const { data: vigs, error: errV } = await withTimeout(supabase
         .from("vigilantes")
-        .select("*");
-
+        .select("id, matricula, nome, equipe")
+        .order("nome"));
       if (errV) throw errV;
 
       const { data: setoresData } = await supabase.from("setores").select("*");
@@ -252,33 +260,48 @@ export const LegacyAdapterController = {
       const monthNum = parseInt(month.substring(4, 6));
 
       const startOfMonth = `${year}-${String(monthNum).padStart(2, "0")}-01`;
-      const endOfMonth = `${year}-${String(monthNum).padStart(2, "0")}-31`;
+      const lastDay = new Date(year, monthNum, 0).getDate();
+      const endOfMonth = `${year}-${String(monthNum).padStart(2, "0")}-${lastDay}`;
 
-      // Fetch Data
-      const { data: vigs } = await supabase.from("vigilantes").select("*");
-      const { data: alocs } = await supabase
-        .from("alocacoes")
-        .select("*")
-        .gte("data", startOfMonth)
-        .lte("data", endOfMonth);
-      const { data: setores } = await supabase.from("setores").select("*");
-      const sectorMap = new Map((setores || []).map((s) => [s.id, s]));
+      console.log(`[BACKEND] getEscala ${month}`);
+
+      // Performance: Fetch only necessary columns
+      const [vigsRes, alocsRes, setoresRes] = await withTimeout(Promise.all([
+        supabase.from("vigilantes").select("id, matricula, nome, equipe").order("nome"),
+        supabase.from("alocacoes").select("vigilante_id, data, tipo, setor_id").gte("data", startOfMonth).lte("data", endOfMonth),
+        supabase.from("setores").select("id, nome, campus")
+      ]));
+
+      if (vigsRes.error) throw vigsRes.error;
+
+      const vigs = vigsRes.data || [];
+      const alocs = alocsRes.data || [];
+      const setores = setoresRes.data || [];
+
+      const sectorMap = new Map(setores.map((s) => [s.id, s]));
+
+      // Pre-group allocations by vigilante for faster lookup
+      const alocsByVig = new Map();
+      alocs.forEach(a => {
+        if (!alocsByVig.has(a.vigilante_id)) alocsByVig.set(a.vigilante_id, []);
+        alocsByVig.get(a.vigilante_id).push(a);
+      });
 
       const legacyList = vigs.map((v) => {
-        const myAlocs = (alocs || []).filter((a) => a.vigilante_id === v.id);
-        // Infer
-        let team =
-          alocs.find((a) => a.vigilante_id === v.id && a.tipo?.length < 5)
-            ?.tipo || "A DEFINIR";
-        let secId = alocs.find(
-          (a) => a.vigilante_id === v.id && a.setor_id,
-        )?.setor_id;
+        const myAlocs = alocsByVig.get(v.id) || [];
 
-        let sNome = "AGUARDANDO",
-          cNome = "SEM POSTO";
-        if (secId && sectorMap.has(secId)) {
-          sNome = sectorMap.get(secId).nome;
-          cNome = sectorMap.get(secId).campus;
+        // 1. Infer Team: Check if any allocation in this month has a team type
+        let team = myAlocs.find((a) => a.tipo && a.tipo.length < 10)?.tipo;
+        if (!team) team = v.equipe || "A DEFINIR";
+
+        // 2. Infer Sector/Campus
+        let sNome = "AGUARDANDO", cNome = "SEM POSTO";
+        const primaryAloc = myAlocs.find(a => a.setor_id);
+
+        if (primaryAloc && sectorMap.has(primaryAloc.setor_id)) {
+          const s = sectorMap.get(primaryAloc.setor_id);
+          sNome = s.nome;
+          cNome = s.campus;
         }
 
         return {
@@ -287,15 +310,18 @@ export const LegacyAdapterController = {
           eq: team,
           campus: cNome,
           setor: sNome,
-          dias: myAlocs
-            .map((a) => parseInt(a.data.split("-")[2]))
-            .sort((x, y) => x - y),
+          horario: "07:00 às 19:00",
+          refeicao: "1h",
+          manualLock: false,
+          coberturas: [],
+          dias: myAlocs.map((a) => parseInt(a.data.split("-")[2])).sort((x, y) => x - y),
         };
       });
 
       res.json({ dados: legacyList });
-    } catch {
-      res.status(500).json({ error: "Erro getEscala" });
+    } catch (err) {
+      console.error("[BACKEND] getEscala Error:", err.message);
+      res.status(500).json({ error: err.message });
     }
   },
 

@@ -132,6 +132,16 @@ export interface DepartmentPreset {
   timeEnd: string;
   mealStart?: string;
   mealEnd?: string;
+  mealDuration?: number; // 60 or 75 minutes
   horario?: string;
   refeicao?: string;
+}
+
+export interface IntervalConflict {
+  time: string; // "12:00"
+  sector: string;
+  campus: string;
+  uncovered: boolean;
+  vigilantes: string[]; // List of names
+  coveredBy?: string; // Name of coverage
 }
