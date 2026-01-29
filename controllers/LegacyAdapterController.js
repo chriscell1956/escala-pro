@@ -107,7 +107,10 @@ export const LegacyAdapterController = {
         });
 
         // FALLBACK EQUIPE (ERS FIX):
-        if (inferredTeam === "A DEFINIR" && v.equipe) {
+        // AGORA (V3): Prioridade para a equipe do Banco de Dados (Manual),
+        // pois o usuário pode ter mudado de equipe recentemente.
+        // A inferência serve apenas se o banco estiver vazio/nulo.
+        if (v.equipe && v.equipe !== "A DEFINIR") {
           inferredTeam = v.equipe;
         }
 
@@ -290,9 +293,14 @@ export const LegacyAdapterController = {
       const legacyList = vigs.map((v) => {
         const myAlocs = alocsByVig.get(v.id) || [];
 
-        // 1. Infer Team: Check if any allocation in this month has a team type
-        let team = myAlocs.find((a) => a.tipo && a.tipo.length < 10)?.tipo;
-        if (!team) team = v.equipe || "A DEFINIR";
+        // 1. Infer Team: 
+        // FIX (V3): Prioritize Manual DB Team (v.equipe) over History (Allocations)
+        let team = v.equipe;
+
+        if (!team || team === "A DEFINIR") {
+          // Fallback: Infer from allocations if DB is empty/default
+          team = myAlocs.find((a) => a.tipo && a.tipo.length < 10)?.tipo || "A DEFINIR";
+        }
 
         // 2. Infer Sector/Campus
         let sNome = "AGUARDANDO", cNome = "SEM POSTO";
@@ -378,14 +386,9 @@ export const LegacyAdapterController = {
         else console.log("✅ Profiles synchronized successfully.");
       }
 
-      // --- FASE 3: MAPEAR IDs FINAIS ---
-      const { data: refreshedVigs } = await supabase
-        .from("vigilantes")
-        .select("id, matricula");
-      const vigMap = new Map();
-      (refreshedVigs || []).forEach((v) =>
-        vigMap.set(String(v.matricula).trim(), v.id),
-      );
+      // --- FASE 3: MAPEAR IDs FINAIS (AGORA USANDO MATRÍCULA COMO CHAVE) ---
+      // Como o novo schema (V3) usa vigilante_id TEXT (FK para matricula), 
+      // não precisamos buscar o ID interno (UUID). Usamos direto a matrícula.
 
       const { data: allSectors } = await supabase
         .from("setores")
@@ -398,16 +401,15 @@ export const LegacyAdapterController = {
         ),
       );
 
-      const allVigIds = [];
+      const allVigMatriculas = [];
       const newAllocations = [];
 
       // --- FASE 3: PREPARAR ALOCAÇÕES ---
       for (const v of vigilantes) {
         const cleanMat = String(v.mat || "").trim();
-        const vigId = vigMap.get(cleanMat);
-        if (!vigId) continue;
+        if (!cleanMat) continue;
 
-        allVigIds.push(vigId);
+        allVigMatriculas.push(cleanMat);
         const sectorId =
           sectorMap.get(
             `${String(v.setor).trim()}|${String(v.campus).trim()}`,
@@ -416,7 +418,7 @@ export const LegacyAdapterController = {
         if (Array.isArray(v.dias) && v.dias.length > 0) {
           v.dias.forEach((day) => {
             newAllocations.push({
-              vigilante_id: vigId,
+              vigilante_id: cleanMat, // NOVA LÓGICA: USA MATRÍCULA
               data: `${dateFormat}-${String(day).padStart(2, "0")}`,
               setor_id: sectorId,
               tipo: v.eq || "A",
@@ -426,12 +428,12 @@ export const LegacyAdapterController = {
       }
 
       // --- FASE 4: SALVAMENTO MASSIVO ALOCAÇÕES ---
-      // A) Limpeza em Bloco
-      if (allVigIds.length > 0) {
+      // A) Limpeza em Bloco (Usando Matrícula)
+      if (allVigMatriculas.length > 0) {
         await supabase
           .from("alocacoes")
           .delete()
-          .in("vigilante_id", allVigIds)
+          .in("vigilante_id", allVigMatriculas)
           .gte("data", `${dateFormat}-01`)
           .lte("data", `${dateFormat}-31`);
       }
@@ -448,7 +450,7 @@ export const LegacyAdapterController = {
         }
       }
 
-      res.json({ success: true, message: "Sincronização Turbo concluída." });
+      res.json({ success: true, message: "Sincronização Turbo (V3 Compat) concluída." });
     } catch (e) {
       console.error("Batch Save Error:", e);
       res.status(500).json({ error: "Falha no processamento turbinado." });

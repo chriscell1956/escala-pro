@@ -629,7 +629,7 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
 
           {expandedSectors.has("A DEFINIR") && (
             <div className="p-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 bg-slate-900/30">
-              {console.log("RENDERING ALOCACAO: Filtered Count", filteredVigilantes.length)}
+
               {filteredVigilantes
                 .filter(
                   (v) =>

@@ -300,7 +300,7 @@ function AppContent() {
 
   // New Vigilante Modal
   const [isNewVigModalOpen, setIsNewVigModalOpen] = useState(false);
-  const [newVigForm, setNewVigForm] = useState({ nome: "", mat: "", eq: "A" });
+  const [newVigForm, setNewVigForm] = useState({ nome: "", mat: "", eq: "A", setor: "", campus: "" });
 
   // Daily View Filters
   const [filterDay, setFilterDay] = useState<string>("");
@@ -954,7 +954,7 @@ function AppContent() {
     // --- DB MAINTENANCE CHECK ---
     if (fetchedData === null) {
       setDbStatus(prev => ({ ...prev, online: false, isMaintenance: true, message: "Banco de Dados em Manutenção" }));
-      showToast("Banco de Dados em Manutenção (Tentando reconectar...)", "warning");
+      showToast("Banco de Dados em Manutenção (Tentando reconectar...)", "error");
     } else {
       setDbStatus(prev => ({ ...prev, online: true, isMaintenance: false, message: "Sistema Online" }));
 
@@ -1410,16 +1410,27 @@ function AppContent() {
   const handleGlobalVigilanteUpdate = async (updatedVig: Vigilante) => {
     // Correctly compute new state based on current data
     const newData = data.map((v) =>
-      v.mat === updatedVig.mat ? updatedVig : v,
+      v.mat === updatedVig.mat
+        ? { ...updatedVig, manualLock: false, status: "PENDENTE" } // RESET STATUS to prevent incorrect progress count
+        : v,
     );
 
     // Update local state immediately for responsiveness
     setData(newData);
 
-    // FORCE SAVE to backend to prevent auto-refresh overwrite.
-    // We use forcePublish=true because this is an administrative "Repair" action
-    // that should be effective immediately, even in future months/drafts.
+    // 1. SAVE TO ESCALA CURRENT MONTH (JSON)
     await saveData(newData, true);
+
+    // 2. SAVE TO MASTER DATABASE (Persistent Table)
+    // This ensures future months and the "Vigilantes" table reflect the team change
+    const masterSuccess = await api.updateVigilanteMaster(updatedVig.mat, {
+      nome: updatedVig.nome,
+      eq: updatedVig.eq,
+    });
+
+    if (!masterSuccess) {
+      showToast("Aviso: Erro ao atualizar o banco de dados mestre. A alteração pode não persistir.", "error");
+    }
 
     registerLog("EDICAO", `Alteração Global de Vigilante (Equipe/Setor)`, updatedVig.nome);
 
@@ -1653,7 +1664,7 @@ function AppContent() {
     });
 
     // 4. Reordenação para Fiscal
-    if (user?.role === "FISCAL" && currentUserVig) {
+    if (user?.perfil === "FISCAL" && currentUserVig) {
       const myEq = cleanString(currentUserVig.eq);
       const teamOrder = [myEq, "E1", "E2"];
 
@@ -2315,7 +2326,7 @@ Deseja RECUPERAR este vigilante movendo-o para 'SEM POSTO' para que você possa 
 
         // Reset Form
         setIsNewVigModalOpen(false);
-        setNewVigForm({ nome: "", mat: "", eq: "A" });
+        setNewVigForm({ nome: "", mat: "", eq: "A", setor: "", campus: "" });
       }
       return;
     }
@@ -2409,7 +2420,7 @@ Deseja RECUPERAR este vigilante movendo-o para 'SEM POSTO' para que você possa 
     }
 
     setIsNewVigModalOpen(false);
-    setNewVigForm({ nome: "", mat: "", eq: "A" });
+    setNewVigForm({ nome: "", mat: "", eq: "A", setor: "", campus: "" });
     setEditingVig(newVig);
     if (window.innerWidth < 768) setShowMobileEditor(true);
   };
@@ -3005,6 +3016,13 @@ Deseja continuar?`,
           updated.vacation,
         );
         updated.folgasGeradas = []; // Limpa folgas ao trocar de equipe
+
+        // FIX: Ensure Master DB is updated immediately for Team Change
+        // This is critical because the backend prioritizes DB value over history now.
+        api.updateVigilanteMaster(updated).then(success => {
+          if (success) console.log("Master DB updated with new Team:", updated.eq);
+          else console.error("Failed to update Master DB for team change");
+        });
       }
 
       // Aplica o preset do setor, se existir (AGORA DINÂMICO via DB)
@@ -3101,8 +3119,14 @@ Deseja continuar?`,
           updated.dias = calculateDaysForTeam(updated.eq, month);
         }
       }
-      updated.manualLock = true;
-      updated.status = "MANUAL_OK";
+      // FIX: Only lock if allocated or on vacation
+      // User request: Changing team should not count as "Done". Only allocation does.
+      const isAllocated =
+        (updated.campus && updated.campus !== "A DEFINIR" && updated.campus !== "SEM POSTO" && updated.campus !== "AFASTADOS" && updated.setor !== "A DEFINIR" && updated.setor !== "AGUARDANDO" && updated.setor !== "NÃO DEFINIDO") ||
+        !!updated.vacation;
+
+      updated.manualLock = isAllocated;
+      updated.status = isAllocated ? "MANUAL_OK" : "PENDENTE";
       updated.setor = updated.setor.toUpperCase();
 
       // FEATURE: Atalho Inteligente para Férias
@@ -3178,8 +3202,14 @@ Deseja continuar?`,
     const newData = data.map((v) => {
       if (v.mat === mat) {
         const updated = { ...v, ...changes };
-        if (!updated.manualLock) updated.manualLock = true;
-        updated.status = "MANUAL_OK"; // Ensure status reflects manual edit
+
+        // FIX: Re-evaluate allocation status
+        const isAllocated =
+          (updated.campus && updated.campus !== "A DEFINIR" && updated.campus !== "SEM POSTO" && updated.campus !== "AFASTADOS" && updated.setor !== "A DEFINIR" && updated.setor !== "AGUARDANDO" && updated.setor !== "NÃO DEFINIDO") ||
+          !!updated.vacation;
+
+        updated.manualLock = isAllocated;
+        updated.status = isAllocated ? "MANUAL_OK" : "PENDENTE";
         return updated;
       }
       return v;
@@ -3187,6 +3217,16 @@ Deseja continuar?`,
 
     setData(newData);
     saveData(newData); // Persist immediately
+
+    // FIX: Ensure Master DB is updated if critical fields change
+    if (changes.eq || changes.nome || changes.mat || changes.cpf) { // Add other critical fields if needed
+      const updatedVig = newData.find(v => v.mat === mat);
+      if (updatedVig) {
+        api.updateVigilanteMaster(updatedVig).then(success => {
+          if (success) console.log("Master DB updated (handleUpdateVigilante):", updatedVig.nome);
+        });
+      }
+    }
 
     if (targetVig) {
       if (changes.campus) {
@@ -3301,8 +3341,10 @@ Deseja continuar?`,
       target.dias.sort((a, b) => a - b);
       target.folgasGeradas = target.folgasGeradas.filter((d) => d !== day);
     }
-    target.manualLock = true;
-    target.status = "MANUAL_OK";
+    // FIX: Only lock if allocated
+    const isAllocated = (target.campus && target.campus !== "A DEFINIR" && target.campus !== "SEM POSTO" && target.campus !== "AFASTADOS" && target.setor !== "A DEFINIR" && target.setor !== "AGUARDANDO" && target.setor !== "NÃO DEFINIDO") || !!target.vacation;
+    target.manualLock = isAllocated;
+    target.status = isAllocated ? "MANUAL_OK" : "PENDENTE";
     newData[idx] = target;
     saveData(newData);
     registerLog("EDICAO", `Alteração de dia na escala: ${day}`, target.nome);
@@ -3327,7 +3369,10 @@ Deseja continuar?`,
       target.dias = target.dias.filter((d) => d !== day);
     }
 
-    target.manualLock = true;
+    // FIX: Only lock if allocated
+    const isAllocated = (target.campus && target.campus !== "A DEFINIR" && target.campus !== "SEM POSTO" && target.campus !== "AFASTADOS" && target.setor !== "A DEFINIR" && target.setor !== "AGUARDANDO" && target.setor !== "NÃO DEFINIDO") || !!target.vacation;
+    target.manualLock = isAllocated;
+    target.status = isAllocated ? "MANUAL_OK" : "PENDENTE";
     newData[idx] = target;
     saveData(newData);
     registerLog("EDICAO", `Alteração de FALTA dia: ${day}`, target.nome);
@@ -3359,7 +3404,10 @@ Deseja continuar?`,
       }
     }
 
-    target.manualLock = true;
+    // FIX: Only lock if allocated
+    const isAllocated = (target.campus && target.campus !== "A DEFINIR" && target.campus !== "SEM POSTO" && target.campus !== "AFASTADOS" && target.setor !== "A DEFINIR" && target.setor !== "AGUARDANDO" && target.setor !== "NÃO DEFINIDO") || !!target.vacation;
+    target.manualLock = isAllocated;
+    target.status = isAllocated ? "MANUAL_OK" : "PENDENTE";
     newData[idx] = target;
     saveData(newData);
     registerLog("EDICAO", `Marcou SAÍDA PARCIAL dia: ${day}`, target.nome);
@@ -3411,7 +3459,9 @@ Deseja continuar?`,
         target.dias = (target.dias || []).filter((d) => d < s || d > e);
       }
 
-      target.manualLock = true;
+      // FIX: Only lock if allocated
+      const isAllocated = (target.campus && target.campus !== "A DEFINIR" && target.campus !== "SEM POSTO" && target.campus !== "AFASTADOS" && target.setor !== "A DEFINIR" && target.setor !== "AGUARDANDO" && target.setor !== "NÃO DEFINIDO") || !!target.vacation;
+      target.manualLock = isAllocated;
       newData[idx] = target;
       saveData(newData);
       if (editingVig && editingVig.mat === vig.mat) {
@@ -4070,30 +4120,31 @@ Deseja continuar?`,
 
       <main className="flex-1 overflow-hidden relative print:overflow-visible print:h-auto">
         {view === "escala" && (
-          <EscalaView
-            groupedData={groupedData}
-            conflicts={conflicts}
-            user={user}
-            isUser={isUser}
-            isFiscal={!!isFiscal}
-            isMaster={!!isMaster}
-            currentUserVig={currentUserVig || undefined}
-            currentLabel={currentLabel}
-            searchTerm={searchTerm}
-            setSearchTerm={setSearchTerm}
-            filterEq={filterEq}
-            setFilterEq={setFilterEq}
-            filterDay={filterDay}
-            filterDay={filterDay}
-            handleOpenCoverage={handleOpenCoverage}
-            handleReturnFromAway={handleReturnFromAway}
-            handleRemoveCoverage={handleRemoveCoverage}
-            visibleTeams={visibleTeamsForFilter}
-            expandedSectors={expandedSectors}
-            toggleSectorCollapse={toggleSectorExpansion}
-            month={month}
-            presets={presets} // Pass presets for Code lookup
-          />
+          <ErrorBoundary>
+            <EscalaView
+              groupedData={groupedData}
+              conflicts={conflicts}
+              user={user}
+              isUser={isUser}
+              isFiscal={!!isFiscal}
+              isMaster={!!isMaster}
+              currentUserVig={currentUserVig || undefined}
+              currentLabel={currentLabel}
+              searchTerm={searchTerm}
+              setSearchTerm={setSearchTerm}
+              filterEq={filterEq}
+              setFilterEq={setFilterEq}
+              filterDay={filterDay}
+              handleOpenCoverage={handleOpenCoverage}
+              handleReturnFromAway={handleReturnFromAway}
+              handleRemoveCoverage={handleRemoveCoverage}
+              visibleTeams={visibleTeamsForFilter}
+              expandedSectors={expandedSectors}
+              toggleSectorCollapse={toggleSectorExpansion}
+              month={month}
+              presets={presets} // Pass presets for Code lookup
+            />
+          </ErrorBoundary>
         )}
 
         {/* --- NOVO LANÇADOR (ALOCAÇÃO) --- */}

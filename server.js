@@ -255,6 +255,43 @@ router.post("/login", async (req, res) => {
 router.get("/escala/:month", LegacyAdapterController.getEscala);
 router.post("/escala/:month", LegacyAdapterController.saveEscala);
 
+// --- Vigilantes Routes (Master Persistence) ---
+router.put("/vigilantes/:mat", async (req, res) => {
+  try {
+    const { mat } = req.params;
+    const cleanMat = String(mat).trim(); // Fix whitespace mismatch
+    const updates = req.body;
+
+    console.log(`[BACKEND] Updating Vigilante: '${cleanMat}'`, updates);
+
+    // Only allow updating Allow-listed fields
+    const dbUpdates = {};
+    if (updates.nome) dbUpdates.nome = updates.nome;
+    if (updates.eq) dbUpdates.equipe = updates.eq; // Map 'eq' -> 'equipe'
+    if (updates.turno) dbUpdates.turno_padrao = updates.turno; // Example mapping if needed
+    // Add other fields as necessary from the schema
+
+    const { error, count } = await supabase
+      .from("vigilantes")
+      .update(dbUpdates, { count: "exact" }) // Request exact count
+      .eq("matricula", cleanMat);
+
+    if (error) throw error;
+
+    if (count === 0) {
+      console.warn(`[BACKEND] Warning: Vigilante '${cleanMat}' not found (0 updated).`);
+      return res.status(404).json({ error: "Vigilante não encontrado no banco mestre." });
+    }
+
+    console.log(`[BACKEND] Success: Updated ${count} rows.`);
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Update Vigilante Error:", err.message);
+    res.status(500).json({ error: "Erro ao atualizar vigilante" });
+  }
+});
+
 // --- Logs Routes ---
 router.get("/logs/:month", async (req, res) => {
   try {

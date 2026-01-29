@@ -1,5 +1,5 @@
 import React from "react";
-import { User, Conflict } from "../../types";
+import { User, Conflict, ViewMode } from "../../types";
 import { Button, Icons, UnoesteSecurityLogo } from "../ui";
 import { TEAM_OPTIONS } from "../../constants";
 
@@ -36,7 +36,7 @@ interface AppHeaderProps {
   handleSendToSupervision: () => void;
   handleAddNextYear: () => void;
   isSilentUpdating: boolean;
-  onNavigate?: (view: string) => void;
+  onNavigate?: (view: ViewMode) => void;
 }
 
 const AppHeaderComponent: React.FC<AppHeaderProps> = (props) => {

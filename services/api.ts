@@ -139,6 +139,20 @@ export const api = {
 
   // --- Escala (Data Persistence) ---
 
+  async updateVigilanteMaster(mat: string, updates: Partial<Vigilante>): Promise<boolean> {
+    try {
+      const res = await fetch(`${API_URL}/vigilantes/${mat}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      });
+      return res.ok;
+    } catch (e) {
+      console.error("API updateVigilanteMaster error:", e);
+      return false;
+    }
+  },
+
   async loadData(month: number, isDraft = false): Promise<Vigilante[] | null> {
     try {
       const url = `${API_URL}/escala/${month}${isDraft ? "?type=draft&" : "?"}t=${Date.now()}`;
