@@ -473,8 +473,10 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
     onUpdateVigilante(mat, {
       campus: preset.campus,
       setor: preset.sector,
+      setor_id: preset.db_id, // FIX: Save DB ID for Persistence
       horario: preset.horario,
       refeicao: preset.refeicao,
+      eq: preset.team, // Pass target team explicitely
     });
   };
 
@@ -788,15 +790,24 @@ export const AlocacaoView: React.FC<AlocacaoViewProps> = ({
                       // Quem está neste posto?
                       const allOccupants = vigilantes
                         .filter(
-                          (v) =>
-                            areCampusesEquivalent(v.campus, preset.campus) &&
-                            cleanString(v.setor) === cleanString(preset.sector),
+                          (v) => {
+                            // FIX: Precise Match via DB ID (solves "Visual Jump")
+                            if (v.setor_id && preset.db_id) {
+                              return v.setor_id === preset.db_id;
+                            }
+                            return areCampusesEquivalent(v.campus, preset.campus) &&
+                              cleanString(v.setor) === cleanString(preset.sector);
+                          }
                         )
                         .sort((a, b) => a.nome.localeCompare(b.nome));
 
                       // Prioritize occupants matching the preset's team
                       let availableOccupant = allOccupants.find((v) => {
                         if (displayedVigilantes.has(v.mat)) return false;
+
+                        // If we matched by ID, we don't need to check team (ID implies Team)
+                        if (v.setor_id && preset.db_id && v.setor_id === preset.db_id) return true;
+
                         if (!preset.team) return true;
 
                         // Check Team Match

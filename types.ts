@@ -25,6 +25,7 @@ export interface Vigilante {
   eq: Team;
   setor: string;
   campus: string;
+  setor_id?: number; // FIX: Robust Persistence
   horario: string;
   refeicao: string;
   vacation?: Vacation;

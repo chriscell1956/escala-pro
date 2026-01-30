@@ -270,7 +270,7 @@ export const LegacyAdapterController = {
 
       // Performance: Fetch only necessary columns
       const [vigsRes, alocsRes, setoresRes] = await withTimeout(Promise.all([
-        supabase.from("vigilantes").select("id, matricula, nome, equipe").order("nome"),
+        supabase.from("vigilantes").select("id, matricula, nome").order("nome"), // Removed 'equipe'
         supabase.from("alocacoes").select("vigilante_id, data, tipo, setor_id").gte("data", startOfMonth).lte("data", endOfMonth),
         supabase.from("setores").select("id, nome, campus")
       ]));
@@ -365,7 +365,6 @@ export const LegacyAdapterController = {
           const p = {
             matricula: cleanMat,
             nome: v.nome,
-            equipe: v.eq || "A",
             ativo: true,
           };
           if (existingId) p.id = existingId;
@@ -393,13 +392,16 @@ export const LegacyAdapterController = {
       const { data: allSectors } = await supabase
         .from("setores")
         .select("id, nome, campus");
-      const sectorMap = new Map();
-      allSectors.forEach((s) =>
-        sectorMap.set(
-          `${String(s.nome).trim()}|${String(s.campus).trim()}`,
-          s.id,
-        ),
-      );
+      const sectorMapByKey = new Map();
+      const sectorMapById = new Map();
+
+      allSectors.forEach((s) => {
+        sectorMapByKey.set(
+          `${String(s.nome).trim().toUpperCase()}|${String(s.campus).trim().toUpperCase()}`,
+          s,
+        );
+        sectorMapById.set(s.id, s);
+      });
 
       const allVigMatriculas = [];
       const newAllocations = [];
@@ -410,32 +412,74 @@ export const LegacyAdapterController = {
         if (!cleanMat) continue;
 
         allVigMatriculas.push(cleanMat);
-        const sectorId =
-          sectorMap.get(
-            `${String(v.setor).trim()}|${String(v.campus).trim()}`,
-          ) || null;
+
+        const lookupKey = `${String(v.setor).trim().toUpperCase()}|${String(v.campus).trim().toUpperCase()}`;
+
+        // FIX: Resolve Sector Object (Prioritize ID)
+        let resolvedSector = null;
+        if (v.setor_id) {
+          resolvedSector = sectorMapById.get(v.setor_id);
+        }
+        if (!resolvedSector) {
+          resolvedSector = sectorMapByKey.get(lookupKey);
+        }
+
+        // Determine final strings to save
+        // Use resolved DB values if available, otherwise trust frontend strings if valid
+        const finalSetor = resolvedSector ? resolvedSector.nome : v.setor;
+        const finalCampus = resolvedSector ? resolvedSector.campus : v.campus;
+
+        if (!resolvedSector && v.setor && v.setor !== "A DEFINIR" && v.setor !== "AGUARDANDO" && v.setor !== "NÃO DEFINIDO") {
+          console.warn(`[LegacyAdapter] Sector Lookup Failed for: ${lookupKey}. Saving raw strings.`);
+        }
 
         if (Array.isArray(v.dias) && v.dias.length > 0) {
+          const vigUuid = currentMap.get(cleanMat);
+          if (!vigUuid) {
+            console.warn(`[LegacyAdapter] Vigilante UUID not found for mat ${cleanMat}. Skipping allocations.`);
+            continue;
+          }
+
+          let setUuid = null;
+          // Tenta resolver Setor UUID
+          // 1. Pelo ID enviado
+          if (v.setor_id && sectorMapById.has(v.setor_id)) {
+            setUuid = v.setor_id;
+          }
+          // 2. Pelo Nome/Campus (Lookup)
+          else {
+            const key = `${String(v.setor).trim().toUpperCase()}|${String(v.campus).trim().toUpperCase()}`;
+            const sFound = sectorMapByKey.get(key);
+            if (sFound) setUuid = sFound.id;
+          }
+
+          // Generate Rows
           v.dias.forEach((day) => {
             newAllocations.push({
-              vigilante_id: cleanMat, // NOVA LÓGICA: USA MATRÍCULA
+              vigilante_id: vigUuid, // UUID
               data: `${dateFormat}-${String(day).padStart(2, "0")}`,
-              setor_id: sectorId,
+              setor_id: setUuid,     // UUID (pode ser null)
               tipo: v.eq || "A",
+              // setor: ..., campus: ... // REMOVIDOS - Colunas textuais não existem no banco
             });
           });
         }
       }
 
       // --- FASE 4: SALVAMENTO MASSIVO ALOCAÇÕES ---
-      // A) Limpeza em Bloco (Usando Matrícula)
+      // A) Limpeza em Bloco (Usando UUIDs)
       if (allVigMatriculas.length > 0) {
-        await supabase
-          .from("alocacoes")
-          .delete()
-          .in("vigilante_id", allVigMatriculas)
-          .gte("data", `${dateFormat}-01`)
-          .lte("data", `${dateFormat}-31`);
+        // Converter Matrículas -> UUIDs
+        const allVigIds = allVigMatriculas.map(m => currentMap.get(m)).filter(id => id);
+
+        if (allVigIds.length > 0) {
+          await supabase
+            .from("alocacoes")
+            .delete()
+            .in("vigilante_id", allVigIds)
+            .gte("data", `${dateFormat}-01`)
+            .lte("data", `${dateFormat}-31`);
+        }
       }
 
       // B) Inserção Massiva

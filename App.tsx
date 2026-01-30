@@ -3019,7 +3019,7 @@ Deseja continuar?`,
 
         // FIX: Ensure Master DB is updated immediately for Team Change
         // This is critical because the backend prioritizes DB value over history now.
-        api.updateVigilanteMaster(updated).then(success => {
+        api.updateVigilanteMaster(updated.mat, updated).then(success => {
           if (success) console.log("Master DB updated with new Team:", updated.eq);
           else console.error("Failed to update Master DB for team change");
         });
@@ -3182,7 +3182,8 @@ Deseja continuar?`,
     // automatically set their team to the context (Selected Filter or User Team).
     if (targetVig && changes.campus) {
       const currentTeam = cleanString(targetVig.eq || "ADEFINIR");
-      if (currentTeam === "ADEFINIR" || !targetVig.eq) {
+      // FIX: Only apply default team logic if the update didn't specify a team (changes.eq)
+      if ((currentTeam === "ADEFINIR" || !targetVig.eq) && !changes.eq) {
         let newTeam = "A"; // Default fallback
 
         // 1. Context: Selected Filter
@@ -3203,6 +3204,14 @@ Deseja continuar?`,
       if (v.mat === mat) {
         const updated = { ...v, ...changes };
 
+        // FIX: Recalculate Days if Team Changed/Assigned
+        // This is critical for First Allocations (A DEFINIR -> Team X)
+        // Without this, 'dias' remains empty/old, and backend logic (step 2594) skips saving allocations!
+        if (changes.eq || (v.eq !== updated.eq)) {
+          updated.dias = calculateDaysForTeam(updated.eq, month, updated.vacation);
+          updated.folgasGeradas = []; // Reset manual days off
+        }
+
         // FIX: Re-evaluate allocation status
         const isAllocated =
           (updated.campus && updated.campus !== "A DEFINIR" && updated.campus !== "SEM POSTO" && updated.campus !== "AFASTADOS" && updated.setor !== "A DEFINIR" && updated.setor !== "AGUARDANDO" && updated.setor !== "NÃO DEFINIDO") ||
@@ -3222,7 +3231,7 @@ Deseja continuar?`,
     if (changes.eq || changes.nome || changes.mat || changes.cpf) { // Add other critical fields if needed
       const updatedVig = newData.find(v => v.mat === mat);
       if (updatedVig) {
-        api.updateVigilanteMaster(updatedVig).then(success => {
+        api.updateVigilanteMaster(updatedVig.mat, updatedVig).then(success => {
           if (success) console.log("Master DB updated (handleUpdateVigilante):", updatedVig.nome);
         });
       }
